@@ -14,6 +14,7 @@ export interface PaymentGatewayResponse {
   providerReference: string;
   status: PaymentStatus;
   qrCodeUrl?: string;
+  invoiceUrl?: string;
   expiresAt: string;
   rawResponse?: any;
 }
@@ -130,6 +131,7 @@ export class XenditPaymentGateway implements PaymentGateway {
         providerReference: providerRef,
         status: 'pending',
         qrCodeUrl: qrUrl,
+        invoiceUrl: data.invoice_url,
         expiresAt: data.expiry_date || expiresAt,
         rawResponse: {
           id: data.id,

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { orderService } from '@/services/orderService';
-import { isSupabaseConfigured } from '@/services/supabase';
+import { supabase, isSupabaseConfigured } from '@/services/supabase';
 import { Order } from '@/types/order';
 import { formatIDR, formatDateIndo, formatDateTimeIndo } from '@/utils/formatters';
 import { getStatusConfig } from '@/utils/helpers';
@@ -12,13 +12,60 @@ import { Stepper } from '@/components/ui/Stepper';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Truck, MapPin, Calendar, Clock, ArrowLeft, Phone, User, FileText, Store, CreditCard, ShieldCheck } from 'lucide-react';
+import { Truck, MapPin, Calendar, Clock, ArrowLeft, Phone, User, FileText, Store, CreditCard, ShieldCheck, AlertCircle, CheckCircle2, ExternalLink } from 'lucide-react';
 
 export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const orderId = (params?.id as string) || '';
   const [order, setOrder] = useState<Order | null>(null);
+  const [isPaying, setIsPaying] = useState(false);
+  const [payError, setPayError] = useState('');
+
+  const handlePayNow = async () => {
+    if (!order) return;
+    setIsPaying(true);
+    setPayError('');
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (isSupabaseConfigured && supabase) {
+        const { data: { session } } = await (supabase?.auth?.getSession() || Promise.resolve({ data: { session: null } }));
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+      }
+
+      const res = await fetch(`/api/orders/${order.id}/payment`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action: 'create',
+          paymentMethod: 'qris',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Gagal memproses pembuatan invoice pembayaran Xendit.');
+      }
+
+      const invoiceUrl = data.payment?.invoiceUrl || data.payment?.rawResponse?.invoice_url;
+      if (invoiceUrl && typeof invoiceUrl === 'string' && invoiceUrl.startsWith('http')) {
+        window.location.href = invoiceUrl;
+        return;
+      }
+
+      throw new Error('Invoice URL tidak ditemukan dari response payment gateway.');
+    } catch (err: any) {
+      setPayError(err.message || 'Gagal memproses pembayaran.');
+    } finally {
+      setIsPaying(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -132,6 +179,49 @@ export default function OrderDetailPage() {
             </span>
           </Link>
         </div>
+
+        {/* Payment CTA Banner */}
+        {order.paymentStatus === 'paid' ? (
+          <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-emerald-900">Pembayaran Berhasil (Lunas)</p>
+              <p className="text-[11px] text-emerald-700">Terima kasih, pembayaran pesanan Anda telah terverifikasi resmi oleh Xendit Webhook.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <CreditCard className="w-5 h-5 text-amber-600 shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-amber-900">Pembayaran Belum Selesai</p>
+                  <p className="text-[11px] text-amber-700">
+                    Silakan lakukan pembayaran sebesar <strong>{formatIDR(order.totalPrice)}</strong> via Xendit Hosted Checkout untuk melanjutkan proses pesanan.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {payError && (
+              <div className="p-3 bg-red-100 border border-red-200 rounded-xl text-xs font-semibold text-red-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{payError}</span>
+              </div>
+            )}
+
+            <Button
+              variant="primary"
+              size="md"
+              disabled={isPaying}
+              onClick={handlePayNow}
+              className="w-full sm:w-auto bg-amber-600 hover:bg-amber-500 text-white font-bold cursor-pointer"
+              rightIcon={<ExternalLink className="w-4 h-4" />}
+            >
+              {isPaying ? 'Menghubungkan ke Xendit...' : 'Bayar Sekarang'}
+            </Button>
+          </div>
+        )}
 
         {/* Visual Stepper Timeline */}
         <div className="pt-2">

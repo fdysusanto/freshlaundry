@@ -315,6 +315,12 @@ function CheckoutContent() {
         throw new Error(data.message || 'Gagal memproses checkout via API.');
       }
 
+      const invoiceUrl = data.payment?.invoiceUrl || data.payment?.rawResponse?.invoice_url;
+      if (invoiceUrl && typeof invoiceUrl === 'string' && invoiceUrl.startsWith('http')) {
+        window.location.href = invoiceUrl;
+        return;
+      }
+
       router.push(`/orders/${data.order.id}`);
     } catch (err: any) {
       setErrorMessage(err.message || 'Gagal membuat pesanan di Supabase.');

@@ -13,6 +13,7 @@ export interface PaymentAttempt {
   idempotencyKey: string;
   expiresAt?: string;
   paidAt?: string;
+  invoiceUrl?: string;
   rawResponse?: any;
   createdAt: string;
   updatedAt: string;

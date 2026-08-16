@@ -931,104 +931,108 @@ export const orderService = {
         .order('created_at', { ascending: false });
 
       if (ordersError) return [];
-      return (ordersData || []).map((o: any) => ({
-        id: o.id,
-        trackingNumber: o.tracking_number,
-        customerId: o.customer_id,
-        customerName: 'Pelanggan',
-        customerPhone: '',
-        laundryId: o.laundry_id,
-        laundryName: o.laundries?.name || 'Mitra Laundry',
-        courierId: o.courier_id,
-        courierName: 'Kurir Driver',
-        serviceType: o.service_type as ServiceType,
-        serviceName: o.service_type,
-        status: o.status as OrderStatus,
-        items: (o.order_items || []).map((i: any) => ({
-          id: i.id,
-          serviceId: i.service_id,
-          name: i.service_name_snapshot,
-          quantity: Number(i.quantity),
-          unitPrice: Number(i.price_snapshot),
-          unit: 'kg',
-          subtotal: Number(i.subtotal),
-        })),
-        estimatedWeightKg: o.estimated_weight_kg ? Number(o.estimated_weight_kg) : undefined,
-        finalWeightKg: o.final_weight_kg ? Number(o.final_weight_kg) : undefined,
-        pickupAddress: o.pickup_address,
-        deliveryAddress: o.delivery_address,
-        pickupDate: o.pickup_date,
-        pickupTimeSlot: o.pickup_time_slot,
-        deliveryDate: o.delivery_date || undefined,
-        notes: o.notes || undefined,
-        subtotal: Number(o.subtotal),
-        deliveryFee: Number(o.delivery_fee),
-        platformFee: Number(o.platform_fee),
-        discount: Number(o.discount),
-        totalPrice: Number(o.total_price),
-        paymentStatus: o.payment_status,
-        createdAt: o.created_at,
-        updatedAt: o.updated_at,
-        logs: (o.order_status_logs || []).map((l: any) => ({
-          id: l.id,
-          orderId: l.order_id,
-          status: l.status as OrderStatus,
-          notes: l.notes || '',
-          updatedBy: l.updated_by,
-          timestamp: l.timestamp,
-        })),
-      }));
+      return (ordersData || [])
+        .map((o: any) => ({
+          id: o.id,
+          trackingNumber: o.tracking_number,
+          customerId: o.customer_id,
+          customerName: 'Pelanggan',
+          customerPhone: '',
+          laundryId: o.laundry_id,
+          laundryName: o.laundries?.name || 'Mitra Laundry',
+          courierId: o.courier_id,
+          courierName: 'Kurir Driver',
+          serviceType: o.service_type as ServiceType,
+          serviceName: o.service_type,
+          status: o.status as OrderStatus,
+          items: (o.order_items || []).map((i: any) => ({
+            id: i.id,
+            serviceId: i.service_id,
+            name: i.service_name_snapshot,
+            quantity: Number(i.quantity),
+            unitPrice: Number(i.price_snapshot),
+            unit: 'kg',
+            subtotal: Number(i.subtotal),
+          })),
+          estimatedWeightKg: o.estimated_weight_kg ? Number(o.estimated_weight_kg) : undefined,
+          finalWeightKg: o.final_weight_kg ? Number(o.final_weight_kg) : undefined,
+          pickupAddress: o.pickup_address,
+          deliveryAddress: o.delivery_address,
+          pickupDate: o.pickup_date,
+          pickupTimeSlot: o.pickup_time_slot,
+          deliveryDate: o.delivery_date || undefined,
+          notes: o.notes || undefined,
+          subtotal: Number(o.subtotal),
+          deliveryFee: Number(o.delivery_fee),
+          platformFee: Number(o.platform_fee),
+          discount: Number(o.discount),
+          totalPrice: Number(o.total_price),
+          paymentStatus: o.payment_status,
+          createdAt: o.created_at,
+          updatedAt: o.updated_at,
+          logs: (o.order_status_logs || []).map((l: any) => ({
+            id: l.id,
+            orderId: l.order_id,
+            status: l.status as OrderStatus,
+            notes: l.notes || '',
+            updatedBy: l.updated_by,
+            timestamp: l.timestamp,
+          })),
+        }))
+        .filter((o: any) => o.paymentStatus === 'paid');
     }
 
-    return (assignments || []).map((asg: any) => {
-      const o = asg.orders || {};
-      return {
-        id: o.id || asg.order_id,
-        trackingNumber: o.tracking_number || '',
-        customerId: o.customer_id || '',
-        customerName: 'Pelanggan',
-        customerPhone: '',
-        laundryId: o.laundry_id || '',
-        laundryName: o.laundries?.name || 'Mitra Laundry',
-        courierId: asg.courier_id,
-        courierName: 'Kurir Driver',
-        serviceType: (o.service_type as ServiceType) || 'kiloan',
-        serviceName: o.service_type || 'Kiloan',
-        status: (o.status as OrderStatus) || 'assigned',
-        items: (o.order_items || []).map((i: any) => ({
-          id: i.id,
-          serviceId: i.service_id,
-          name: i.service_name_snapshot,
-          quantity: Number(i.quantity),
-          unitPrice: Number(i.price_snapshot),
-          unit: 'kg',
-          subtotal: Number(i.subtotal),
-        })),
-        estimatedWeightKg: o.estimated_weight_kg ? Number(o.estimated_weight_kg) : undefined,
-        finalWeightKg: o.final_weight_kg ? Number(o.final_weight_kg) : undefined,
-        pickupAddress: o.pickup_address || '',
-        deliveryAddress: o.delivery_address || '',
-        pickupDate: o.pickup_date || '',
-        pickupTimeSlot: o.pickup_time_slot || '',
-        notes: o.notes || undefined,
-        subtotal: Number(o.subtotal || 0),
-        deliveryFee: Number(o.delivery_fee || 0),
-        platformFee: Number(o.platform_fee || 2000),
-        discount: Number(o.discount || 0),
-        totalPrice: Number(o.total_price || 0),
-        paymentStatus: o.payment_status || 'unpaid',
-        createdAt: o.created_at || asg.created_at,
-        updatedAt: o.updated_at || asg.updated_at,
-        logs: (o.order_status_logs || []).map((l: any) => ({
-          id: l.id,
-          orderId: l.order_id,
-          status: l.status as OrderStatus,
-          notes: l.notes || '',
-          updatedBy: l.updated_by,
-          timestamp: l.timestamp,
-        })),
-      };
-    });
+    return (assignments || [])
+      .map((asg: any) => {
+        const o = asg.orders || {};
+        return {
+          id: o.id || asg.order_id,
+          trackingNumber: o.tracking_number || '',
+          customerId: o.customer_id || '',
+          customerName: 'Pelanggan',
+          customerPhone: '',
+          laundryId: o.laundry_id || '',
+          laundryName: o.laundries?.name || 'Mitra Laundry',
+          courierId: asg.courier_id,
+          courierName: 'Kurir Driver',
+          serviceType: (o.service_type as ServiceType) || 'kiloan',
+          serviceName: o.service_type || 'Kiloan',
+          status: (o.status as OrderStatus) || 'assigned',
+          items: (o.order_items || []).map((i: any) => ({
+            id: i.id,
+            serviceId: i.service_id,
+            name: i.service_name_snapshot,
+            quantity: Number(i.quantity),
+            unitPrice: Number(i.price_snapshot),
+            unit: 'kg',
+            subtotal: Number(i.subtotal),
+          })),
+          estimatedWeightKg: o.estimated_weight_kg ? Number(o.estimated_weight_kg) : undefined,
+          finalWeightKg: o.final_weight_kg ? Number(o.final_weight_kg) : undefined,
+          pickupAddress: o.pickup_address || '',
+          deliveryAddress: o.delivery_address || '',
+          pickupDate: o.pickup_date || '',
+          pickupTimeSlot: o.pickup_time_slot || '',
+          notes: o.notes || undefined,
+          subtotal: Number(o.subtotal || 0),
+          deliveryFee: Number(o.delivery_fee || 0),
+          platformFee: Number(o.platform_fee || 2000),
+          discount: Number(o.discount || 0),
+          totalPrice: Number(o.total_price || 0),
+          paymentStatus: o.payment_status || 'unpaid',
+          createdAt: o.created_at || asg.created_at,
+          updatedAt: o.updated_at || asg.updated_at,
+          logs: (o.order_status_logs || []).map((l: any) => ({
+            id: l.id,
+            orderId: l.order_id,
+            status: l.status as OrderStatus,
+            notes: l.notes || '',
+            updatedBy: l.updated_by,
+            timestamp: l.timestamp,
+          })),
+        };
+      })
+      .filter((o: any) => o.paymentStatus === 'paid');
   },
 
   /**
@@ -1040,6 +1044,17 @@ export const orderService = {
     courierName: string,
     updatedByUserId: string
   ): Promise<Order | null> {
+    const existingOrder = await this.getOrderByIdAsync(orderId);
+    if (!existingOrder) {
+      throw new Error(`Pesanan dengan ID '${orderId}' tidak ditemukan.`);
+    }
+
+    if (existingOrder.paymentStatus !== 'paid') {
+      throw new Error(
+        `Penugasan Kurir Ditolak: Pesanan '${orderId}' belum dibayar (status: '${existingOrder.paymentStatus}'). Penugasan kurir hanya diperbolehkan untuk pesanan yang sudah lunas (paid).`
+      );
+    }
+
     if (!isSupabaseConfigured || !supabase) {
       return this.assignCourier(orderId, courierId, courierName, updatedByUserId);
     }
@@ -1184,7 +1199,7 @@ export const orderService = {
 
   getOrdersByCourier(courierId: string): Order[] {
     const orders = this.getOrders();
-    return orders.filter((o) => o.courierId === courierId || (o.status === 'pending' && !o.courierId));
+    return orders.filter((o) => (o.courierId === courierId || (o.status === 'pending' && !o.courierId)) && o.paymentStatus === 'paid');
   },
 
   getOrdersByLaundry(laundryId: string): Order[] {
@@ -1316,6 +1331,11 @@ export const orderService = {
     if (index === -1) return null;
 
     const targetOrder = orders[index];
+    if (targetOrder.paymentStatus !== 'paid') {
+      throw new Error(
+        `Penugasan Kurir Ditolak: Pesanan '${orderId}' belum dibayar (status: '${targetOrder.paymentStatus}'). Penugasan kurir hanya diperbolehkan untuk pesanan yang sudah lunas (paid).`
+      );
+    }
     const previousStatus = targetOrder.status;
     const now = new Date().toISOString();
     const newStatus: OrderStatus = targetOrder.status === 'pending' ? 'assigned' : targetOrder.status;

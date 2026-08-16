@@ -62,6 +62,7 @@ export interface CheckoutResult {
     provider: string;
     providerReference?: string;
     qrCodeUrl?: string;
+    invoiceUrl?: string;
     expiresAt?: string;
   };
 }
@@ -130,6 +131,7 @@ export const checkoutService = {
           provider: paymentAttempt.provider,
           providerReference: paymentAttempt.providerReference,
           qrCodeUrl: paymentAttempt.providerReference ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${paymentAttempt.providerReference}` : undefined,
+          invoiceUrl: paymentAttempt.invoiceUrl || paymentAttempt.rawResponse?.invoice_url,
           expiresAt: paymentAttempt.expiresAt,
         },
       };
@@ -211,6 +213,7 @@ export const checkoutService = {
         provider: paymentAttempt.provider,
         providerReference: paymentAttempt.providerReference,
         qrCodeUrl: paymentAttempt.providerReference ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${paymentAttempt.providerReference}` : undefined,
+        invoiceUrl: paymentAttempt.invoiceUrl || paymentAttempt.rawResponse?.invoice_url,
         expiresAt: paymentAttempt.expiresAt,
       },
     };
