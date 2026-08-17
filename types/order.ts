@@ -65,6 +65,9 @@ export interface Order {
   totalPrice: number;
   paymentStatus: PaymentStatus;
   idempotencyKey?: string;
+  assignmentId?: string;
+  assignmentType?: 'pickup' | 'delivery';
+  assignmentStatus?: 'offered' | 'accepted' | 'rejected' | 'expired' | 'completed';
   createdAt: string;
   updatedAt: string;
   logs: StatusLog[];

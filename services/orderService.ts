@@ -997,7 +997,10 @@ export const orderService = {
           courierName: 'Kurir Driver',
           serviceType: (o.service_type as ServiceType) || 'kiloan',
           serviceName: o.service_type || 'Kiloan',
-          status: (o.status as OrderStatus) || 'assigned',
+          status: (o.status as OrderStatus) || 'pending',
+          assignmentId: asg.id,
+          assignmentType: asg.assignment_type as ('pickup' | 'delivery'),
+          assignmentStatus: asg.status as ('offered' | 'accepted' | 'rejected' | 'expired' | 'completed'),
           items: (o.order_items || []).map((i: any) => ({
             id: i.id,
             serviceId: i.service_id,
@@ -1036,13 +1039,18 @@ export const orderService = {
   },
 
   /**
-   * Real Supabase Courier Assignment Creation by Laundry Owner.
+   * Laundry Owner Confirms Order and Offers Pickup Assignment to Selected Courier.
+   * Keeps order.status = 'pending' until courier accepts.
+   */
+  /**
+   * Laundry Owner Confirms Order and Triggers Dispatch Engine for Pickup.
+   * Keeps orders.courier_id = NULL and orders.status = 'pending' until courier accepts.
    */
   async assignCourierAsync(
     orderId: string,
-    courierId: string,
-    courierName: string,
-    updatedByUserId: string
+    courierId?: string,
+    courierName?: string,
+    updatedByUserId: string = 'usr_owner_01'
   ): Promise<Order | null> {
     const existingOrder = await this.getOrderByIdAsync(orderId);
     if (!existingOrder) {
@@ -1051,43 +1059,112 @@ export const orderService = {
 
     if (existingOrder.paymentStatus !== 'paid') {
       throw new Error(
-        `Penugasan Kurir Ditolak: Pesanan '${orderId}' belum dibayar (status: '${existingOrder.paymentStatus}'). Penugasan kurir hanya diperbolehkan untuk pesanan yang sudah lunas (paid).`
+        `Konfirmasi Ditolak: Pesanan '${orderId}' belum dibayar (status: '${existingOrder.paymentStatus}'). Konfirmasi hanya diperbolehkan untuk pesanan yang sudah lunas (paid).`
       );
     }
 
+    if (existingOrder.status !== 'pending') {
+      throw new Error(
+        `Konfirmasi Pesanan Ditolak: Pesanan '${orderId}' sudah tidak dalam status pending (status saat ini: '${existingOrder.status}').`
+      );
+    }
+
+    const { dispatchService } = await import('./dispatchService');
+    await dispatchService.dispatchOrderAsync(orderId, 'pickup', updatedByUserId);
+
+    return this.getOrderByIdAsync(orderId);
+  },
+
+  /**
+   * Atomic Courier Assignment Acceptance (Pickup or Delivery).
+   */
+  async acceptCourierAssignmentAsync(assignmentId: string, courierId: string): Promise<Order | null> {
     if (!isSupabaseConfigured || !supabase) {
-      return this.assignCourier(orderId, courierId, courierName, updatedByUserId);
+      const orders = this.getOrders();
+      const targetOrder = orders.find((o) => o.id === assignmentId || o.assignmentId === assignmentId) ||
+        orders.find((o) => (o.status === 'pending' || o.status === 'ready_for_delivery'));
+      if (!targetOrder) throw new Error('Penugasan kurir tidak ditemukan di penyimpanan lokal.');
+      const newStatus: OrderStatus = targetOrder.status === 'ready_for_delivery' ? 'out_for_delivery' : 'assigned';
+      targetOrder.courierId = courierId;
+      return this.updateOrderStatus(targetOrder.id, newStatus, 'Kurir menerima tugas.', courierId);
     }
 
-    const { error: assignError } = await (supabase.from('courier_assignments') as any)
-      .insert({
-        order_id: orderId,
-        courier_id: courierId,
-        assignment_status: 'offered',
-      });
-
-    if (assignError) {
-      console.warn('Courier assignment insert warning:', assignError.message);
-    }
-
-    const { error: orderError } = await (supabase.from('orders') as any)
-      .update({
-        courier_id: courierId,
-        status: 'assigned',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', orderId);
-
-    if (orderError) {
-      throw new Error(`Supabase Assign Courier Error: ${orderError.message}`);
-    }
-
-    await (supabase.from('order_status_logs') as any).insert({
-      order_id: orderId,
-      status: 'assigned',
-      notes: `Ditugaskan ke kurir: ${courierName}`,
-      updated_by: updatedByUserId,
+    const { data: res, error } = await (supabase.rpc as any)('accept_courier_assignment_atomic', {
+      p_assignment_id: assignmentId,
+      p_courier_id: courierId,
     });
+
+    const resObj = res as any;
+    if (error || !resObj || !resObj.success) {
+      throw new Error(error?.message || 'Gagal mengonfirmasi penerimaan penugasan kurir secara atomic.');
+    }
+
+    return this.getOrderByIdAsync(resObj.order_id);
+  },
+
+  /**
+   * Laundry Owner Rejects Paid Order and Automatically Triggers Payment Refund.
+   */
+  async rejectOrderAsync(
+    orderId: string,
+    actor: { id: string; role: string; laundryId?: string },
+    reason: string
+  ): Promise<Order | null> {
+    const existingOrder = await this.getOrderByIdAsync(orderId);
+    if (!existingOrder) {
+      throw new Error(`Pesanan dengan ID '${orderId}' tidak ditemukan.`);
+    }
+
+    if (existingOrder.paymentStatus !== 'paid') {
+      throw new Error(`Penolakan Ditolak: Pesanan '${orderId}' belum dibayar (status: '${existingOrder.paymentStatus}').`);
+    }
+
+    if (existingOrder.status !== 'pending') {
+      throw new Error(`Penolakan Ditolak: Pesanan '${orderId}' sudah tidak dalam status pending (status saat ini: '${existingOrder.status}').`);
+    }
+
+    const cleanReason = (reason || '').trim() || 'Pesanan ditolak oleh Mitra Laundry.';
+    const cancelledOrder = await this.transitionOrderStatusAsync(
+      orderId,
+      'cancelled',
+      actor,
+      `Pesanan ditolak oleh Mitra Laundry: ${cleanReason}`
+    );
+
+    // Trigger automatic refund via paymentService
+    try {
+      const { paymentService } = await import('./paymentService');
+      const activePayment = await paymentService.getActivePaymentForOrderAsync(orderId);
+      if (activePayment) {
+        await paymentService.refundPaymentAsync(activePayment.id, actor, `Refund otomatis akibat penolakan toko: ${cleanReason}`);
+      }
+    } catch (err: any) {
+      console.warn('[REJECT-REFUND-WARNING] Gagal memproses refund otomatis:', err.message);
+    }
+
+    return cancelledOrder;
+  },
+
+  /**
+   * Laundry Owner Triggers Dispatch Engine for Delivery when Order is Ready For Delivery.
+   */
+  async createDeliveryAssignmentAsync(
+    orderId: string,
+    courierId?: string,
+    courierName?: string,
+    updatedByUserId: string = 'usr_owner_01'
+  ): Promise<Order | null> {
+    const existingOrder = await this.getOrderByIdAsync(orderId);
+    if (!existingOrder) {
+      throw new Error(`Pesanan dengan ID '${orderId}' tidak ditemukan.`);
+    }
+
+    if (existingOrder.status !== 'ready_for_delivery') {
+      throw new Error(`Penugasan Pengantaran Ditolak: Order belum dalam status 'ready_for_delivery' (status saat ini: '${existingOrder.status}').`);
+    }
+
+    const { dispatchService } = await import('./dispatchService');
+    await dispatchService.dispatchOrderAsync(orderId, 'delivery', updatedByUserId);
 
     return this.getOrderByIdAsync(orderId);
   },

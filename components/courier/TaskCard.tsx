@@ -11,10 +11,12 @@ import { MapPin, Phone, Clock, ArrowRight } from 'lucide-react';
 interface TaskCardProps {
   order: Order;
   onUpdateClick: (order: Order) => void;
+  onAcceptClick?: (order: Order) => void;
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ order, onUpdateClick }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ order, onUpdateClick, onAcceptClick }) => {
   const statusCfg = getStatusConfig(order.status);
+  const isOffered = order.assignmentStatus === 'offered';
 
   return (
     <Card variant="white" className="hover:shadow-xl transition-shadow border-slate-200">
@@ -23,8 +25,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ order, onUpdateClick }) => {
           <span className="text-xs font-bold text-slate-400">Resi:</span>
           <p className="text-sm font-black text-slate-900">{order.trackingNumber}</p>
         </div>
-        <Badge variant={statusCfg.stepIndex >= 6 ? 'emerald' : statusCfg.stepIndex >= 3 ? 'blue' : 'amber'}>
-          {statusCfg.label}
+        <Badge variant={isOffered ? 'amber' : statusCfg.stepIndex >= 6 ? 'emerald' : statusCfg.stepIndex >= 3 ? 'blue' : 'amber'}>
+          {isOffered ? `Penawaran ${order.assignmentType === 'delivery' ? 'Pengantaran' : 'Penjemputan'}` : statusCfg.label}
         </Badge>
       </div>
 
@@ -33,7 +35,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ order, onUpdateClick }) => {
           <MapPin className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
           <div className="text-xs">
             <p className="font-bold text-slate-800">{order.customerName}</p>
-            <p className="text-slate-600 leading-snug">{order.pickupAddress}</p>
+            <p className="text-slate-600 leading-snug">{order.assignmentType === 'delivery' ? order.deliveryAddress : order.pickupAddress}</p>
           </div>
         </div>
 
@@ -61,9 +63,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({ order, onUpdateClick }) => {
         >
           Detail <ArrowRight className="w-3.5 h-3.5" />
         </Link>
-        <Button size="sm" variant="primary" onClick={() => onUpdateClick(order)}>
-          Update Status
-        </Button>
+        {isOffered && onAcceptClick ? (
+          <Button size="sm" variant="primary" onClick={() => onAcceptClick(order)}>
+            Terima Tugas {order.assignmentType === 'delivery' ? 'Pengantaran' : 'Penjemputan'}
+          </Button>
+        ) : (
+          <Button size="sm" variant="primary" onClick={() => onUpdateClick(order)}>
+            Update Status
+          </Button>
+        )}
       </div>
     </Card>
   );

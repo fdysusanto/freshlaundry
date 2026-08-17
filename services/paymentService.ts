@@ -67,6 +67,15 @@ export const paymentService = {
 
     if (!data) return null;
 
+    const parsedRaw = typeof data.raw_response === 'string'
+      ? (() => { try { return JSON.parse(data.raw_response); } catch { return {}; } })()
+      : (data.raw_response || {});
+
+    const invoiceUrl =
+      parsedRaw?.invoice_url ||
+      parsedRaw?.invoiceUrl ||
+      (data.provider_reference ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${data.provider_reference}` : undefined);
+
     return {
       id: data.id,
       orderId: data.order_id,
@@ -80,8 +89,8 @@ export const paymentService = {
       idempotencyKey: data.idempotency_key,
       expiresAt: data.expires_at || undefined,
       paidAt: data.paid_at || undefined,
-      invoiceUrl: data.raw_response?.invoice_url || undefined,
-      rawResponse: data.raw_response,
+      invoiceUrl,
+      rawResponse: parsedRaw,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };
@@ -337,8 +346,18 @@ export const paymentService = {
 
     // Update order.payment_status in orders table using authenticated db client
     await (db.from('orders') as any)
-      .update({ payment_status: targetStatus })
+      .update({ payment_status: targetStatus, updated_at: now })
       .eq('id', payment.orderId);
+
+    // Insert order status log audit entry for payment verification
+    if (targetStatus === 'paid') {
+      await (db.from('order_status_logs') as any).insert({
+        order_id: payment.orderId,
+        status: 'pending',
+        notes: notes || 'Pembayaran terverifikasi lunas oleh Payment Gateway. Menunggu konfirmasi Mitra Laundry.',
+        updated_by: payment.customerId || payment.id,
+      });
+    }
 
     return {
       id: updatedRow.id,
@@ -383,7 +402,7 @@ export const paymentService = {
   },
 
   /**
-   * Refunds paid payment attempt (Admin only).
+   * Refunds paid payment attempt (Admin or Authorized Laundry Partner on order rejection).
    */
   async refundPaymentAsync(
     paymentId: string,
@@ -392,15 +411,62 @@ export const paymentService = {
     client?: any
   ): Promise<PaymentAttempt> {
     const cleanRole = (actor.role || '').trim().toLowerCase();
-    if (cleanRole !== 'platform_admin' && cleanRole !== 'admin') {
-      throw new Error('Akses Ditolak: Hanya Platform Admin yang dapat memproses pengembalian dana (refund).');
+    const allowedRoles = ['platform_admin', 'admin', 'laundry_owner', 'laundry_staff'];
+    if (!allowedRoles.includes(cleanRole)) {
+      throw new Error('Akses Ditolak: Hanya Admin atau Pengelola Mitra Laundry yang dapat memproses pengembalian dana (refund).');
     }
 
-    const payment = await this.transitionPaymentStatusAsync(paymentId, 'refunded', reason || 'Refund diproses oleh Admin.', client);
-    if (payment.providerReference) {
-      await defaultGateway.refundPayment(payment.providerReference, payment.amount);
+    // 1. Fetch payment details from mock or db first
+    let providerRef = paymentId;
+    let amount = 0;
+
+    if (!isSupabaseConfigured || !supabase) {
+      const mockPayments = this.getMockPayments();
+      const p = mockPayments.find((x) => x.id === paymentId || x.providerReference === paymentId);
+      if (p) {
+        if (p.status === 'refunded') return p;
+        providerRef = p.providerReference || p.id;
+        amount = p.amount;
+      }
+    } else {
+      const db = client || supabase;
+      const { data: p } = await (db.from('payment_attempts') as any)
+        .select('*')
+        .or(`id.eq.${isValidUuid(paymentId) ? paymentId : '00000000-0000-0000-0000-000000000000'},provider_reference.eq.${paymentId}`)
+        .maybeSingle();
+
+      if (p) {
+        if (p.status === 'refunded') {
+          return {
+            id: p.id,
+            orderId: p.order_id,
+            customerId: p.customer_id,
+            provider: p.provider,
+            providerReference: p.provider_reference,
+            paymentMethod: p.payment_method,
+            amount: Number(p.amount),
+            currency: 'IDR',
+            status: 'refunded',
+            idempotencyKey: p.idempotency_key,
+            expiresAt: p.expires_at,
+            paidAt: p.paid_at,
+            rawResponse: p.raw_response,
+            createdAt: p.created_at,
+            updatedAt: p.updated_at,
+          };
+        }
+        providerRef = p.provider_reference || p.id;
+        amount = Number(p.amount);
+      }
     }
-    return payment;
+
+    // 2. Trigger Gateway Refund FIRST to guarantee Xendit confirmation
+    if (providerRef) {
+      await defaultGateway.refundPayment(providerRef, amount);
+    }
+
+    // 3. Transition payment_status to 'refunded' ONLY after gateway success
+    return this.transitionPaymentStatusAsync(paymentId, 'refunded', reason || 'Refund diproses & dikonfirmasi provider.', client);
   },
 
   /**

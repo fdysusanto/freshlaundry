@@ -15,6 +15,7 @@ export default function CourierDashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState<'assigned' | 'active' | 'completed'>('assigned');
   const [selectedUpdateOrder, setSelectedUpdateOrder] = useState<Order | null>(null);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
 
   const loadData = async () => {
     const user = authService.getCurrentUser();
@@ -31,6 +32,43 @@ export default function CourierDashboardPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Courier Heartbeat & Expired Batch Worker Loop (every 30s)
+  useEffect(() => {
+    if (!currentUser) return;
+    const triggerHeartbeatAndWorker = async () => {
+      try {
+        const { dispatchService } = await import('@/services/dispatchService');
+        await dispatchService.updateCourierHeartbeatAsync(
+          currentUser.id,
+          -6.2415,
+          106.7972,
+          '327401',
+          '3274011001',
+          isOnline
+        );
+        await dispatchService.processExpiredDispatchBatchesAsync();
+      } catch (err) {
+        console.warn('[COURIER-HEARTBEAT-ERR]', err);
+      }
+    };
+
+    triggerHeartbeatAndWorker();
+    const interval = setInterval(triggerHeartbeatAndWorker, 30000);
+    return () => clearInterval(interval);
+  }, [currentUser, isOnline]);
+
+  const handleAcceptTask = async (order: Order) => {
+    if (!currentUser) return;
+    try {
+      const assignmentId = order.assignmentId || order.id;
+      await orderService.acceptCourierAssignmentAsync(assignmentId, currentUser.id);
+      alert(`Berhasil menerima tugas ${order.assignmentType === 'delivery' ? 'pengantaran' : 'penjemputan'} untuk order #${order.trackingNumber}!`);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Gagal menerima tugas kurir.');
+    }
+  };
 
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus, notes: string) => {
     if (!currentUser) return;
@@ -68,12 +106,25 @@ export default function CourierDashboardPage() {
           </p>
         </div>
 
-        <button
-          onClick={loadData}
-          className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl border border-white/20 text-white text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
-        >
-          <RefreshCw className="w-4 h-4" /> Refresh Data
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsOnline(!isOnline)}
+            className={`px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              isOnline
+                ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300 hover:bg-emerald-500/30'
+                : 'bg-rose-500/20 border-rose-400/40 text-rose-300 hover:bg-rose-500/30'
+            }`}
+          >
+            <span className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+            Status: {isOnline ? 'ONLINE' : 'OFFLINE'}
+          </button>
+          <button
+            onClick={loadData}
+            className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl border border-white/20 text-white text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
+          >
+            <RefreshCw className="w-4 h-4" /> Refresh Data
+          </button>
+        </div>
       </div>
 
       {/* Driver KPI Cards */}
@@ -149,6 +200,7 @@ export default function CourierDashboardPage() {
                 key={o.id}
                 order={o}
                 onUpdateClick={(target) => setSelectedUpdateOrder(target)}
+                onAcceptClick={handleAcceptTask}
               />
             ))}
           </div>

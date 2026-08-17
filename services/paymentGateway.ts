@@ -36,6 +36,7 @@ export class MockPaymentGateway implements PaymentGateway {
     const providerReference = `MOCK-QRIS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
+    const mockInvoiceUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${providerReference}`;
     this.mockStore.set(providerReference, {
       status: 'pending',
       amount: req.amount,
@@ -48,12 +49,14 @@ export class MockPaymentGateway implements PaymentGateway {
       provider: 'mock_qris',
       providerReference,
       status: 'pending',
-      qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${providerReference}`,
+      qrCodeUrl: mockInvoiceUrl,
+      invoiceUrl: mockInvoiceUrl,
       expiresAt,
       rawResponse: {
         mock_event: 'PAYMENT_CREATED',
         reference: providerReference,
         amount_idr: req.amount,
+        invoice_url: mockInvoiceUrl,
       },
     };
   }
@@ -122,6 +125,15 @@ export class XenditPaymentGateway implements PaymentGateway {
       }
 
       const data = await response.json();
+
+      console.log('[XENDIT-DIAGNOSTIC]', {
+        id: data.id,
+        status: data.status,
+        external_id: data.external_id,
+        invoice_url: data.invoice_url,
+        hasInvoiceUrl: Boolean(data.invoice_url),
+      });
+
       const providerRef = data.id || data.external_id || reference;
       const qrUrl = data.invoice_url || data.qr_string || (data.actions ? data.actions.find((a: any) => a.url)?.url : undefined);
 
@@ -131,7 +143,7 @@ export class XenditPaymentGateway implements PaymentGateway {
         providerReference: providerRef,
         status: 'pending',
         qrCodeUrl: qrUrl,
-        invoiceUrl: data.invoice_url,
+        invoiceUrl: data.invoice_url || qrUrl,
         expiresAt: data.expiry_date || expiresAt,
         rawResponse: {
           id: data.id,

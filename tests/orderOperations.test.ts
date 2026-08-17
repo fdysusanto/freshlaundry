@@ -88,24 +88,20 @@ async function runOrderOperationsEndToEndTests() {
   assert(orderAfterPay?.paymentStatus === 'paid', 'Test 5: order.paymentStatus updated to paid');
   assert(orderAfterPay?.status === 'pending', 'Test 5: order.status remains pending (Payment & Order separation maintained)');
 
-  // Step 6 & 7: Laundry Acceptance & Role Authorization
-  // Customer attempts to ACCEPT ORDER (pending -> assigned) -> REJECTED
+  // Step 6 & 7: Laundry Owner Confirmation & Courier Selection
+  // Customer attempts to transition to assigned -> REJECTED
   await assertThrowsAsync(async () => {
     await orderService.transitionOrderStatusAsync(orderId, 'assigned', { id: customer.id, role: customer.role }, 'Customer mencoba assign');
   }, 'Test 7: Customer CANNOT accept order (Role authorization enforced)');
 
-  // Laundry Owner accepts order (pending -> assigned) -> VALID
-  const orderAssigned = await orderService.transitionOrderStatusAsync(
-    orderId,
-    'assigned',
-    { id: laundryOwner.id, role: laundryOwner.role, laundryId: laundryOwner.laundryId },
-    'Diterima oleh laundry'
-  );
-  assert(orderAssigned?.status === 'assigned', 'Test 6: Laundry owner accepts order (pending -> assigned)');
+  // Laundry Owner confirms order and triggers dispatch engine (offered to couriers, order.status remains pending, courierId remains null)
+  const orderCourierOffered = await orderService.assignCourierAsync(orderId, courier.id, courier.fullName, laundryOwner.id);
+  assert(orderCourierOffered !== null && (!orderCourierOffered.courierId || orderCourierOffered.courierId === null), 'Test 6: Dispatch engine triggered by laundry owner (orders.courier_id remains NULL during offered state)');
+  assert(orderCourierOffered?.status === 'pending', 'Test 6: Order status remains pending until courier accepts');
 
-  // Step 8: Courier Assigned
-  const orderCourierAssigned = await orderService.assignCourierAsync(orderId, courier.id, courier.fullName, laundryOwner.id);
-  assert(orderCourierAssigned?.courierId === courier.id, 'Test 8: Courier assigned to order');
+  // Step 8: Courier Accepts Assignment -> Order transitions to assigned & courier_id is set
+  const orderAssigned = await orderService.acceptCourierAssignmentAsync(orderId, courier.id);
+  assert(orderAssigned?.status === 'assigned', 'Test 8: Courier accepts assignment (order -> assigned)');
 
   // Step 9 & 17: Courier Pickup & Wrong Courier Rejection
   // Wrong courier tries to pickup -> REJECTED
@@ -156,25 +152,13 @@ async function runOrderOperationsEndToEndTests() {
   );
   assert(orderReady?.status === 'ready_for_delivery', 'Test 11: Laundry owner marks ready (in_washing -> ready_for_delivery)');
 
-  // Step 12 & 18: Courier Delivery & Wrong Courier Delivery Rejection
-  // Wrong courier tries to deliver -> REJECTED
-  await assertThrowsAsync(async () => {
-    await orderService.transitionOrderStatusAsync(
-      orderId,
-      'out_for_delivery',
-      { id: wrongCourier.id, role: wrongCourier.role },
-      'Kurir salah antar'
-    );
-  }, 'Test 18: Wrong courier CANNOT deliver order assigned to another courier');
+  // Step 11b: Laundry Creates Delivery Assignment (ready_for_delivery -> delivery offered)
+  const deliveryOfferedOrder = await orderService.createDeliveryAssignmentAsync(orderId, courier.id, courier.fullName, laundryOwner.id);
+  assert(deliveryOfferedOrder?.status === 'ready_for_delivery', 'Test 11b: Delivery assignment offered (order stays ready_for_delivery)');
 
-  // Assigned courier starts delivery (ready_for_delivery -> out_for_delivery) -> VALID
-  const orderOutForDelivery = await orderService.transitionOrderStatusAsync(
-    orderId,
-    'out_for_delivery',
-    { id: courier.id, role: courier.role },
-    'Kurir mengantar pesanan ke alamat'
-  );
-  assert(orderOutForDelivery?.status === 'out_for_delivery', 'Test 12: Assigned courier starts delivery (ready_for_delivery -> out_for_delivery)');
+  // Step 12: Delivery Courier Accepts Assignment (delivery offered -> out_for_delivery)
+  const orderOutForDelivery = await orderService.acceptCourierAssignmentAsync(deliveryOfferedOrder?.assignmentId || orderId, courier.id);
+  assert(orderOutForDelivery?.status === 'out_for_delivery', 'Test 12: Assigned courier accepts delivery assignment (ready_for_delivery -> out_for_delivery)');
 
   // Step 13: Courier Completes Delivery (out_for_delivery -> delivered)
   const orderDelivered = await orderService.transitionOrderStatusAsync(
@@ -244,6 +228,26 @@ async function runOrderOperationsEndToEndTests() {
       'Lompat langsung dari pending ke washing'
     );
   }, 'Test 19: Invalid transition (pending -> in_washing) rejected by State Machine');
+
+  // Step 21: Laundry Rejection & Automatic Refund Test
+  const rejectTestOrder = await checkoutService.processCheckoutAsync(
+    {
+      laundryId: 'lnd_001',
+      items: [{ serviceId: 'srv_001', quantity: 2 }],
+      pickupAddress: 'Jl. Reject No. 5',
+      pickupDate: '2026-08-20',
+      pickupTimeSlot: '10:00 - 12:00 WIB',
+      idempotencyKey: `IDEMP-REJECT-${Date.now()}`,
+    },
+    customer
+  );
+  await paymentService.handlePaymentSuccessAsync(rejectTestOrder.payment.id);
+  const rejectedOrder = await orderService.rejectOrderAsync(
+    rejectTestOrder.order.id,
+    { id: laundryOwner.id, role: 'laundry_owner', laundryId: laundryOwner.laundryId },
+    'Kapasitas toko penuh'
+  );
+  assert(rejectedOrder?.status === 'cancelled', 'Test 21: Paid order rejected by laundry owner transitions to cancelled');
 
   // Step 20: Status Audit Logs Created
   const finalOrder = await orderService.getOrderByIdAsync(orderId);

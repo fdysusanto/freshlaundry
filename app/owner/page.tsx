@@ -549,18 +549,123 @@ export default function LaundryOwnerDashboardPage() {
                               </td>
                               <td className="px-6 py-4">
                                 <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${statusConfig.bg} ${statusConfig.color}`}>
-                                  {statusConfig.label}
+                                  {order.paymentStatus === 'paid' && order.status === 'pending'
+                                    ? 'Menunggu Konfirmasi Laundry'
+                                    : statusConfig.label}
                                 </span>
                               </td>
                               <td className="px-6 py-4 font-bold text-slate-900">
                                 {formatIDR(order.totalPrice)}
                               </td>
-                              <td className="px-6 py-4 text-right">
-                                <Link href={`/orders/${order.id}`}>
-                                  <Button variant="outline" size="sm" leftIcon={<Eye className="w-3.5 h-3.5" />}>
-                                    Detail
-                                  </Button>
-                                </Link>
+                              <td className="px-6 py-4 text-right space-y-1">
+                                <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                  {order.paymentStatus === 'paid' && order.status === 'pending' && (
+                                    <>
+                                      <Button
+                                        variant="primary"
+                                        size="sm"
+                                        onClick={async () => {
+                                          try {
+                                            await orderService.assignCourierAsync(order.id, undefined, undefined, currentUser?.id || 'usr_owner_01');
+                                            alert(`Pesanan #${order.trackingNumber} berhasil dikonfirmasi! Sistem Dispatch Engine sedang mencari kurir terdekat.`);
+                                            window.location.reload();
+                                          } catch (err: any) {
+                                            alert(err.message || 'Gagal mengonfirmasi pesanan.');
+                                          }
+                                        }}
+                                      >
+                                        Konfirmasi Pesanan
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={async () => {
+                                          try {
+                                            const { dispatchService } = await import('@/services/dispatchService');
+                                            await dispatchService.retryDispatchAsync(order.id, currentUser?.id || 'usr_owner_01');
+                                            alert(`Mencari ulang kurir terdekat untuk pesanan #${order.trackingNumber}...`);
+                                            window.location.reload();
+                                          } catch (err: any) {
+                                            alert(err.message || 'Gagal mencari kurir.');
+                                          }
+                                        }}
+                                      >
+                                        Cari Kurir Lagi
+                                      </Button>
+                                      <Button
+                                        variant="danger"
+                                        size="sm"
+                                        onClick={async () => {
+                                          const reason = prompt('Masukkan alasan penolakan pesanan:', 'Toko laundry penuh');
+                                          if (reason === null) return;
+                                          try {
+                                            await orderService.rejectOrderAsync(order.id, { id: currentUser?.id || 'usr_owner_01', role: 'laundry_owner', laundryId: order.laundryId }, reason);
+                                            alert(`Pesanan #${order.trackingNumber} berhasil ditolak & diproses refund.`);
+                                            window.location.reload();
+                                          } catch (err: any) {
+                                            alert(err.message || 'Gagal menolak pesanan.');
+                                          }
+                                        }}
+                                      >
+                                        Tolak
+                                      </Button>
+                                    </>
+                                  )}
+                                  {order.status === 'picked_up' && (
+                                    <Button
+                                      variant="primary"
+                                      size="sm"
+                                      onClick={async () => {
+                                        try {
+                                          await orderService.transitionOrderStatusAsync(order.id, 'in_washing', { id: currentUser?.id || 'usr_owner_01', role: 'laundry_owner', laundryId: order.laundryId }, 'Masuk ke proses cuci & pengeringan');
+                                          window.location.reload();
+                                        } catch (err: any) {
+                                          alert(err.message || 'Gagal mengubah status.');
+                                        }
+                                      }}
+                                    >
+                                      Mulai Pencucian
+                                    </Button>
+                                  )}
+                                  {order.status === 'in_washing' && (
+                                    <Button
+                                      variant="primary"
+                                      size="sm"
+                                      onClick={async () => {
+                                        try {
+                                          await orderService.transitionOrderStatusAsync(order.id, 'ready_for_delivery', { id: currentUser?.id || 'usr_owner_01', role: 'laundry_owner', laundryId: order.laundryId }, 'Cucian selesai & terkemas, siap diantar');
+                                          window.location.reload();
+                                        } catch (err: any) {
+                                          alert(err.message || 'Gagal mengubah status.');
+                                        }
+                                      }}
+                                    >
+                                      Selesai Cucian
+                                    </Button>
+                                  )}
+                                  {order.status === 'ready_for_delivery' && (
+                                    <Button
+                                      variant="primary"
+                                      size="sm"
+                                      onClick={async () => {
+                                        try {
+                                          await orderService.createDeliveryAssignmentAsync(order.id, undefined, undefined, currentUser?.id || 'usr_owner_01');
+                                          alert(`Dispatch Engine pengantaran pesanan #${order.trackingNumber} berhasil dimulai!`);
+                                          window.location.reload();
+                                        } catch (err: any) {
+                                          alert(err.message || 'Gagal menugaskan kurir pengantar.');
+                                        }
+                                      }}
+                                    >
+                                      Cari Kurir Pengantar
+                                    </Button>
+                                  )}
+                                  <Link href={`/orders/${order.id}`}>
+                                    <Button variant="outline" size="sm" leftIcon={<Eye className="w-3.5 h-3.5" />}>
+                                      Detail
+                                    </Button>
+                                  </Link>
+                                </div>
                               </td>
                             </tr>
                           );

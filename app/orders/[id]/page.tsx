@@ -53,7 +53,11 @@ export default function OrderDetailPage() {
         throw new Error(data.message || 'Gagal memproses pembuatan invoice pembayaran Xendit.');
       }
 
-      const invoiceUrl = data.payment?.invoiceUrl || data.payment?.rawResponse?.invoice_url;
+      const invoiceUrl =
+        data.payment?.invoiceUrl ||
+        data.payment?.rawResponse?.invoice_url ||
+        data.payment?.rawResponse?.invoiceUrl ||
+        data.payment?.qrCodeUrl;
       if (invoiceUrl && typeof invoiceUrl === 'string' && invoiceUrl.startsWith('http')) {
         window.location.href = invoiceUrl;
         return;
