@@ -127,15 +127,15 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2.5 text-xs">
               <li className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-teal-400 shrink-0" />
-                <span>Kebayoran Baru, Jakarta Selatan</span>
+                <span>Harjamukti, Kota Cirebon</span>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-teal-400 shrink-0" />
-                <span>0812-3456-7890</span>
+                <span>0878-2995-0470</span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-teal-400 shrink-0" />
-                <span>halo@freshlaundry.com</span>
+                <span>fredysusanto16@gmail.com</span>
               </li>
               <li className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-teal-400 shrink-0" />
