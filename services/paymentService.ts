@@ -276,6 +276,29 @@ export const paymentService = {
     }
 
     if (currentStatus === targetStatus) {
+      if (isSupabaseConfigured && db) {
+        const { data: targetOrder, error: orderFetchErr } = await (db.from('orders') as any)
+          .select('id, payment_status, status')
+          .eq('id', payment.orderId)
+          .maybeSingle();
+
+        if (orderFetchErr || !targetOrder) {
+          throw new Error(`Order target '${payment.orderId}' tidak ditemukan di database.`);
+        }
+
+        if (targetOrder.payment_status !== targetStatus) {
+          const now = new Date().toISOString();
+          const { error: syncErr } = await (db.from('orders') as any)
+            .update({ payment_status: targetStatus, updated_at: now })
+            .eq('id', payment.orderId);
+
+          if (syncErr) {
+            throw new Error(`Supabase Order Payment Status Sync Error: ${syncErr.message}`);
+          }
+        }
+      } else {
+        orderService.updateOrderPaymentStatus(payment.orderId, targetStatus);
+      }
       return payment;
     }
 
@@ -302,6 +325,16 @@ export const paymentService = {
         orderService.updateOrderPaymentStatus(payment!.orderId, targetStatus);
       }
       return mockPayments[idx] || payment;
+    }
+
+    // Target Order Validation
+    const { data: targetOrder, error: orderFetchErr } = await (db.from('orders') as any)
+      .select('id, payment_status, status')
+      .eq('id', payment.orderId)
+      .maybeSingle();
+
+    if (orderFetchErr || !targetOrder) {
+      throw new Error(`Order target '${payment.orderId}' tidak ditemukan di database.`);
     }
 
     const updates: any = {
@@ -331,6 +364,15 @@ export const paymentService = {
         .maybeSingle();
 
       if (fresh && normalizePaymentStatus(fresh.status) === targetStatus) {
+        // Reconcile order payment status if needed
+        if (targetOrder.payment_status !== targetStatus) {
+          const { error: syncErr } = await (db.from('orders') as any)
+            .update({ payment_status: targetStatus, updated_at: now })
+            .eq('id', payment.orderId);
+          if (syncErr) {
+            throw new Error(`Supabase Order Payment Status Sync Error: ${syncErr.message}`);
+          }
+        }
         return {
           id: fresh.id,
           orderId: fresh.order_id,
@@ -357,19 +399,27 @@ export const paymentService = {
 
     const updatedRow = updatedRows[0];
 
-    // Update order.payment_status in orders table using authenticated db client
-    await (db.from('orders') as any)
+    // Update order.payment_status in orders table with explicit error handling (Requirement 2)
+    const { error: orderUpdateErr } = await (db.from('orders') as any)
       .update({ payment_status: targetStatus, updated_at: now })
       .eq('id', payment.orderId);
 
-    // Insert order status log audit entry for payment verification
+    if (orderUpdateErr) {
+      throw new Error(`Supabase Order Payment Status Update Error: ${orderUpdateErr.message}`);
+    }
+
+    // Insert order status log audit entry for payment verification (strictly keeping orders.status = pending)
     if (targetStatus === 'paid') {
-      await (db.from('order_status_logs') as any).insert({
+      const { error: logErr } = await (db.from('order_status_logs') as any).insert({
         order_id: payment.orderId,
         status: 'pending',
         notes: notes || 'Pembayaran terverifikasi lunas oleh Payment Gateway. Menunggu konfirmasi Mitra Laundry.',
         updated_by: payment.customerId || payment.id,
       });
+
+      if (logErr) {
+        console.warn('[ORDER-LOG-WARNING] Gagal membuat order_status_log:', logErr.message);
+      }
     }
 
     return {
@@ -661,14 +711,7 @@ export const paymentService = {
 
       (global as any).__mockWebhookEvents = [...mockEvents, eventId];
 
-      const currentStatus = normalizePaymentStatus(p.status);
-      let updatedPayment: PaymentAttempt;
-
-      if (currentStatus === targetStatus) {
-        updatedPayment = p;
-      } else {
-        updatedPayment = await this.transitionPaymentStatusAsync(p.id, targetStatus, 'Webhook Midtrans terverifikasi', db);
-      }
+      const updatedPayment = await this.transitionPaymentStatusAsync(p.id, targetStatus, 'Webhook Midtrans terverifikasi', db);
 
       if (targetStatus === 'paid' && p.orderId) {
         try {
@@ -738,31 +781,8 @@ export const paymentService = {
       console.warn('[WEBHOOK-EVENT-LOG-WARNING]', eventInsertErr.message);
     }
 
-    // 6. ATOMIC STATE TRANSITION
-    const currentStatus = normalizePaymentStatus(p.status);
-    let updatedPayment: PaymentAttempt;
-
-    if (currentStatus === targetStatus) {
-      updatedPayment = {
-        id: p.id,
-        orderId: p.order_id,
-        customerId: p.customer_id,
-        provider: p.provider,
-        providerReference: p.provider_reference,
-        paymentMethod: p.payment_method,
-        amount: Number(p.amount),
-        currency: 'IDR',
-        status: targetStatus,
-        idempotencyKey: p.idempotency_key,
-        expiresAt: p.expires_at,
-        paidAt: p.paid_at,
-        rawResponse: p.raw_response,
-        createdAt: p.created_at,
-        updatedAt: p.updated_at,
-      };
-    } else {
-      updatedPayment = await this.transitionPaymentStatusAsync(p.id, targetStatus, 'Webhook Midtrans terverifikasi', db);
-    }
+    // 6. ATOMIC STATE TRANSITION & ORDER RECONCILIATION
+    const updatedPayment = await this.transitionPaymentStatusAsync(p.id, targetStatus, 'Webhook Midtrans terverifikasi', db);
 
     // 7. OUTBOUND N8N NOTIFICATION
     if (targetStatus === 'paid' && p.orders) {

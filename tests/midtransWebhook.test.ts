@@ -226,6 +226,154 @@ async function runMidtransWebhookTests() {
   console.log('[PASS] Test 23: Unknown transaction status handled safely without marking paid');
   passed++;
 
+  // ==================================================
+  // PHASE 3C HARDENING TESTS: STATUS RECONCILIATION & IDEMPOTENCY
+  // ==================================================
+
+  // Test Phase 3C-1: Normal Flow: pending/unpaid -> paid/paid/pending
+  {
+    const o1 = orderService.createOrder({
+      laundryId: 'lnd_001',
+      serviceType: 'kiloan',
+      pickupAddress: 'Jl. Test 1',
+      deliveryAddress: 'Jl. Test 1',
+      pickupDate: '2026-08-30',
+      pickupTimeSlot: '10:00 - 12:00 WIB',
+      estimatedWeightKg: 2,
+    }, customer);
+    const p1 = await paymentService.createPaymentAttemptAsync(o1.id, 'snap');
+    const ref1 = p1.providerReference || p1.idempotencyKey;
+
+    await paymentService.processMidtransWebhookAsync({
+      eventId: `wh_p3c_1_${ref1}`,
+      providerReference: ref1,
+      targetStatus: 'paid',
+      incomingAmount: p1.amount,
+      rawPayload: { transaction_status: 'settlement', order_id: ref1 },
+    });
+
+    const checkO1 = orderService.getOrderById(o1.id);
+    assert(checkO1?.paymentStatus === 'paid', 'Phase 3C Test 1: orders.payment_status updated to paid');
+    assert(checkO1?.status === 'pending', 'Phase 3C Test 1: orders.status strictly remained pending');
+  }
+
+  // Test Phase 3C-2: Reconciliation Flow: payment_attempts = paid BUT orders.payment_status = unpaid
+  {
+    const o2 = orderService.createOrder({
+      laundryId: 'lnd_001',
+      serviceType: 'kiloan',
+      pickupAddress: 'Jl. Test 2',
+      deliveryAddress: 'Jl. Test 2',
+      pickupDate: '2026-08-30',
+      pickupTimeSlot: '10:00 - 12:00 WIB',
+      estimatedWeightKg: 2,
+    }, customer);
+    const p2 = await paymentService.createPaymentAttemptAsync(o2.id, 'snap');
+    const ref2 = p2.providerReference || p2.idempotencyKey;
+
+    // Manually desynchronize mock state: set payment attempt status to paid while order is unpaid
+    const mockPayments = paymentService.getMockPayments();
+    const idx = mockPayments.findIndex((x) => x.id === p2.id);
+    if (idx !== -1) {
+      mockPayments[idx].status = 'paid';
+      paymentService.saveMockPayments(mockPayments);
+    }
+    // Verify desynchronization state before webhook
+    assert(paymentService.getMockPayments().find((x) => x.id === p2.id)?.status === 'paid', 'Phase 3C Test 2 Setup: payment_attempt status is paid');
+    assert(orderService.getOrderById(o2.id)?.paymentStatus === 'unpaid', 'Phase 3C Test 2 Setup: orders.payment_status is unpaid');
+
+    // Trigger webhook retry reconciliation
+    await paymentService.processMidtransWebhookAsync({
+      eventId: `wh_p3c_2_reconcile_${ref2}`,
+      providerReference: ref2,
+      targetStatus: 'paid',
+      incomingAmount: p2.amount,
+      rawPayload: { transaction_status: 'settlement', order_id: ref2 },
+    });
+
+    const checkO2 = orderService.getOrderById(o2.id);
+    assert(checkO2?.paymentStatus === 'paid', 'Phase 3C Test 2: Webhook retry reconciled orders.payment_status to paid');
+    assert(checkO2?.status === 'pending', 'Phase 3C Test 2: orders.status strictly remained pending during reconciliation');
+  }
+
+  // Test Phase 3C-3: Idempotent Flow: both payment_attempts & orders are already paid
+  {
+    const o3 = orderService.createOrder({
+      laundryId: 'lnd_001',
+      serviceType: 'kiloan',
+      pickupAddress: 'Jl. Test 3',
+      deliveryAddress: 'Jl. Test 3',
+      pickupDate: '2026-08-30',
+      pickupTimeSlot: '10:00 - 12:00 WIB',
+      estimatedWeightKg: 2,
+    }, customer);
+    const p3 = await paymentService.createPaymentAttemptAsync(o3.id, 'snap');
+    const ref3 = p3.providerReference || p3.idempotencyKey;
+
+    // Webhook 1
+    await paymentService.processMidtransWebhookAsync({
+      eventId: `wh_p3c_3_evt1_${ref3}`,
+      providerReference: ref3,
+      targetStatus: 'paid',
+      incomingAmount: p3.amount,
+      rawPayload: { transaction_status: 'settlement', order_id: ref3 },
+    });
+
+    // Webhook 2 (Duplicate)
+    const resDup = await paymentService.processMidtransWebhookAsync({
+      eventId: `wh_p3c_3_evt2_${ref3}`,
+      providerReference: ref3,
+      targetStatus: 'paid',
+      incomingAmount: p3.amount,
+      rawPayload: { transaction_status: 'settlement', order_id: ref3 },
+    });
+
+    const checkO3 = orderService.getOrderById(o3.id);
+    assert(resDup.success === true, 'Phase 3C Test 3: Duplicate webhook handled safely');
+    assert(checkO3?.paymentStatus === 'paid', 'Phase 3C Test 3: orders.payment_status remains paid');
+    assert(checkO3?.status === 'pending', 'Phase 3C Test 3: orders.status remains pending without side effects');
+  }
+
+  // Test Phase 3C-4: Triple Webhook Replay (3x)
+  {
+    const o4 = orderService.createOrder({
+      laundryId: 'lnd_001',
+      serviceType: 'kiloan',
+      pickupAddress: 'Jl. Test 4',
+      deliveryAddress: 'Jl. Test 4',
+      pickupDate: '2026-08-30',
+      pickupTimeSlot: '10:00 - 12:00 WIB',
+      estimatedWeightKg: 2,
+    }, customer);
+    const p4 = await paymentService.createPaymentAttemptAsync(o4.id, 'snap');
+    const ref4 = p4.providerReference || p4.idempotencyKey;
+
+    for (let i = 1; i <= 3; i++) {
+      await paymentService.processMidtransWebhookAsync({
+        eventId: `wh_p3c_4_replay_${i}_${ref4}`,
+        providerReference: ref4,
+        targetStatus: 'paid',
+        incomingAmount: p4.amount,
+        rawPayload: { transaction_status: 'settlement', order_id: ref4 },
+      });
+    }
+
+    const checkO4 = orderService.getOrderById(o4.id);
+    assert(checkO4?.paymentStatus === 'paid', 'Phase 3C Test 4: Triple webhook replay left orders.payment_status as paid');
+    assert(checkO4?.status === 'pending', 'Phase 3C Test 4: Triple webhook replay left orders.status strictly as pending');
+  }
+
+  // Test Phase 3C-5: Non-existent orderId error handling
+  {
+    try {
+      await paymentService.transitionPaymentStatusAsync('NON_EXISTENT_PAYMENT_ID_123', 'paid', 'Test invalid order');
+      console.error('[FAIL] Phase 3C Test 5: Expected error for invalid payment/order ID but none thrown');
+      failed++;
+    } catch (err: any) {
+      assert(err.message.includes('tidak ditemukan'), 'Phase 3C Test 5: Invalid payment/order ID caught cleanly without false success');
+    }
+  }
+
   // Restore fetch & env
   process.env = originalEnv;
   global.fetch = originalFetch;
