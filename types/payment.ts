@@ -14,6 +14,8 @@ export interface PaymentAttempt {
   expiresAt?: string;
   paidAt?: string;
   invoiceUrl?: string;
+  paymentToken?: string;
+  paymentUrl?: string;
   rawResponse?: any;
   createdAt: string;
   updatedAt: string;

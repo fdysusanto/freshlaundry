@@ -33,6 +33,7 @@ import {
 import { laundryService } from '@/services/laundryService';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { Laundry } from '@/types/laundry';
+import { triggerPaymentFlow } from '@/utils/midtransSnap';
 
 function CheckoutContent() {
   const router = useRouter();
@@ -315,13 +316,31 @@ function CheckoutContent() {
         throw new Error(data.message || 'Gagal memproses checkout via API.');
       }
 
+      const paymentToken = data.payment?.paymentToken || data.payment?.rawResponse?.token;
+      const paymentUrl = data.payment?.paymentUrl || data.payment?.rawResponse?.redirect_url;
       const invoiceUrl = data.payment?.invoiceUrl || data.payment?.rawResponse?.invoice_url;
-      if (invoiceUrl && typeof invoiceUrl === 'string' && invoiceUrl.startsWith('http')) {
-        window.location.href = invoiceUrl;
-        return;
-      }
 
-      router.push(`/orders/${data.order.id}`);
+      const triggered = triggerPaymentFlow({
+        paymentToken,
+        paymentUrl,
+        invoiceUrl,
+        onSuccess: () => {
+          router.push(`/orders/${data.order.id}?payment=success`);
+        },
+        onPending: () => {
+          router.push(`/orders/${data.order.id}?payment=pending`);
+        },
+        onError: (errMsg) => {
+          setErrorMessage(errMsg || 'Gagal memproses pembayaran via gateway.');
+        },
+        onClose: () => {
+          router.push(`/orders/${data.order.id}`);
+        },
+      });
+
+      if (!triggered) {
+        router.push(`/orders/${data.order.id}`);
+      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Gagal membuat pesanan di Supabase.');
     } finally {

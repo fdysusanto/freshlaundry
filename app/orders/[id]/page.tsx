@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Truck, MapPin, Calendar, Clock, ArrowLeft, Phone, User, FileText, Store, CreditCard, ShieldCheck, AlertCircle, CheckCircle2, ExternalLink } from 'lucide-react';
+import { triggerPaymentFlow } from '@/utils/midtransSnap';
 
 export default function OrderDetailPage() {
   const params = useParams();
@@ -50,20 +51,41 @@ export default function OrderDetailPage() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Gagal memproses pembuatan invoice pembayaran Xendit.');
+        throw new Error(data.message || 'Gagal memproses pembuatan transaksi pembayaran.');
       }
 
+      const paymentToken = data.payment?.paymentToken || data.payment?.rawResponse?.token;
+      const paymentUrl = data.payment?.paymentUrl || data.payment?.rawResponse?.redirect_url;
       const invoiceUrl =
         data.payment?.invoiceUrl ||
         data.payment?.rawResponse?.invoice_url ||
         data.payment?.rawResponse?.invoiceUrl ||
         data.payment?.qrCodeUrl;
-      if (invoiceUrl && typeof invoiceUrl === 'string' && invoiceUrl.startsWith('http')) {
-        window.location.href = invoiceUrl;
-        return;
-      }
 
-      throw new Error('Invoice URL tidak ditemukan dari response payment gateway.');
+      const triggered = triggerPaymentFlow({
+        paymentToken,
+        paymentUrl,
+        invoiceUrl,
+        onSuccess: () => {
+          setPayError('');
+          orderService.getOrderByIdAsync(order.id).then((updated) => {
+            if (updated) setOrder(updated);
+          });
+        },
+        onPending: () => {
+          setPayError('Pembayaran masih menunggu penyelesaian.');
+        },
+        onError: (errMsg) => {
+          setPayError(errMsg || 'Gagal memproses pembayaran via gateway.');
+        },
+        onClose: () => {
+          setIsPaying(false);
+        },
+      });
+
+      if (!triggered) {
+        throw new Error('Token atau URL pembayaran tidak ditemukan dari response payment gateway.');
+      }
     } catch (err: any) {
       setPayError(err.message || 'Gagal memproses pembayaran.');
     } finally {
@@ -190,7 +212,7 @@ export default function OrderDetailPage() {
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
             <div>
               <p className="text-xs font-bold text-emerald-900">Pembayaran Berhasil (Lunas)</p>
-              <p className="text-[11px] text-emerald-700">Terima kasih, pembayaran pesanan Anda telah terverifikasi resmi oleh Xendit Webhook.</p>
+              <p className="text-[11px] text-emerald-700">Terima kasih, pembayaran pesanan Anda telah terverifikasi resmi.</p>
             </div>
           </div>
         ) : (
@@ -201,7 +223,7 @@ export default function OrderDetailPage() {
                 <div>
                   <p className="text-xs font-bold text-amber-900">Pembayaran Belum Selesai</p>
                   <p className="text-[11px] text-amber-700">
-                    Silakan lakukan pembayaran sebesar <strong>{formatIDR(order.totalPrice)}</strong> via Xendit Hosted Checkout untuk melanjutkan proses pesanan.
+                    Silakan lakukan pembayaran sebesar <strong>{formatIDR(order.totalPrice)}</strong> melalui Midtrans Secure Payment untuk melanjutkan proses pesanan.
                   </p>
                 </div>
               </div>
@@ -222,7 +244,7 @@ export default function OrderDetailPage() {
               className="w-full sm:w-auto bg-amber-600 hover:bg-amber-500 text-white font-bold cursor-pointer"
               rightIcon={<ExternalLink className="w-4 h-4" />}
             >
-              {isPaying ? 'Menghubungkan ke Xendit...' : 'Bayar Sekarang'}
+              {isPaying ? 'Menghubungkan ke Gateway Pembayaran...' : 'Bayar Sekarang'}
             </Button>
           </div>
         )}

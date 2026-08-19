@@ -63,6 +63,8 @@ export interface CheckoutResult {
     providerReference?: string;
     qrCodeUrl?: string;
     invoiceUrl?: string;
+    paymentToken?: string;
+    paymentUrl?: string;
     expiresAt?: string;
   };
 }
@@ -131,7 +133,9 @@ export const checkoutService = {
           provider: paymentAttempt.provider,
           providerReference: paymentAttempt.providerReference,
           qrCodeUrl: paymentAttempt.providerReference ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${paymentAttempt.providerReference}` : undefined,
-          invoiceUrl: paymentAttempt.invoiceUrl || paymentAttempt.rawResponse?.invoice_url,
+          invoiceUrl: paymentAttempt.invoiceUrl || paymentAttempt.paymentUrl || paymentAttempt.rawResponse?.redirect_url || paymentAttempt.rawResponse?.invoice_url,
+          paymentToken: paymentAttempt.paymentToken || paymentAttempt.rawResponse?.token,
+          paymentUrl: paymentAttempt.paymentUrl || paymentAttempt.rawResponse?.redirect_url,
           expiresAt: paymentAttempt.expiresAt,
         },
       };
@@ -213,7 +217,9 @@ export const checkoutService = {
         provider: paymentAttempt.provider,
         providerReference: paymentAttempt.providerReference,
         qrCodeUrl: paymentAttempt.providerReference ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${paymentAttempt.providerReference}` : undefined,
-        invoiceUrl: paymentAttempt.invoiceUrl || paymentAttempt.rawResponse?.invoice_url,
+        invoiceUrl: paymentAttempt.invoiceUrl || paymentAttempt.paymentUrl || paymentAttempt.rawResponse?.redirect_url || paymentAttempt.rawResponse?.invoice_url,
+        paymentToken: paymentAttempt.paymentToken || paymentAttempt.rawResponse?.token,
+        paymentUrl: paymentAttempt.paymentUrl || paymentAttempt.rawResponse?.redirect_url,
         expiresAt: paymentAttempt.expiresAt,
       },
     };

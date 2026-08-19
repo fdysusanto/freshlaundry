@@ -7,7 +7,7 @@ import {
 import { UserRole } from '@/types/user';
 import { isValidUuid } from '@/utils/formatters';
 import { orderService } from './orderService';
-import { defaultGateway, PaymentGateway } from './paymentGateway';
+import { defaultGateway, PaymentGateway, getPaymentGateway } from './paymentGateway';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { triggerStatusChangeWebhook } from './webhookService';
 
@@ -74,7 +74,12 @@ export const paymentService = {
     const invoiceUrl =
       parsedRaw?.invoice_url ||
       parsedRaw?.invoiceUrl ||
+      parsedRaw?.redirect_url ||
+      parsedRaw?.paymentUrl ||
       (data.provider_reference ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${data.provider_reference}` : undefined);
+
+    const paymentToken = parsedRaw?.token || parsedRaw?.paymentToken || undefined;
+    const paymentUrl = parsedRaw?.redirect_url || parsedRaw?.paymentUrl || parsedRaw?.invoice_url || parsedRaw?.invoiceUrl || undefined;
 
     return {
       id: data.id,
@@ -90,6 +95,8 @@ export const paymentService = {
       expiresAt: data.expires_at || undefined,
       paidAt: data.paid_at || undefined,
       invoiceUrl,
+      paymentToken,
+      paymentUrl,
       rawResponse: parsedRaw,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
@@ -131,7 +138,7 @@ export const paymentService = {
     const idempotencyKey = `IDEMP-${order.id}-${Date.now()}`;
 
     // 4. Invoke Provider Gateway Abstraction
-    const gatewayRes = await defaultGateway.createPaymentRequest({
+    const gatewayRes = await getPaymentGateway().createPaymentRequest({
       orderId: order.id,
       amount: authoritativeAmount,
       currency: 'IDR',
@@ -140,6 +147,8 @@ export const paymentService = {
     });
 
     const now = new Date().toISOString();
+    const paymentToken = gatewayRes.paymentToken || gatewayRes.rawResponse?.token;
+    const paymentUrl = gatewayRes.paymentUrl || gatewayRes.rawResponse?.redirect_url || gatewayRes.invoiceUrl || gatewayRes.rawResponse?.invoice_url;
 
     if (!isSupabaseConfigured || !db) {
       const newPayment: PaymentAttempt = {
@@ -154,7 +163,9 @@ export const paymentService = {
         status: 'pending',
         idempotencyKey,
         expiresAt: gatewayRes.expiresAt,
-        invoiceUrl: gatewayRes.invoiceUrl || gatewayRes.rawResponse?.invoice_url,
+        invoiceUrl: gatewayRes.invoiceUrl || gatewayRes.rawResponse?.invoice_url || gatewayRes.rawResponse?.redirect_url,
+        paymentToken,
+        paymentUrl,
         rawResponse: gatewayRes.rawResponse,
         createdAt: now,
         updatedAt: now,
@@ -205,7 +216,9 @@ export const paymentService = {
       status: 'pending',
       idempotencyKey: inserted.idempotency_key,
       expiresAt: inserted.expires_at,
-      invoiceUrl: gatewayRes.invoiceUrl || inserted.raw_response?.invoice_url,
+      invoiceUrl: gatewayRes.invoiceUrl || inserted.raw_response?.invoice_url || inserted.raw_response?.redirect_url,
+      paymentToken,
+      paymentUrl,
       rawResponse: inserted.raw_response,
       createdAt: inserted.created_at,
       updatedAt: inserted.updated_at,
@@ -383,7 +396,7 @@ export const paymentService = {
    */
   async handlePaymentSuccessAsync(paymentId: string, providerReference?: string, client?: any): Promise<PaymentAttempt> {
     const key = providerReference || paymentId;
-    await defaultGateway.verifyPayment(key);
+    await getPaymentGateway().verifyPayment(key);
     return this.transitionPaymentStatusAsync(key, 'paid', 'Pembayaran berhasil dikonfirmasi.', client);
   },
 
@@ -462,7 +475,7 @@ export const paymentService = {
 
     // 2. Trigger Gateway Refund FIRST to guarantee Xendit confirmation
     if (providerRef) {
-      await defaultGateway.refundPayment(providerRef, amount);
+      await getPaymentGateway().refundPayment(providerRef, amount);
     }
 
     // 3. Transition payment_status to 'refunded' ONLY after gateway success
@@ -587,6 +600,168 @@ export const paymentService = {
       };
     } else {
       updatedPayment = await this.transitionPaymentStatusAsync(p.id, targetStatus, 'Webhook Xendit terverifikasi', db);
+    }
+
+    // 7. OUTBOUND N8N NOTIFICATION
+    if (targetStatus === 'paid' && p.orders) {
+      try {
+        const fullOrder = await orderService.getOrderByIdAsync(p.order_id, db);
+        if (fullOrder) {
+          await triggerStatusChangeWebhook(fullOrder, 'pending');
+        }
+      } catch (err: any) {
+        console.warn('[OUTBOUND-WEBHOOK-WARNING] Gagal mengirim notifikasi n8n:', err.message);
+      }
+    }
+
+    return { success: true, payment: updatedPayment };
+  },
+
+  /**
+   * Processes inbound Midtrans Payment Webhook Notification server-side using service_role client.
+   * Handles SHA-512 signature verification, idempotency, state transition, and outbound n8n notification.
+   */
+  async processMidtransWebhookAsync(params: {
+    eventId: string;
+    providerReference: string;
+    targetStatus: PaymentStatus;
+    incomingAmount: number;
+    rawPayload: any;
+    client?: any;
+  }): Promise<{ success: boolean; idempotent?: boolean; payment?: PaymentAttempt }> {
+    const { eventId, providerReference, targetStatus, incomingAmount, rawPayload, client } = params;
+    const db = client || (isSupabaseConfigured ? supabase : null);
+
+    if (!isSupabaseConfigured || !db) {
+      const mockEvents = (global as any).__mockWebhookEvents || [];
+      if (mockEvents.includes(eventId)) {
+        return { success: true, idempotent: true };
+      }
+
+      const mockPayments = this.getMockPayments();
+      const p = mockPayments.find(
+        (x) => x.providerReference === providerReference || x.idempotencyKey === providerReference || x.id === providerReference
+      );
+
+      if (!p) {
+        throw new Error(`Payment attempt dengan provider_reference '${providerReference}' tidak ditemukan.`);
+      }
+
+      const allowedProviders = ['midtrans', 'mock', 'mock_qris'];
+      if (p.provider && !allowedProviders.includes(p.provider.toLowerCase())) {
+        throw new Error(`Provider mismatch: Payment attempt dikhususkan untuk '${p.provider}', bukan Midtrans.`);
+      }
+
+      const authoritativeAmount = Math.round(Number(p.amount));
+      if (Math.round(incomingAmount) !== authoritativeAmount) {
+        throw new Error(
+          `Validasi Jumlah Pembayaran Gagal: Nominal webhook (Rp ${incomingAmount}) tidak sesuai tagihan resmi (Rp ${authoritativeAmount}).`
+        );
+      }
+
+      (global as any).__mockWebhookEvents = [...mockEvents, eventId];
+
+      const currentStatus = normalizePaymentStatus(p.status);
+      let updatedPayment: PaymentAttempt;
+
+      if (currentStatus === targetStatus) {
+        updatedPayment = p;
+      } else {
+        updatedPayment = await this.transitionPaymentStatusAsync(p.id, targetStatus, 'Webhook Midtrans terverifikasi', db);
+      }
+
+      if (targetStatus === 'paid' && p.orderId) {
+        try {
+          const fullOrder = await orderService.getOrderByIdAsync(p.orderId, db);
+          if (fullOrder) {
+            await triggerStatusChangeWebhook(fullOrder, 'pending');
+          }
+        } catch (err: any) {
+          console.warn('[OUTBOUND-WEBHOOK-WARNING] Gagal mengirim notifikasi n8n:', err.message);
+        }
+      }
+
+      return { success: true, payment: updatedPayment };
+    }
+
+    // 1. IDEMPOTENCY CHECK in payment_webhook_events
+    const { data: existingEvent } = await (db.from('payment_webhook_events') as any)
+      .select('id')
+      .eq('event_id', eventId)
+      .maybeSingle();
+
+    if (existingEvent) {
+      return { success: true, idempotent: true };
+    }
+
+    // 2. FETCH PAYMENT ATTEMPT
+    const { data: p, error: fetchErr } = await (db.from('payment_attempts') as any)
+      .select('*, orders(*)')
+      .or(`provider_reference.eq.${providerReference},idempotency_key.eq.${providerReference}`)
+      .maybeSingle();
+
+    if (fetchErr || !p) {
+      throw new Error(`Payment attempt dengan provider_reference '${providerReference}' tidak ditemukan.`);
+    }
+
+    // 3. PROVIDER VALIDATION
+    const allowedProviders = ['midtrans', 'mock', 'mock_qris'];
+    if (p.provider && !allowedProviders.includes(p.provider.toLowerCase())) {
+      throw new Error(`Provider mismatch: Payment attempt dikhususkan untuk '${p.provider}', bukan Midtrans.`);
+    }
+
+    // 4. AMOUNT INTEGRITY VALIDATION
+    const authoritativeAmount = Math.round(Number(p.amount));
+    if (Math.round(incomingAmount) !== authoritativeAmount) {
+      throw new Error(
+        `Validasi Jumlah Pembayaran Gagal: Nominal webhook (Rp ${incomingAmount}) tidak sesuai tagihan resmi (Rp ${authoritativeAmount}).`
+      );
+    }
+
+    // 5. ATOMIC EVENT LOG INSERT (Database-level idempotency guard)
+    const { error: eventInsertErr } = await (db.from('payment_webhook_events') as any)
+      .insert({
+        event_id: eventId,
+        provider: p.provider || 'midtrans',
+        event_type: rawPayload.transaction_status || `payment.${targetStatus}`,
+        payment_attempt_id: p.id,
+        provider_reference: providerReference,
+        amount: incomingAmount,
+        status: targetStatus,
+        payload: rawPayload,
+      });
+
+    if (eventInsertErr) {
+      if (eventInsertErr.code === '23505' || eventInsertErr.message?.includes('unique')) {
+        return { success: true, idempotent: true };
+      }
+      console.warn('[WEBHOOK-EVENT-LOG-WARNING]', eventInsertErr.message);
+    }
+
+    // 6. ATOMIC STATE TRANSITION
+    const currentStatus = normalizePaymentStatus(p.status);
+    let updatedPayment: PaymentAttempt;
+
+    if (currentStatus === targetStatus) {
+      updatedPayment = {
+        id: p.id,
+        orderId: p.order_id,
+        customerId: p.customer_id,
+        provider: p.provider,
+        providerReference: p.provider_reference,
+        paymentMethod: p.payment_method,
+        amount: Number(p.amount),
+        currency: 'IDR',
+        status: targetStatus,
+        idempotencyKey: p.idempotency_key,
+        expiresAt: p.expires_at,
+        paidAt: p.paid_at,
+        rawResponse: p.raw_response,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+      };
+    } else {
+      updatedPayment = await this.transitionPaymentStatusAsync(p.id, targetStatus, 'Webhook Midtrans terverifikasi', db);
     }
 
     // 7. OUTBOUND N8N NOTIFICATION

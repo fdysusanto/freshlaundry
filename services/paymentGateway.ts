@@ -15,6 +15,8 @@ export interface PaymentGatewayResponse {
   status: PaymentStatus;
   qrCodeUrl?: string;
   invoiceUrl?: string;
+  paymentToken?: string;
+  paymentUrl?: string;
   expiresAt: string;
   rawResponse?: any;
 }
@@ -82,6 +84,161 @@ export class MockPaymentGateway implements PaymentGateway {
 }
 
 /**
+ * Production Midtrans Payment Gateway Adapter.
+ * Communicates server-side exclusively with Midtrans Snap & Core REST API.
+ * Never logs or exposes MIDTRANS_SERVER_KEY.
+ */
+export class MidtransPaymentGateway implements PaymentGateway {
+  private getSnapUrl(): string {
+    const isProd = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+    return isProd
+      ? 'https://app.midtrans.com/snap/v1/transactions'
+      : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
+  }
+
+  private getCoreUrl(): string {
+    const isProd = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+    return isProd
+      ? 'https://api.midtrans.com/v2'
+      : 'https://api.sandbox.midtrans.com/v2';
+  }
+
+  private getHeaders(): HeadersInit {
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    if (!serverKey) {
+      throw new Error('MIDTRANS_SERVER_KEY belum dikonfigurasi.');
+    }
+    const authHeader = `Basic ${Buffer.from(serverKey + ':').toString('base64')}`;
+    return {
+      'Authorization': authHeader,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+  }
+
+  async createPaymentRequest(req: CreatePaymentGatewayRequest): Promise<PaymentGatewayResponse> {
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    if (!serverKey) {
+      throw new Error('MIDTRANS_SERVER_KEY belum dikonfigurasi.');
+    }
+
+    if (!req.amount || req.amount <= 0) {
+      throw new Error('Validasi Nominal Midtrans Gagal: Jumlah pembayaran tidak valid.');
+    }
+
+    const providerReference = req.idempotencyKey || `MDT-${req.orderId}-${Date.now()}`;
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+    try {
+      const response = await fetch(this.getSnapUrl(), {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          transaction_details: {
+            order_id: providerReference,
+            gross_amount: Math.round(req.amount),
+          },
+          credit_card: {
+            secure: true,
+          },
+          callbacks: {
+            finish: `${baseUrl}/orders/${req.orderId}?payment=finish`,
+            error: `${baseUrl}/orders/${req.orderId}?payment=error`,
+            pending: `${baseUrl}/orders/${req.orderId}?payment=pending`,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errMsgs = Array.isArray(errorData.error_messages)
+          ? errorData.error_messages.join(', ')
+          : errorData.message || response.statusText;
+        throw new Error(`Midtrans API Error [${response.status}]: ${errMsgs}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.token) {
+        throw new Error('Midtrans API Error: Response tidak berisi token transaksi.');
+      }
+
+      return {
+        success: true,
+        provider: 'midtrans',
+        providerReference,
+        status: 'pending',
+        paymentToken: data.token,
+        paymentUrl: data.redirect_url,
+        expiresAt,
+        rawResponse: {
+          token: data.token,
+          redirect_url: data.redirect_url,
+          order_id: providerReference,
+          gross_amount: Math.round(req.amount),
+        },
+      };
+    } catch (err: any) {
+      // Safe error throw: Never expose MIDTRANS_SERVER_KEY or Authorization headers
+      const safeMsg = err.message ? err.message.replace(serverKey, '[REDACTED]') : 'Unknown error';
+      throw new Error(`Midtrans Payment Creation Failed: ${safeMsg}`);
+    }
+  }
+
+  async checkPaymentStatus(providerReference: string): Promise<PaymentStatus> {
+    try {
+      const response = await fetch(`${this.getCoreUrl()}/${providerReference}/status`, {
+        method: 'GET',
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        return 'unpaid';
+      }
+
+      const data = await response.json();
+      const transactionStatus = (data.transaction_status || '').toLowerCase();
+      const fraudStatus = (data.fraud_status || '').toLowerCase();
+
+      if (transactionStatus === 'settlement' || (transactionStatus === 'capture' && fraudStatus === 'accept')) {
+        return 'paid';
+      }
+      if (transactionStatus === 'pending') return 'pending';
+      if (transactionStatus === 'deny' || transactionStatus === 'cancel') return 'failed';
+      if (transactionStatus === 'expire') return 'expired';
+
+      return 'unpaid';
+    } catch {
+      return 'unpaid';
+    }
+  }
+
+  async verifyPayment(providerReference: string): Promise<boolean> {
+    const status = await this.checkPaymentStatus(providerReference);
+    return status === 'paid';
+  }
+
+  async refundPayment(providerReference: string, amount: number): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.getCoreUrl()}/${providerReference}/refund`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          refund_key: `REF-${providerReference}-${Date.now()}`,
+          amount: Math.round(amount),
+          reason: 'REQUESTED_BY_CUSTOMER',
+        }),
+      });
+
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/**
  * Production Xendit Payment Gateway Adapter.
  * Communicates exclusively server-side with Xendit API.
  * Never logs or exposes XENDIT_SECRET_KEY.
@@ -106,6 +263,10 @@ export class XenditPaymentGateway implements PaymentGateway {
     const reference = req.idempotencyKey || `XND-${req.orderId}-${Date.now()}`;
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const successRedirectUrl = `${baseUrl}/orders/${req.orderId}?payment=success`;
+    const failureRedirectUrl = `${baseUrl}/orders/${req.orderId}?payment=failed`;
+
     try {
       const response = await fetch(`${this.baseUrl}/v2/invoices`, {
         method: 'POST',
@@ -116,6 +277,8 @@ export class XenditPaymentGateway implements PaymentGateway {
           currency: req.currency || 'IDR',
           description: `Pembayaran Laundry Pesanan #${req.orderId.substring(0, 8)}`,
           invoice_duration: 900,
+          success_redirect_url: successRedirectUrl,
+          failure_redirect_url: failureRedirectUrl,
         }),
       });
 
@@ -207,10 +370,15 @@ export class XenditPaymentGateway implements PaymentGateway {
 
 /**
  * Returns active Payment Gateway instance dynamically.
- * Uses XenditPaymentGateway when XENDIT_SECRET_KEY is configured,
- * otherwise falls back to MockPaymentGateway for development/testing.
+ * Priority:
+ * 1. MidtransPaymentGateway when MIDTRANS_SERVER_KEY is configured.
+ * 2. XenditPaymentGateway when XENDIT_SECRET_KEY is configured.
+ * 3. MockPaymentGateway fallback for development/testing.
  */
 export function getPaymentGateway(): PaymentGateway {
+  if (process.env.MIDTRANS_SERVER_KEY) {
+    return new MidtransPaymentGateway();
+  }
   if (process.env.XENDIT_SECRET_KEY) {
     return new XenditPaymentGateway();
   }
@@ -218,3 +386,4 @@ export function getPaymentGateway(): PaymentGateway {
 }
 
 export const defaultGateway: PaymentGateway = getPaymentGateway();
+
