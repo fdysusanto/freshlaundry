@@ -247,72 +247,19 @@ export const paymentService = {
       if (!p) throw new Error(`Payment attempt '${paymentId}' tidak ditemukan.`);
       payment = p;
       currentStatus = p.status;
-    } else {
-      const { data: p, error } = await (db.from('payment_attempts') as any)
-        .select('*')
-        .or(`id.eq.${isValidUuid(paymentId) ? paymentId : '00000000-0000-0000-0000-000000000000'},provider_reference.eq.${paymentId}`)
-        .single();
 
-      if (error || !p) throw new Error(`Payment attempt '${paymentId}' tidak ditemukan.`);
-
-      payment = {
-        id: p.id,
-        orderId: p.order_id,
-        customerId: p.customer_id,
-        provider: p.provider,
-        providerReference: p.provider_reference,
-        paymentMethod: p.payment_method,
-        amount: Number(p.amount),
-        currency: 'IDR',
-        status: normalizePaymentStatus(p.status),
-        idempotencyKey: p.idempotency_key,
-        expiresAt: p.expires_at,
-        paidAt: p.paid_at,
-        rawResponse: p.raw_response,
-        createdAt: p.created_at,
-        updatedAt: p.updated_at,
-      };
-      currentStatus = payment.status;
-    }
-
-    if (currentStatus === targetStatus) {
-      if (isSupabaseConfigured && db) {
-        const { data: targetOrder, error: orderFetchErr } = await (db.from('orders') as any)
-          .select('id, payment_status, status')
-          .eq('id', payment.orderId)
-          .maybeSingle();
-
-        if (orderFetchErr || !targetOrder) {
-          throw new Error(`Order target '${payment.orderId}' tidak ditemukan di database.`);
-        }
-
-        if (targetOrder.payment_status !== targetStatus) {
-          const now = new Date().toISOString();
-          const { error: syncErr } = await (db.from('orders') as any)
-            .update({ payment_status: targetStatus, updated_at: now })
-            .eq('id', payment.orderId);
-
-          if (syncErr) {
-            throw new Error(`Supabase Order Payment Status Sync Error: ${syncErr.message}`);
-          }
-        }
-      } else {
+      if (currentStatus === targetStatus) {
         orderService.updateOrderPaymentStatus(payment.orderId, targetStatus);
+        return payment;
       }
-      return payment;
-    }
 
-    // Validate Payment State Machine Transition
-    if (!canTransitionPaymentStatus(currentStatus, targetStatus)) {
-      throw new Error(
-        `Transisi status pembayaran tidak valid: Tidak dapat mengubah status dari '${currentStatus}' ke '${targetStatus}'.`
-      );
-    }
+      if (!canTransitionPaymentStatus(currentStatus, targetStatus)) {
+        throw new Error(
+          `Transisi status pembayaran tidak valid: Tidak dapat mengubah status dari '${currentStatus}' ke '${targetStatus}'.`
+        );
+      }
 
-    const now = new Date().toISOString();
-
-    if (!isSupabaseConfigured || !db) {
-      const mockPayments = this.getMockPayments();
+      const now = new Date().toISOString();
       const idx = mockPayments.findIndex((x) => x.id === payment!.id);
       if (idx !== -1) {
         mockPayments[idx] = {
@@ -327,117 +274,55 @@ export const paymentService = {
       return mockPayments[idx] || payment;
     }
 
-    // Target Order Validation
-    const { data: targetOrder, error: orderFetchErr } = await (db.from('orders') as any)
-      .select('id, payment_status, status')
-      .eq('id', payment.orderId)
+    // 1. Fetch Payment Attempt row from Supabase (by ID or provider_reference)
+    const { data: p, error: fetchErr } = await (db.from('payment_attempts') as any)
+      .select('*')
+      .or(`id.eq.${isValidUuid(paymentId) ? paymentId : '00000000-0000-0000-0000-000000000000'},provider_reference.eq.${paymentId}`)
       .maybeSingle();
 
-    if (orderFetchErr || !targetOrder) {
-      throw new Error(`Order target '${payment.orderId}' tidak ditemukan di database.`);
-    }
+    if (fetchErr || !p) throw new Error(`Payment attempt '${paymentId}' tidak ditemukan.`);
 
-    const updates: any = {
-      status: targetStatus,
-      updated_at: now,
-    };
-    if (targetStatus === 'paid') {
-      updates.paid_at = now;
-    }
+    currentStatus = normalizePaymentStatus(p.status);
 
-    // ATOMIC CONDITIONAL UPDATE: Ensure status has not changed concurrently
-    const { data: updatedRows, error: updateErr } = await (db.from('payment_attempts') as any)
-      .update(updates)
-      .eq('id', payment.id)
-      .eq('status', currentStatus)
-      .select();
-
-    if (updateErr) {
-      throw new Error(`Supabase Payment Status Update Error: ${updateErr.message}`);
-    }
-
-    // If no row was updated, concurrent transition occurred
-    if (!updatedRows || updatedRows.length === 0) {
-      const { data: fresh } = await (db.from('payment_attempts') as any)
-        .select('*')
-        .eq('id', payment.id)
-        .maybeSingle();
-
-      if (fresh && normalizePaymentStatus(fresh.status) === targetStatus) {
-        // Reconcile order payment status if needed
-        if (targetOrder.payment_status !== targetStatus) {
-          const { error: syncErr } = await (db.from('orders') as any)
-            .update({ payment_status: targetStatus, updated_at: now })
-            .eq('id', payment.orderId);
-          if (syncErr) {
-            throw new Error(`Supabase Order Payment Status Sync Error: ${syncErr.message}`);
-          }
-        }
-        return {
-          id: fresh.id,
-          orderId: fresh.order_id,
-          customerId: fresh.customer_id,
-          provider: fresh.provider,
-          providerReference: fresh.provider_reference,
-          paymentMethod: fresh.payment_method,
-          amount: Number(fresh.amount),
-          currency: 'IDR',
-          status: targetStatus,
-          idempotencyKey: fresh.idempotency_key,
-          expiresAt: fresh.expires_at,
-          paidAt: fresh.paid_at,
-          rawResponse: fresh.raw_response,
-          createdAt: fresh.created_at,
-          updatedAt: fresh.updated_at,
-        };
-      }
-
+    if (currentStatus !== targetStatus && !canTransitionPaymentStatus(currentStatus, targetStatus)) {
       throw new Error(
-        `Gagal memperbarui status pembayaran: Konkuransi data terdeteksi atau status '${payment.id}' telah diubah dari '${currentStatus}'.`
+        `Transisi status pembayaran tidak valid: Tidak dapat mengubah status dari '${currentStatus}' ke '${targetStatus}'.`
       );
     }
 
-    const updatedRow = updatedRows[0];
+    // 2. Invoke Single-Step Atomic Database RPC
+    const { data: rpcResult, error: rpcErr } = await (db.rpc as any)('transition_payment_status_atomic', {
+      p_payment_id: p.id,
+      p_target_status: targetStatus,
+      p_notes: notes || '',
+    });
 
-    // Update order.payment_status in orders table with explicit error handling (Requirement 2)
-    const { error: orderUpdateErr } = await (db.from('orders') as any)
-      .update({ payment_status: targetStatus, updated_at: now })
-      .eq('id', payment.orderId);
-
-    if (orderUpdateErr) {
-      throw new Error(`Supabase Order Payment Status Update Error: ${orderUpdateErr.message}`);
+    if (rpcErr) {
+      throw new Error(`Supabase Atomic Payment Status Update Error: ${rpcErr.message}`);
     }
 
-    // Insert order status log audit entry for payment verification (strictly keeping orders.status = pending)
-    if (targetStatus === 'paid') {
-      const { error: logErr } = await (db.from('order_status_logs') as any).insert({
-        order_id: payment.orderId,
-        status: 'pending',
-        notes: notes || 'Pembayaran terverifikasi lunas oleh Payment Gateway. Menunggu konfirmasi Mitra Laundry.',
-        updated_by: payment.customerId || payment.id,
-      });
-
-      if (logErr) {
-        console.warn('[ORDER-LOG-WARNING] Gagal membuat order_status_log:', logErr.message);
-      }
-    }
+    // 3. Read back fresh updated row from Supabase
+    const { data: fresh } = await (db.from('payment_attempts') as any)
+      .select('*')
+      .eq('id', p.id)
+      .single();
 
     return {
-      id: updatedRow.id,
-      orderId: updatedRow.order_id,
-      customerId: updatedRow.customer_id,
-      provider: updatedRow.provider,
-      providerReference: updatedRow.provider_reference,
-      paymentMethod: updatedRow.payment_method,
-      amount: Number(updatedRow.amount),
+      id: fresh.id,
+      orderId: fresh.order_id,
+      customerId: fresh.customer_id,
+      provider: fresh.provider,
+      providerReference: fresh.provider_reference,
+      paymentMethod: fresh.payment_method,
+      amount: Number(fresh.amount),
       currency: 'IDR',
-      status: targetStatus,
-      idempotencyKey: updatedRow.idempotency_key,
-      expiresAt: updatedRow.expires_at,
-      paidAt: updatedRow.paid_at,
-      rawResponse: updatedRow.raw_response,
-      createdAt: updatedRow.created_at,
-      updatedAt: updatedRow.updated_at,
+      status: normalizePaymentStatus(fresh.status),
+      idempotencyKey: fresh.idempotency_key,
+      expiresAt: fresh.expires_at,
+      paidAt: fresh.paid_at,
+      rawResponse: fresh.raw_response,
+      createdAt: fresh.created_at,
+      updatedAt: fresh.updated_at,
     };
   },
 
