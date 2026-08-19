@@ -84,6 +84,18 @@ export class MockPaymentGateway implements PaymentGateway {
 }
 
 /**
+ * Generates a short, ASCII-safe, unique, and stable provider reference for Midtrans order_id.
+ * Format: FL-{short_order_id}-{timestamp_suffix} (e.g. FL-1787124820731-482073 or FL-7d8e9f0a1b2c-482073).
+ * Always <= 25 characters (well below Midtrans 50-character limit).
+ */
+export function generateShortProviderReference(orderId: string): string {
+  const cleanId = (orderId || '').replace(/[^a-zA-Z0-9]/g, '');
+  const shortId = cleanId.slice(-12) || 'ORDER';
+  const ts = Date.now().toString().slice(-6);
+  return `FL-${shortId}-${ts}`;
+}
+
+/**
  * Production Midtrans Payment Gateway Adapter.
  * Communicates server-side exclusively with Midtrans Snap & Core REST API.
  * Never logs or exposes MIDTRANS_SERVER_KEY.
@@ -104,7 +116,7 @@ export class MidtransPaymentGateway implements PaymentGateway {
   }
 
   private getHeaders(): HeadersInit {
-    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    const serverKey = (process.env.MIDTRANS_SERVER_KEY || '').trim();
     if (!serverKey) {
       throw new Error('MIDTRANS_SERVER_KEY belum dikonfigurasi.');
     }
@@ -117,7 +129,7 @@ export class MidtransPaymentGateway implements PaymentGateway {
   }
 
   async createPaymentRequest(req: CreatePaymentGatewayRequest): Promise<PaymentGatewayResponse> {
-    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    const serverKey = (process.env.MIDTRANS_SERVER_KEY || '').trim();
     if (!serverKey) {
       throw new Error('MIDTRANS_SERVER_KEY belum dikonfigurasi.');
     }
@@ -126,7 +138,10 @@ export class MidtransPaymentGateway implements PaymentGateway {
       throw new Error('Validasi Nominal Midtrans Gagal: Jumlah pembayaran tidak valid.');
     }
 
-    const providerReference = req.idempotencyKey || `MDT-${req.orderId}-${Date.now()}`;
+    const providerReference = (req.idempotencyKey && req.idempotencyKey.length <= 48)
+      ? req.idempotencyKey
+      : generateShortProviderReference(req.orderId);
+
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 

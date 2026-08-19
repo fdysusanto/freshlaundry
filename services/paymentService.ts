@@ -7,7 +7,7 @@ import {
 import { UserRole } from '@/types/user';
 import { isValidUuid } from '@/utils/formatters';
 import { orderService } from './orderService';
-import { defaultGateway, PaymentGateway, getPaymentGateway } from './paymentGateway';
+import { defaultGateway, PaymentGateway, getPaymentGateway, generateShortProviderReference } from './paymentGateway';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { triggerStatusChangeWebhook } from './webhookService';
 
@@ -135,7 +135,7 @@ export const paymentService = {
       return activePayment;
     }
 
-    const idempotencyKey = `IDEMP-${order.id}-${Date.now()}`;
+    const idempotencyKey = generateShortProviderReference(order.id);
 
     // 4. Invoke Provider Gateway Abstraction
     const gatewayRes = await getPaymentGateway().createPaymentRequest({

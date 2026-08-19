@@ -1,4 +1,4 @@
-import { MidtransPaymentGateway } from '../services/paymentGateway';
+import { MidtransPaymentGateway, generateShortProviderReference } from '../services/paymentGateway';
 
 // Store original fetch & env
 const originalFetch = global.fetch;
@@ -193,6 +193,44 @@ async function runMidtransGatewayTests() {
         idempotencyKey: 'MDT-IDEMP-006',
       });
     }, 'Test 6: Missing MIDTRANS_SERVER_KEY rejected before API call');
+  }
+
+  // Test 7: Midtrans order_id Short Format (FL-...) & ASCII Safety Verification
+  {
+    process.env = { ...originalEnv, MIDTRANS_SERVER_KEY: TEST_SERVER_KEY, MIDTRANS_IS_PRODUCTION: 'false' };
+    let capturedBody: any = {};
+
+    global.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      capturedBody = JSON.parse((init?.body as string) || '{}');
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          token: 'snap-token-short-id',
+          redirect_url: 'https://app.sandbox.midtrans.com/snap/v1/transactions/snap-token-short-id/pdf',
+        }),
+      } as Response;
+    }) as typeof fetch;
+
+    const longUuidOrderId = '8f4b23e1-9c8a-4f51-b321-7d8e9f0a1b2c';
+    const shortRef = generateShortProviderReference(longUuidOrderId);
+
+    assert(shortRef.startsWith('FL-'), 'Test 7: order_id starts with FL- prefix');
+    assert(shortRef.length <= 30, 'Test 7: order_id length is <= 30 characters');
+    assert(/^[a-zA-Z0-9-]+$/.test(shortRef), 'Test 7: order_id contains only ASCII alphanumeric and hyphens');
+
+    const gateway = new MidtransPaymentGateway();
+    const res = await gateway.createPaymentRequest({
+      orderId: longUuidOrderId,
+      amount: 75000,
+      currency: 'IDR',
+      paymentMethod: 'snap',
+      idempotencyKey: shortRef,
+    });
+
+    assert(res.providerReference === shortRef, 'Test 7: providerReference matches shortRef');
+    assert(capturedBody.transaction_details.order_id === shortRef, 'Test 7: transaction_details.order_id matches providerReference');
+    assert(capturedBody.transaction_details.order_id.length <= 30, 'Test 7: Midtrans transaction_details.order_id is strictly <= 30 chars');
   }
 
   // Restore environment & fetch
