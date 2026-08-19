@@ -7,6 +7,16 @@ import { PaymentStatus } from '@/types/payment';
 export const runtime = 'nodejs';
 
 /**
+ * GET Handler for Midtrans Dashboard URL Verification & Health Checks.
+ */
+export async function GET() {
+  return NextResponse.json(
+    { success: true, status: 'OK', message: 'FreshLaundry Payment Webhook Endpoint Active' },
+    { status: 200 }
+  );
+}
+
+/**
  * Production Inbound Webhook Endpoint for Payment Gateway Callbacks.
  * Supports Midtrans Notification Webhooks (SHA-512 Cryptographic Signature Verification)
  * as well as legacy Xendit Callbacks.
@@ -28,7 +38,7 @@ export async function POST(request: NextRequest) {
   const isMidtransNotification = Boolean(body.signature_key && body.order_id && body.transaction_status);
 
   if (isMidtransNotification) {
-    const serverKey = process.env.MIDTRANS_SERVER_KEY || '';
+    const serverKey = (process.env.MIDTRANS_SERVER_KEY || '').trim();
     if (!serverKey) {
       console.error('[WEBHOOK-SECURITY-ERROR] MIDTRANS_SERVER_KEY tidak dikonfigurasi di environment variables.');
       return NextResponse.json(
@@ -63,6 +73,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, message: 'Autentikasi tanda tangan (signature) webhook Midtrans tidak valid.' },
         { status: 401 }
+      );
+    }
+
+    // Handle Midtrans Dashboard Test Notification Ping after signature verification
+    const lowerOrderId = orderId.toLowerCase();
+    if (lowerOrderId.startsWith('test') || lowerOrderId.startsWith('sample') || orderId === '123456789') {
+      return NextResponse.json(
+        { success: true, message: 'Midtrans Test Notification URL Ping Succeeded' },
+        { status: 200 }
       );
     }
 
@@ -126,7 +145,11 @@ export async function POST(request: NextRequest) {
     } catch (err: any) {
       const errorMsg = err.message || '';
       if (errorMsg.includes('tidak ditemukan')) {
-        return NextResponse.json({ success: false, message: errorMsg }, { status: 404 });
+        const isSandbox = process.env.MIDTRANS_IS_PRODUCTION !== 'true';
+        return NextResponse.json(
+          { success: true, message: errorMsg },
+          { status: isSandbox ? 200 : 404 }
+        );
       }
       if (errorMsg.includes('Validasi Jumlah') || errorMsg.includes('Provider mismatch')) {
         return NextResponse.json({ success: false, message: errorMsg }, { status: 400 });
