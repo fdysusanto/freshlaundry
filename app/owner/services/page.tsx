@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { laundryService } from '@/services/laundryService';
@@ -36,18 +35,23 @@ export default function OwnerServicesListingPage() {
   const [selectedLaundryId, setSelectedLaundryId] = useState<string>('lnd_001');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterActive, setFilterActive] = useState<string>('all');
+  const [isLoading, setIsLoading] = useState(true);
 
   const loadData = async () => {
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-    const userLaundryId = user.laundryId || 'lnd_001';
-    setSelectedLaundryId(userLaundryId);
+    setIsLoading(true);
     try {
+      const user = authService.getCurrentUserSync();
+      setCurrentUser(user);
+      const userLaundryId = user?.laundryId || 'lnd_001';
+      setSelectedLaundryId(userLaundryId);
+
       const liveServices = await laundryService.getServicesByLaundryAsync(userLaundryId);
       setServices(liveServices);
     } catch {
-      const laundryServices = laundryService.getServicesByLaundry(userLaundryId);
-      setServices(laundryServices);
+      const fallbackServices = laundryService.getServicesByLaundry('lnd_001');
+      setServices(fallbackServices);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -56,9 +60,7 @@ export default function OwnerServicesListingPage() {
   }, []);
 
   const selectedLaundry: Laundry = useMemo(() => {
-    return (
-      DEMO_LAUNDRIES.find((l) => l.id === selectedLaundryId) || DEMO_LAUNDRIES[0]
-    );
+    return DEMO_LAUNDRIES.find((l) => l.id === selectedLaundryId) || DEMO_LAUNDRIES[0];
   }, [selectedLaundryId]);
 
   const handleToggleActive = async (serviceId: string) => {
@@ -71,7 +73,7 @@ export default function OwnerServicesListingPage() {
         { isActive: !targetService.isActive },
         currentUser
       );
-      loadData();
+      await loadData();
     } catch (err: any) {
       alert(err.message || 'Gagal mengubah status layanan.');
     }
@@ -97,40 +99,15 @@ export default function OwnerServicesListingPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
+      
       {/* Top Back Navigation */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => router.push('/owner')}
           className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 transition-colors cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" /> Kembali ke Dashboard Owner
+          <ArrowLeft className="w-4 h-4" /> Kembali ke Dashboard Mitra
         </button>
-
-        {/* Multi-Laundry Switcher for Demo */}
-        <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-          <Store className="w-4 h-4 text-teal-700 ml-1" />
-          <select
-            value={selectedLaundryId}
-            onChange={(e) => {
-              const newId = e.target.value;
-              setSelectedLaundryId(newId);
-              if (currentUser) {
-                const updatedUser = { ...currentUser, laundryId: newId };
-                setCurrentUser(updatedUser);
-                authService.setCurrentUser(updatedUser);
-              }
-              const newServices = laundryService.getServicesByLaundry(newId);
-              setServices(newServices);
-            }}
-            className="text-xs font-bold bg-transparent text-slate-800 focus:outline-hidden cursor-pointer"
-          >
-            {DEMO_LAUNDRIES.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       {/* Header Banner */}
@@ -138,13 +115,13 @@ export default function OwnerServicesListingPage() {
         <div className="space-y-2 relative z-10">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-bold">
             <Layers className="w-3.5 h-3.5" />
-            <span>Katalog Layanan Toko</span>
+            <span>Katalog Layanan &amp; Tarif Marketplace</span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-black tracking-tight">
-            Manajemen Tarif & Services: {selectedLaundry.name}
+            Katalog Layanan: {selectedLaundry.name}
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-            Kelola jenis pencucian, tarif per kg/pcs, estimasi jam pengerjaan, dan status aktif/nonaktif layanan mitra laundry Anda.
+            Layanan terendah yang berstatus <strong>AKTIF</strong> akan otomatis menjadi tarif awal yang ditampilkan pada marketplace ("Mulai Rp X/unit").
           </p>
         </div>
 
@@ -173,21 +150,26 @@ export default function OwnerServicesListingPage() {
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-          <span className="text-xs font-bold text-slate-500">Status:</span>
+          <span className="text-xs font-bold text-slate-500">Filter Status:</span>
           <select
             value={filterActive}
             onChange={(e) => setFilterActive(e.target.value)}
             className="text-xs font-semibold p-2 rounded-xl border border-slate-200 focus:outline-hidden cursor-pointer"
           >
-            <option value="all">Semua Service ({services.length})</option>
-            <option value="active">Hanya Aktif</option>
-            <option value="inactive">Hanya Nonaktif</option>
+            <option value="all">Semua Layanan ({services.length})</option>
+            <option value="active">Hanya Layanan Aktif</option>
+            <option value="inactive">Hanya Layanan Nonaktif</option>
           </select>
         </div>
       </div>
 
       {/* Service Cards Grid */}
-      {filteredServices.length > 0 ? (
+      {isLoading ? (
+        <div className="text-center py-16 space-y-3">
+          <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto" />
+          <p className="text-xs text-slate-500 font-semibold">Memuat katalog layanan...</p>
+        </div>
+      ) : filteredServices.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredServices.map((srv) => (
             <Card
@@ -238,13 +220,7 @@ export default function OwnerServicesListingPage() {
                   <span className="text-slate-500">Estimasi Pengerjaan:</span>
                   <span className="font-bold text-slate-800 flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5 text-teal-600" />
-                    {srv.estimatedHours} Jam ({srv.estimatedTime || `${srv.estimatedHours} Jam`})
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Minimal Order:</span>
-                  <span className="font-semibold text-slate-700">
-                    {srv.minWeight || (srv.unit === 'kg' ? 3 : 1)} {srv.unit}
+                    {srv.estimatedHours} Jam
                   </span>
                 </div>
               </div>

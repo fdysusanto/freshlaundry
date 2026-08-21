@@ -1,27 +1,32 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
-import { DEMO_LAUNDRIES, ExtendedLaundry } from '@/utils/constants';
-import { laundryService } from '@/services/laundryService';
 import { isSupabaseConfigured } from '@/services/supabase';
-import { Laundry } from '@/types/laundry';
+import { marketplaceService } from '@/services/marketplaceService';
+import { useLocationState } from '@/hooks/useLocationState';
+import { LaundryMarketplaceItem } from '@/types/laundry';
 import { LocationPickerHeader } from '@/components/marketplace/LocationPickerHeader';
-import { LaundryCard } from '@/components/marketplace/LaundryCard';
+import { LaundryPartnerCard } from '@/components/marketplace/LaundryPartnerCard';
+import { HorizontalCardCarousel } from '@/components/marketplace/HorizontalCardCarousel';
+import { MarketplaceSectionSkeleton } from '@/components/ui/MarketplaceSkeleton';
 import { Features } from '@/components/landing/Features';
 import { HowItWorks } from '@/components/landing/HowItWorks';
 import { CTA } from '@/components/landing/CTA';
 import { Button } from '@/components/ui/Button';
-import { Sparkles, ArrowRight, Truck, Search, AlertCircle } from 'lucide-react';
+import { Sparkles, ArrowRight, MapPin, Search, AlertCircle, RefreshCw, Store } from 'lucide-react';
 
 export default function LandingMarketplacePage() {
   const router = useRouter();
+  const locationState = useLocationState();
   const [searchQuery, setSearchQuery] = useState('');
-  const [laundries, setLaundries] = useState<ExtendedLaundry[]>([]);
+  const [marketplaceItems, setMarketplaceItems] = useState<LaundryMarketplaceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Role Guard
   useEffect(() => {
     let isMounted = true;
     const checkRoleGuard = async () => {
@@ -48,45 +53,52 @@ export default function LandingMarketplacePage() {
     };
   }, [router]);
 
-  useEffect(() => {
-    let isMounted = true;
-    const loadLaundries = async () => {
-      setIsLoading(true);
-      try {
-        if (isSupabaseConfigured) {
-          const liveData: Laundry[] = await laundryService.getLaundriesAsync();
-          const extended: ExtendedLaundry[] = liveData.map((l, index) => ({
-            ...l,
-            startingPrice: 10000,
-            distanceKm: 1.2 + index * 0.5,
-            estPickupMinutes: 30,
-            badges: ['Terverifikasi', 'Supabase Live'],
-          }));
-          if (isMounted) setLaundries(extended);
-        } else {
-          if (isMounted) setLaundries(DEMO_LAUNDRIES);
-        }
-      } catch (err) {
-        console.warn('Gagal memuat laundry Supabase di beranda:', err);
-        if (isMounted && !isSupabaseConfigured) setLaundries(DEMO_LAUNDRIES);
-        else if (isMounted) setLaundries([]);
-      } finally {
-        if (isMounted) setIsLoading(false);
+  // Load Marketplace Partners
+  const loadMarketplaceData = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      // Determine if lat/lng are available from user address/location
+      let userLat: number | null = null;
+      let userLng: number | null = null;
+
+      if (locationState.user && (locationState.user as any).latitude) {
+        userLat = Number((locationState.user as any).latitude);
+        userLng = Number((locationState.user as any).longitude);
       }
-    };
 
-    loadLaundries();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+      const items = await marketplaceService.getNearbyLaundryPartnersAsync(userLat, userLng);
+      setMarketplaceItems(items);
+    } catch (err: any) {
+      console.error('[MARKETPLACE-PAGE] Error loading marketplace data:', err);
+      setErrorMessage(err.message || 'Gagal memuat daftar mitra laundry.');
+      setMarketplaceItems([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [locationState.user]);
 
-  // Top Laundries sorted by distance & rating
-  const nearestLaundries = useMemo(() => laundries.slice(0, 3), [laundries]);
-  const popularLaundries = useMemo(
-    () => [...laundries].sort((a, b) => b.rating - a.rating).slice(0, 3),
-    [laundries]
-  );
+  useEffect(() => {
+    loadMarketplaceData();
+  }, [loadMarketplaceData]);
+
+  // Section 1: "Mitra laundry terdekat" - Sorted primarily by distance ascending if available
+  const nearestPartners = useMemo(() => {
+    return [...marketplaceItems].sort((a, b) => {
+      if (a.distanceKm !== undefined && b.distanceKm !== undefined) {
+        return a.distanceKm - b.distanceKm;
+      }
+      return 0; // retain default order if distance is not present
+    });
+  }, [marketplaceItems]);
+
+  // Section 2: "Laundry pilihan di sekitar Anda" - Sorted by rating & review count & status
+  const topRatedPartners = useMemo(() => {
+    return [...marketplaceItems].sort((a, b) => {
+      if (b.rating !== a.rating) return b.rating - a.rating;
+      return b.reviewCount - a.reviewCount;
+    });
+  }, [marketplaceItems]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,18 +106,21 @@ export default function LandingMarketplacePage() {
     router.push(`/customer/laundries?search=${encodeURIComponent(searchQuery.trim())}`);
   };
 
+  const hasLocationAvailable = Boolean(locationState.displayLocation && locationState.searchLocation);
+
   return (
     <div className="space-y-12 py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        {/* Header Location & Marketplace Banner */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+        
+        {/* Header Location & Marketplace Picker */}
         <LocationPickerHeader
           onTagClick={(tag) => router.push(`/customer/laundries?search=${encodeURIComponent(tag)}`)}
         />
 
-        {/* Search & Quick CTA Bar */}
+        {/* Search Bar */}
         <form
           onSubmit={handleSearchSubmit}
-          className="bg-white p-3 sm:p-4 rounded-3xl border border-slate-200 shadow-lg flex flex-col sm:flex-row items-center gap-3"
+          className="bg-white p-3 sm:p-4 rounded-3xl border border-slate-200 shadow-md hover:shadow-lg transition-shadow flex flex-col sm:flex-row items-center gap-3"
         >
           <div className="flex-1 flex items-center gap-3 px-3 w-full">
             <Search className="w-5 h-5 text-teal-600 shrink-0" />
@@ -113,7 +128,7 @@ export default function LandingMarketplacePage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari nama laundry mitra, area, atau jenis layanan (mis. Dry Clean, Express)..."
+              placeholder="Cari nama mitra laundry, area, atau layanan (Kiloan, Express, Dry Clean)..."
               className="w-full text-xs sm:text-sm font-semibold text-slate-800 focus:outline-hidden placeholder:text-slate-400"
             />
           </div>
@@ -123,93 +138,135 @@ export default function LandingMarketplacePage() {
             variant="primary"
             size="md"
             rightIcon={<ArrowRight className="w-4 h-4" />}
-            className="w-full sm:w-auto bg-teal-600 hover:bg-teal-500 font-bold shrink-0 cursor-pointer"
+            className="w-full sm:w-auto bg-teal-600 hover:bg-teal-500 font-bold shrink-0 cursor-pointer shadow-md"
           >
             Cari Laundry
           </Button>
         </form>
 
-        {/* Section 1: Mitra Laundry Terdekat */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-teal-100 text-teal-800 text-xs font-bold mb-1">
-                <Truck className="w-3.5 h-3.5" />
-                <span>Pickup Kilat</span>
+        {/* ERROR STATE */}
+        {errorMessage && (
+          <div className="p-6 bg-rose-50 rounded-3xl border border-rose-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-rose-800">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-6 h-6 text-rose-600 shrink-0" />
+              <div>
+                <h3 className="font-bold text-sm">Gagal Memuat Daftar Mitra Laundry</h3>
+                <p className="text-xs text-rose-600">{errorMessage}</p>
               </div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                Mitra Laundry Terdekat dari Lokasi Anda
-              </h2>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadMarketplaceData}
+              leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+              className="border-rose-300 text-rose-700 hover:bg-rose-100"
+            >
+              Coba Lagi
+            </Button>
+          </div>
+        )}
+
+        {/* SECTION 1: Mitra laundry terdekat */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <span>Mitra laundry terdekat</span>
+              </h2>
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mt-0.5">
+                <MapPin className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                <span>
+                  {hasLocationAvailable
+                    ? `📍 Sekitar ${locationState.displayLocation}`
+                    : 'Mitra pilihan di area sekitar Anda'}
+                </span>
+              </div>
+            </div>
+
             <Link
               href="/customer/laundries"
-              className="text-xs font-bold text-teal-700 hover:underline flex items-center gap-1 shrink-0"
+              className="text-xs font-bold text-teal-700 hover:text-teal-600 hover:underline flex items-center gap-1 shrink-0"
             >
-              Lihat Semua ({laundries.length}) <ArrowRight className="w-4 h-4" />
+              Lihat Semua ({marketplaceItems.length}) <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
-          {nearestLaundries.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {nearestLaundries.map((laundry) => (
-                <LaundryCard key={laundry.id} laundry={laundry} />
+          {isLoading ? (
+            <MarketplaceSectionSkeleton />
+          ) : nearestPartners.length > 0 ? (
+            <HorizontalCardCarousel>
+              {nearestPartners.map((item) => (
+                <LaundryPartnerCard key={`nearest-${item.laundry.id}`} item={item} />
               ))}
-            </div>
+            </HorizontalCardCarousel>
           ) : (
-            <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center space-y-2">
-              <AlertCircle className="w-8 h-8 text-slate-300 mx-auto" />
-              <p className="text-sm font-bold text-slate-700">Belum Ada Mitra Laundry</p>
-              <p className="text-xs text-slate-500">Belum ada toko laundry aktif di lokasi ini.</p>
+            <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center space-y-3">
+              <Store className="w-10 h-10 text-slate-300 mx-auto" />
+              <p className="text-sm font-bold text-slate-700">Tidak ada mitra laundry di sekitar Anda.</p>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Coba ubah lokasi pencarian atau periksa kembali filter area Anda.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => locationState.updateSearchLocation('Kota Cirebon')}
+                className="cursor-pointer"
+              >
+                Ubah Lokasi Pencarian
+              </Button>
             </div>
           )}
         </div>
 
-        {/* Section 2: Mitra Laundry Rating Tertinggi */}
-        {popularLaundries.length > 0 && (
-          <div className="space-y-4 pt-4 border-t border-slate-200/60">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-bold mb-1">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Rating Tertinggi</span>
-                </div>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                  Mitra Laundry Favorit Pelanggan
-                </h2>
+        {/* SECTION 2: Laundry pilihan di sekitar Anda */}
+        <div className="space-y-4 pt-4 border-t border-slate-200/80">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-bold mb-1">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>Rating &amp; Favorit Pelanggan</span>
               </div>
-              <Link
-                href="/customer/laundries?sort=rating"
-                className="text-xs font-bold text-teal-700 hover:underline flex items-center gap-1 shrink-0"
-              >
-                Lihat Urutan Rating <ArrowRight className="w-4 h-4" />
-              </Link>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                Laundry pilihan di sekitar Anda
+              </h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {popularLaundries.map((laundry) => (
-                <LaundryCard key={laundry.id} laundry={laundry} />
-              ))}
-            </div>
+            <Link
+              href="/customer/laundries?sort=rating"
+              className="text-xs font-bold text-teal-700 hover:text-teal-600 hover:underline flex items-center gap-1 shrink-0"
+            >
+              Lihat Urutan Rating <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
-        )}
 
-        {/* Banner Callout Marketplace */}
-        <div className="bg-gradient-to-r from-teal-800 to-cyan-900 rounded-3xl p-6 sm:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+          {isLoading ? (
+            <MarketplaceSectionSkeleton />
+          ) : topRatedPartners.length > 0 ? (
+            <HorizontalCardCarousel>
+              {topRatedPartners.map((item) => (
+                <LaundryPartnerCard key={`toprated-${item.laundry.id}`} item={item} />
+              ))}
+            </HorizontalCardCarousel>
+          ) : null}
+        </div>
+
+        {/* Callout Banner */}
+        <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-cyan-950 rounded-3xl p-6 sm:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
           <div className="space-y-2">
             <h3 className="text-xl sm:text-2xl font-black tracking-tight">
               Punya Usaha Laundry? Bergabung Menjadi Mitra FreshWash!
             </h3>
-            <p className="text-xs sm:text-sm text-slate-200 max-w-xl">
-              Jangkau ribuan pelanggan baru di kota Anda. Dapatkan sistem order management, penugasan kurir otomatis, dan laporan omset real-time.
+            <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
+              Jangkau pelanggan baru di kota Anda dengan sistem order management modern, kurir otomatis, dan manajemen katalog layanan.
             </p>
           </div>
           <Button
             variant="primary"
             size="lg"
-            onClick={() => router.push('/customer/laundries')}
-            className="bg-white text-teal-950 font-black hover:bg-teal-50 hover:text-teal-900 shrink-0 cursor-pointer shadow-lg"
+            onClick={() => router.push('/auth/register/partner')}
+            className="bg-white text-slate-950 font-black hover:bg-slate-100 shrink-0 cursor-pointer shadow-lg"
           >
-            Jelajahi Marketplace
+            Daftar Mitra Laundry
           </Button>
         </div>
       </div>

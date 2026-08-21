@@ -26,6 +26,18 @@ export interface Laundry {
   updatedAt?: string;
 }
 
+export interface LaundryMarketplaceItem {
+  laundry: Laundry;
+  storefrontImageUrl?: string;
+  cheapestPrice?: number;
+  cheapestUnit?: 'kg' | 'pcs';
+  rating: number;
+  reviewCount: number;
+  distanceKm?: number;
+  isFavorite?: boolean;
+  badge?: string;
+}
+
 export interface LaundryUser {
   id: string;
   laundryId: string;
