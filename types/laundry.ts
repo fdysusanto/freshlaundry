@@ -3,6 +3,18 @@ export type PricingType = 'per_kg' | 'per_item' | 'fixed';
 export type AssignmentStatus = 'offered' | 'accepted' | 'rejected' | 'expired' | 'completed';
 export type PayoutStatus = 'pending' | 'paid';
 
+export interface LaundryPhoto {
+  id: string;
+  laundry_id: string;
+  storage_path: string;
+  public_url: string;
+  photo_slot: number;
+  sort_order: number;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Laundry {
   id: string;
   code: string;
@@ -29,6 +41,8 @@ export interface Laundry {
 export interface LaundryMarketplaceItem {
   laundry: Laundry;
   storefrontImageUrl?: string;
+  primaryPhoto?: LaundryPhoto;
+  photos?: LaundryPhoto[];
   cheapestPrice?: number;
   cheapestUnit?: 'kg' | 'pcs';
   rating: number;

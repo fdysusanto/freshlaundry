@@ -44,6 +44,21 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['laundries']['Row'], 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['laundries']['Insert']>;
       };
+      laundry_photos: {
+        Row: {
+          id: string;
+          laundry_id: string;
+          storage_path: string;
+          public_url: string;
+          photo_slot: number;
+          sort_order: number;
+          is_primary: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['laundry_photos']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['laundry_photos']['Insert']>;
+      };
       laundry_users: {
         Row: {
           id: string;

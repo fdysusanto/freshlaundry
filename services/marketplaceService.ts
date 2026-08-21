@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { laundryService } from './laundryService';
-import { Laundry, LaundryMarketplaceItem, LaundryService } from '@/types/laundry';
+import { Laundry, LaundryMarketplaceItem, LaundryPhoto } from '@/types/laundry';
 import { DEMO_LAUNDRIES, SERVICE_CATALOG } from '@/utils/constants';
 
 // High-quality storefront fallback images for laundry partners
@@ -13,9 +13,9 @@ const DEFAULT_STOREFRONT_PHOTOS = [
 ];
 
 /**
-  * Calculate Haversine distance in kilometers between two geographic coordinates.
-  * Returns undefined if any coordinate is missing or invalid.
-  */
+ * Calculate Haversine distance in kilometers between two geographic coordinates.
+ * Returns undefined if any coordinate is missing or invalid.
+ */
 export function calculateHaversineDistance(
   lat1?: number | null,
   lon1?: number | null,
@@ -65,6 +65,7 @@ export const marketplaceService = {
   /**
    * Fetch laundry partner listings mapped to `LaundryMarketplaceItem`.
    * Computes cheapest active service per partner in 1 batch query (NO N+1).
+   * Fetches laundry photos in 1 batch query to resolve primaryPhoto & photos[].
    * Calculates Haversine distance ONLY when both user & laundry coordinates are present.
    */
   async getNearbyLaundryPartnersAsync(
@@ -88,16 +89,17 @@ export const marketplaceService = {
 
     const laundryIds = laundries.map((l) => l.id);
     let activeServicesMap: Record<string, { price: number; unit: 'kg' | 'pcs' }[]> = {};
+    let photosMap: Record<string, LaundryPhoto[]> = {};
 
     if (isSupabaseConfigured && supabase) {
       try {
         // Efficient BATCH query for all active services across all target laundries
-        const { data: servicesData, error } = await (supabase.from('services') as any)
+        const { data: servicesData, error: servicesErr } = await (supabase.from('services') as any)
           .select('laundry_id, price_per_unit, unit, is_active')
           .in('laundry_id', laundryIds)
           .eq('is_active', true);
 
-        if (!error && servicesData) {
+        if (!servicesErr && servicesData) {
           servicesData.forEach((s: any) => {
             if (!activeServicesMap[s.laundry_id]) {
               activeServicesMap[s.laundry_id] = [];
@@ -108,8 +110,23 @@ export const marketplaceService = {
             });
           });
         }
+
+        // Efficient BATCH query for laundry photos across all target laundries (NO N+1)
+        const { data: photosData, error: photosErr } = await (supabase.from('laundry_photos') as any)
+          .select('*')
+          .in('laundry_id', laundryIds)
+          .order('photo_slot', { ascending: true });
+
+        if (!photosErr && photosData) {
+          photosData.forEach((p: LaundryPhoto) => {
+            if (!photosMap[p.laundry_id]) {
+              photosMap[p.laundry_id] = [];
+            }
+            photosMap[p.laundry_id].push(p);
+          });
+        }
       } catch (err) {
-        console.warn('[MARKETPLACE-SERVICE] Batch services query warning:', err);
+        console.warn('[MARKETPLACE-SERVICE] Batch queries warning:', err);
       }
     }
 
@@ -128,6 +145,8 @@ export const marketplaceService = {
 
     return laundries.map((laundry, index) => {
       const partnerServices = activeServicesMap[laundry.id] || [];
+      const partnerPhotos = photosMap[laundry.id] || [];
+      const primaryPhoto = partnerPhotos.find((p) => p.is_primary) || partnerPhotos[0];
 
       // Find cheapest active service price
       let cheapestPrice: number | undefined;
@@ -150,15 +169,18 @@ export const marketplaceService = {
         laundry.longitude
       );
 
-      // Map logo_url -> storefrontImageUrl with reliable photo fallback
+      // Map primaryPhoto -> logo_url -> storefrontImageUrl with reliable fallback
       const storefrontImageUrl =
-        laundry.logoUrl && laundry.logoUrl.trim() !== ''
+        primaryPhoto?.public_url ||
+        (laundry.logoUrl && laundry.logoUrl.trim() !== ''
           ? laundry.logoUrl
-          : DEFAULT_STOREFRONT_PHOTOS[index % DEFAULT_STOREFRONT_PHOTOS.length];
+          : DEFAULT_STOREFRONT_PHOTOS[index % DEFAULT_STOREFRONT_PHOTOS.length]);
 
       return {
         laundry,
         storefrontImageUrl,
+        primaryPhoto,
+        photos: partnerPhotos,
         cheapestPrice,
         cheapestUnit,
         rating: Number(laundry.rating || 5.0),

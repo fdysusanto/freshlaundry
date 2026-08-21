@@ -517,4 +517,37 @@ export const laundryService = {
       ownerUser
     );
   },
+
+  async updateLaundryProfileAsync(
+    laundryId: string,
+    profileData: {
+      name?: string;
+      description?: string;
+      phone?: string;
+      address?: string;
+      openingTime?: string;
+      closingTime?: string;
+      isOpen?: boolean;
+    }
+  ): Promise<void> {
+    if (!isSupabaseConfigured || !supabase || !isValidUuid(laundryId)) {
+      return;
+    }
+
+    const { error } = await (supabase.from('laundries') as any)
+      .update({
+        name: profileData.name,
+        description: profileData.description,
+        phone: profileData.phone,
+        address: profileData.address,
+        opening_time: profileData.openingTime,
+        closing_time: profileData.closingTime,
+        is_open: profileData.isOpen,
+      })
+      .eq('id', laundryId);
+
+    if (error) {
+      throw new Error(`Gagal meng-update profil mitra: ${error.message}`);
+    }
+  },
 };

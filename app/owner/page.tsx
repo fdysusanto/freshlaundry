@@ -7,9 +7,10 @@ import { authService } from '@/services/authService';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { orderService } from '@/services/orderService';
 import { laundryService } from '@/services/laundryService';
+import { laundryPhotoService } from '@/services/laundryPhotoService';
 import { partnerApplicationService, PartnerApplicationRecord } from '@/services/partnerApplicationService';
 import { Order } from '@/types/order';
-import { Laundry, LaundryService as ServiceCatalogItem } from '@/types/laundry';
+import { Laundry, LaundryService as ServiceCatalogItem, LaundryPhoto } from '@/types/laundry';
 import { UserProfile } from '@/types/user';
 import { formatIDR, formatDateIndo, formatDateTimeIndo } from '@/utils/formatters';
 import { getStatusConfig } from '@/utils/helpers';
@@ -38,25 +39,30 @@ import {
   XCircle,
   MessageSquare,
   Lock,
-  Save,
+  Star,
   Check,
+  Image as ImageIcon,
 } from 'lucide-react';
-
-type TabType = 'dashboard' | 'orders' | 'services' | 'profile' | 'reviews';
 
 const FALLBACK_STOREFRONT =
   'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=800&q=80';
 
-export default function LaundryOwnerDashboardPage() {
+export default function OwnerDashboardPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [ownerLaundries, setOwnerLaundries] = useState<Laundry[]>([]);
-  const [partnerApp, setPartnerApp] = useState<PartnerApplicationRecord | null>(null);
   const [selectedLaundryId, setSelectedLaundryId] = useState<string | null>(null);
+  const [partnerApp, setPartnerApp] = useState<PartnerApplicationRecord | null>(null);
+
   const [laundryOrders, setLaundryOrders] = useState<Order[]>([]);
   const [laundryServices, setLaundryServices] = useState<ServiceCatalogItem[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [ownerPhotos, setOwnerPhotos] = useState<LaundryPhoto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Tab Navigation State: 'dashboard' | 'orders' | 'services' | 'profile' | 'reviews'
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'services' | 'profile' | 'reviews'>('dashboard');
+
+  // Orders Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -138,7 +144,7 @@ export default function LaundryOwnerDashboardPage() {
     };
   }, [router]);
 
-  // Load orders and services when selected laundry changes
+  // Load orders, services, and 5-photo gallery when selected laundry changes
   useEffect(() => {
     let isMounted = true;
 
@@ -147,20 +153,23 @@ export default function LaundryOwnerDashboardPage() {
         if (isMounted) {
           setLaundryOrders([]);
           setLaundryServices([]);
+          setOwnerPhotos([]);
         }
         return;
       }
 
       try {
         if (isSupabaseConfigured) {
-          const [ordersData, servicesData] = await Promise.all([
+          const [ordersData, servicesData, photosData] = await Promise.all([
             orderService.getOrdersByLaundryAsync(selectedLaundryId),
             laundryService.getServicesByLaundryAsync(selectedLaundryId),
+            laundryPhotoService.getPhotosByLaundryAsync(selectedLaundryId),
           ]);
 
           if (isMounted) {
             setLaundryOrders(ordersData);
             setLaundryServices(servicesData);
+            setOwnerPhotos(photosData.photos);
           }
         } else {
           const mockOrders = orderService.getOrdersByLaundry(selectedLaundryId);
@@ -168,6 +177,7 @@ export default function LaundryOwnerDashboardPage() {
           if (isMounted) {
             setLaundryOrders(mockOrders);
             setLaundryServices(mockServices);
+            setOwnerPhotos([]);
           }
         }
       } catch (err) {
@@ -182,12 +192,11 @@ export default function LaundryOwnerDashboardPage() {
     };
   }, [selectedLaundryId]);
 
-  const selectedLaundry: Laundry | null = useMemo(() => {
-    if (!selectedLaundryId || ownerLaundries.length === 0) return null;
+  const selectedLaundry = useMemo(() => {
     return ownerLaundries.find((l) => l.id === selectedLaundryId) || ownerLaundries[0] || null;
-  }, [selectedLaundryId, ownerLaundries]);
+  }, [ownerLaundries, selectedLaundryId]);
 
-  // Sync profile form when selected laundry changes
+  // Sync profileForm when selectedLaundry changes
   useEffect(() => {
     if (selectedLaundry) {
       setProfileForm({
@@ -202,84 +211,65 @@ export default function LaundryOwnerDashboardPage() {
     }
   }, [selectedLaundry]);
 
-  // KPI Statistics Calculation
-  const stats = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const ordersToday = laundryOrders.filter((o) => o.createdAt.startsWith(todayStr));
-
+  // Metrics computation
+  const metrics = useMemo(() => {
+    const totalOrders = laundryOrders.length;
+    const completedOrders = laundryOrders.filter((o) => o.status === 'delivered');
+    const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
     const activeOrders = laundryOrders.filter(
-      (o) =>
-        o.status === 'pending' ||
-        o.status === 'assigned' ||
-        o.status === 'picked_up' ||
-        o.status === 'in_washing'
+      (o) => o.status !== 'delivered' && o.status !== 'cancelled'
     );
-
-    const completedOrders = laundryOrders.filter(
-      (o) =>
-        o.status === 'ready_for_delivery' ||
-        o.status === 'out_for_delivery' ||
-        o.status === 'delivered'
+    const pendingActionOrders = laundryOrders.filter(
+      (o) => o.status === 'picked_up' || o.status === 'pending'
     );
-
-    const todayRevenue = ordersToday
-      .filter((o) => o.status !== 'cancelled')
-      .reduce((sum, o) => sum + o.totalPrice, 0);
 
     return {
-      todayCount: ordersToday.length,
-      activeCount: activeOrders.length,
-      completedCount: completedOrders.length,
-      todayRevenue,
-      rating: selectedLaundry?.rating || 5.0,
-      totalReviews: selectedLaundry?.totalReviews || 0,
+      totalOrders,
+      completedOrdersCount: completedOrders.length,
+      activeOrdersCount: activeOrders.length,
+      pendingActionCount: pendingActionOrders.length,
+      totalRevenue,
     };
-  }, [laundryOrders, selectedLaundry]);
+  }, [laundryOrders]);
 
-  // Filtered orders table
+  // Filtered Orders for 'orders' tab
   const filteredOrders = useMemo(() => {
-    return laundryOrders.filter((o) => {
+    return laundryOrders.filter((order) => {
       const q = searchQuery.toLowerCase().trim();
-      const matchesSearch =
+      const matchesQuery =
         !q ||
-        o.trackingNumber.toLowerCase().includes(q) ||
-        o.customerName.toLowerCase().includes(q) ||
-        o.serviceName.toLowerCase().includes(q);
+        order.trackingNumber.toLowerCase().includes(q) ||
+        order.customerName?.toLowerCase().includes(q) ||
+        order.pickupAddress.toLowerCase().includes(q);
 
-      const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+      return matchesQuery && matchesStatus;
     });
   }, [laundryOrders, searchQuery, statusFilter]);
 
-  // Save profile modifications
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLaundryId) return;
+
     setIsSavingProfile(true);
     setProfileSuccessMsg(null);
     try {
       if (isSupabaseConfigured) {
-        const { supabase } = await import('@/services/supabase');
-        if (supabase) {
-          const { error } = await (supabase.from('laundries') as any)
-            .update({
-              name: profileForm.name.trim(),
-              description: profileForm.description.trim(),
-              phone: profileForm.phone.trim(),
-              address: profileForm.address.trim(),
-              opening_time: profileForm.openingTime,
-              closing_time: profileForm.closingTime,
-              is_open: profileForm.isOpen,
-            })
-            .eq('id', selectedLaundryId);
-
-          if (error) throw error;
-        }
+        await laundryService.updateLaundryProfileAsync(selectedLaundryId, {
+          name: profileForm.name,
+          description: profileForm.description,
+          phone: profileForm.phone,
+          address: profileForm.address,
+          openingTime: profileForm.openingTime,
+          closingTime: profileForm.closingTime,
+          isOpen: profileForm.isOpen,
+        });
       }
-      setProfileSuccessMsg('Profil toko laundry berhasil diperbarui!');
-      setTimeout(() => setProfileSuccessMsg(null), 4000);
+
+      setProfileSuccessMsg('Profil dan operasional mitra laundry berhasil diperbarui!');
+      setTimeout(() => setProfileSuccessMsg(null), 3000);
     } catch (err: any) {
-      alert(err.message || 'Gagal menyimpan profil laundry.');
+      alert(`Gagal memperbarui profil: ${err.message}`);
     } finally {
       setIsSavingProfile(false);
     }
@@ -287,464 +277,454 @@ export default function LaundryOwnerDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto" />
-          <p className="text-xs font-semibold text-slate-600">Memuat dashboard mitra laundry...</p>
-        </div>
+      <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
+        <div className="w-10 h-10 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-xs font-semibold text-slate-500">Memuat Dashboard Partner FreshLaundry...</p>
       </div>
     );
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
-      
-      {/* 1. Header Profile & Multi-Laundry Switcher */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl space-y-6 relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-teal-500/20 border border-teal-400/30 text-teal-300 font-black text-2xl flex items-center justify-center shrink-0">
-              <Store className="w-8 h-8" />
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl sm:text-3xl font-black tracking-tight">
-                  Selamat datang, {selectedLaundry ? selectedLaundry.name : currentUser?.fullName || 'Mitra Laundry'}
-                </h1>
-                {selectedLaundry && (
-                  <>
-                    <Badge variant="teal" size="sm">
-                      {selectedLaundry.code}
-                    </Badge>
-                    <span
-                      className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                        selectedLaundry.isOpen
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30'
-                          : 'bg-rose-500/20 text-rose-300 border border-rose-400/30'
-                      }`}
-                    >
-                      {selectedLaundry.isOpen ? '• Buka Menerima Order' : '• Tutup'}
-                    </span>
-                  </>
-                )}
-              </div>
-
-              <p className="text-xs text-slate-300 flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-                <span>{selectedLaundry ? selectedLaundry.address : 'Alamat Belum Terdaftar'}</span>
-              </p>
-              <p className="text-xs text-slate-400">
-                Peranan: <strong className="text-white capitalize">{currentUser?.role.replace(/_/g, ' ')}</strong> ({currentUser?.email || ''})
-              </p>
-            </div>
+      {/* HEADER DASHBOARD */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Dashboard Mitra Laundry</h1>
+            <span className="text-xs font-extrabold px-3 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200">
+              Partner Portal
+            </span>
           </div>
-
-          {/* Multi-Laundry Switcher Select Box */}
-          {ownerLaundries.length > 1 && (
-            <div className="bg-white/10 p-3 rounded-2xl border border-white/15 space-y-1.5 shrink-0">
-              <label className="text-[10px] font-bold uppercase text-slate-300 block tracking-wider">
-                Pilih Toko Laundry:
-              </label>
-              <select
-                value={selectedLaundryId || ''}
-                onChange={(e) => setSelectedLaundryId(e.target.value)}
-                className="text-xs font-bold bg-slate-900 text-teal-300 border border-teal-500/30 rounded-xl px-3 py-1.5 focus:outline-hidden cursor-pointer w-full"
-              >
-                {ownerLaundries.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name} ({l.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <p className="text-xs text-slate-500 font-medium mt-1">
+            Selamat datang, <strong className="text-slate-800">{currentUser?.fullName || 'Mitra Laundry'}</strong> ({currentUser?.email})
+          </p>
         </div>
 
-        {/* Navigation Tabs Bar (Simple MVP Navigation) */}
-        <div className="flex items-center gap-2 overflow-x-auto pt-4 border-t border-white/10 relative z-10 scrollbar-none">
-          {[
-            { id: 'dashboard', label: 'Dashboard', icon: Store },
-            { id: 'orders', label: `Pesanan (${laundryOrders.length})`, icon: ShoppingBag },
-            { id: 'services', label: `Layanan (${laundryServices.length})`, icon: Layers },
-            { id: 'profile', label: 'Profil Mitra', icon: UserCheck },
-            { id: 'reviews', label: `Ulasan (${selectedLaundry?.totalReviews || 0})`, icon: MessageSquare },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as TabType)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shrink-0 transition-all cursor-pointer ${
-                  isActive
-                    ? 'bg-teal-500 text-slate-950 shadow-md font-black'
-                    : 'bg-white/5 hover:bg-white/15 text-slate-300'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* Laundry Outlet Selector if Owner has multiple stores */}
+        {ownerLaundries.length > 1 && (
+          <div className="flex items-center gap-2">
+            <Store className="w-4 h-4 text-slate-400" />
+            <select
+              value={selectedLaundryId || ''}
+              onChange={(e) => setSelectedLaundryId(e.target.value)}
+              className="text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:ring-2 focus:ring-teal-500 cursor-pointer"
+            >
+              {ownerLaundries.map((lnd) => (
+                <option key={lnd.id} value={lnd.id}>
+                  {lnd.name} ({lnd.code})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* ONBOARDING / EMPTY STATES FOR OWNER WITHOUT ACTIVE LAUNDRY */}
-      {!selectedLaundry && ownerLaundries.length === 0 ? (
-        <Card variant="white" className="p-8 sm:p-12 text-center space-y-6 shadow-xl border-teal-100 max-w-3xl mx-auto">
-          {partnerApp?.status === 'pending' ? (
-            <div className="space-y-6">
-              <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto shadow-md animate-pulse">
-                <Clock className="w-8 h-8" />
+      {/* NO LAUNDRY OUTLET / PENDING APPLICATION NOTICE */}
+      {!selectedLaundry ? (
+        <Card variant="white" className="p-8 text-center space-y-4 max-w-xl mx-auto border-amber-200 bg-amber-50/30">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto" />
+          <h2 className="text-lg font-bold text-slate-900">Belum Memiliki Outlet Laundry Aktif</h2>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Akun Anda saat ini terdaftar sebagai Mitra, namun belum memiliki outlet laundry yang terverifikasi di platform FreshWash.
+          </p>
+
+          {partnerApp ? (
+            <div className="p-4 bg-white rounded-2xl border border-amber-200 text-xs text-left space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-slate-800">Status Pengajuan Mitra:</span>
+                <span className="font-extrabold px-2.5 py-0.5 rounded-full text-[11px] bg-amber-100 text-amber-800 border border-amber-300 uppercase">
+                  {partnerApp.status}
+                </span>
               </div>
-              <div className="space-y-2 max-w-md mx-auto">
-                <Badge variant="amber" className="font-bold text-xs px-3 py-1 uppercase tracking-wider mb-2">
-                  🟡 Menunggu Verifikasi Admin
-                </Badge>
-                <h2 className="text-xl font-bold text-slate-900">
-                  Pengajuan Laundry Sedang Diverifikasi
-                </h2>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Data outlet laundry Anda (<strong>{partnerApp.laundry_name}</strong>) diajukan pada{' '}
-                  {formatDateIndo(partnerApp.created_at)} dan sedang diperiksa oleh tim Admin Platform FreshWash.
-                </p>
-              </div>
-            </div>
-          ) : partnerApp?.status === 'rejected' ? (
-            <div className="space-y-6">
-              <div className="w-16 h-16 rounded-3xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto shadow-md">
-                <XCircle className="w-8 h-8" />
-              </div>
-              <div className="space-y-2 max-w-md mx-auto">
-                <Badge variant="rose" className="font-bold text-xs px-3 py-1 uppercase tracking-wider mb-2">
-                  🔴 Pengajuan Ditolak
-                </Badge>
-                <h2 className="text-xl font-bold text-slate-900">
-                  Pengajuan Laundry Perlu Perbaikan
-                </h2>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Pengajuan outlet <strong>{partnerApp.laundry_name}</strong> belum dapat disetujui. Silakan perbaiki sesuai catatan admin.
-                </p>
-              </div>
+              <p className="text-slate-500 text-[11px]">
+                Nomor Pengajuan: <code>{partnerApp.id}</code> ({formatDateIndo(partnerApp.created_at)})
+              </p>
             </div>
           ) : (
-            <div className="space-y-6">
-              <div className="w-16 h-16 rounded-3xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto shadow-md">
-                <Store className="w-8 h-8" />
-              </div>
-              <div className="space-y-2 max-w-md mx-auto">
-                <h2 className="text-xl font-bold text-slate-900">Anda Belum Memiliki Laundry Terdaftar</h2>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Daftarkan usaha laundry Anda untuk mulai menerima pesanan dan mengelola operasional melalui FreshWash.
-                </p>
-              </div>
-              <div className="pt-2 flex justify-center">
-                <Link href="/auth/register/partner">
-                  <Button variant="primary" size="lg" className="bg-teal-600 hover:bg-teal-500 font-bold text-xs shadow-lg" leftIcon={<PlusCircle className="w-4 h-4" />}>
-                    + DAFTARKAN LAUNDRY
-                  </Button>
-                </Link>
-              </div>
-            </div>
+            <Link href="/register/partner">
+              <Button variant="primary" size="md" className="bg-teal-600 hover:bg-teal-500 font-bold text-xs">
+                Daftarkan Mitra Laundry Baru
+              </Button>
+            </Link>
           )}
         </Card>
       ) : (
         <>
-          {/* 2. Overview Metrics Cards (Requirement #9) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card variant="white" className="p-5 flex items-center gap-4">
-              <div className="p-3 rounded-2xl bg-teal-50 text-teal-600">
-                <ShoppingBag className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase text-slate-500">Pesanan Hari Ini</p>
-                <h3 className="text-xl font-black text-slate-900">{stats.todayCount}</h3>
-              </div>
-            </Card>
+          {/* TAB NAVIGATION HEADER (Dashboard, Pesanan, Layanan, Profil Mitra, Ulasan) */}
+          <div className="flex items-center gap-2 border-b border-slate-200 pb-1 overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+                activeTab === 'dashboard'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <TrendingUp className="w-4 h-4" />
+              <span>Ringkasan Dashboard</span>
+            </button>
 
-            <Card variant="white" className="p-5 flex items-center gap-4">
-              <div className="p-3 rounded-2xl bg-amber-50 text-amber-600">
-                <Clock className="w-6 h-6 animate-spin-slow" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase text-slate-500">Pesanan Aktif</p>
-                <h3 className="text-xl font-black text-slate-900">{stats.activeCount}</h3>
-              </div>
-            </Card>
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+                activeTab === 'orders'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>Daftar Pesanan ({laundryOrders.length})</span>
+            </button>
 
-            <Card variant="white" className="p-5 flex items-center gap-4">
-              <div className="p-3 rounded-2xl bg-blue-50 text-blue-600">
-                <TrendingUp className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase text-slate-500">Pendapatan Hari Ini</p>
-                <h3 className="text-xl font-black text-slate-900">{formatIDR(stats.todayRevenue)}</h3>
-              </div>
-            </Card>
+            <button
+              onClick={() => setActiveTab('services')}
+              className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+                activeTab === 'services'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              <span>Katalog Layanan ({laundryServices.length})</span>
+            </button>
 
-            <Card variant="white" className="p-5 flex items-center gap-4">
-              <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase text-slate-500">Rating Toko</p>
-                <h3 className="text-xl font-black text-slate-900">★ {stats.rating.toFixed(1)}</h3>
-              </div>
-            </Card>
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+                activeTab === 'profile'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <Store className="w-4 h-4" />
+              <span>Profil Mitra & Operasional</span>
+            </button>
           </div>
 
-          {/* 3. Main Views */}
-          {activeTab === 'dashboard' || activeTab === 'orders' ? (
+          {/* TAB 1: RINGKASAN DASHBOARD */}
+          {activeTab === 'dashboard' && (
             <div className="space-y-6">
-              {/* Filter & Search Bar */}
-              <Card variant="white" className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="relative w-full sm:w-72">
-                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Cari resi, nama, layanan..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
-                  />
+              {/* METRIC CARDS GRID */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card variant="white" className="p-5 border-teal-100 bg-teal-50/30 space-y-2">
+                  <div className="flex items-center justify-between text-teal-800">
+                    <span className="text-xs font-bold">Total Pendapatan Selesai</span>
+                    <DollarSign className="w-5 h-5 text-teal-600" />
+                  </div>
+                  <p className="text-2xl font-black text-teal-900">{formatIDR(metrics.totalRevenue)}</p>
+                  <p className="text-[11px] text-teal-700 font-semibold">{metrics.completedOrdersCount} pesanan selesai</p>
+                </Card>
+
+                <Card variant="white" className="p-5 border-amber-100 bg-amber-50/30 space-y-2">
+                  <div className="flex items-center justify-between text-amber-800">
+                    <span className="text-xs font-bold">Pesanan Perlu Tindakan</span>
+                    <Clock className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <p className="text-2xl font-black text-amber-900">{metrics.pendingActionCount}</p>
+                  <p className="text-[11px] text-amber-700 font-semibold">Tiba di outlet &amp; siap diproses</p>
+                </Card>
+
+                <Card variant="white" className="p-5 border-blue-100 bg-blue-50/30 space-y-2">
+                  <div className="flex items-center justify-between text-blue-800">
+                    <span className="text-xs font-bold">Pesanan Aktif Diproses</span>
+                    <Package className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <p className="text-2xl font-black text-blue-900">{metrics.activeOrdersCount}</p>
+                  <p className="text-[11px] text-blue-700 font-semibold">Proses pencucian &amp; pengantaran</p>
+                </Card>
+
+                <Card variant="white" className="p-5 border-purple-100 bg-purple-50/30 space-y-2">
+                  <div className="flex items-center justify-between text-purple-800">
+                    <span className="text-xs font-bold">Rating Mitra Laundry</span>
+                    <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+                  </div>
+                  <p className="text-2xl font-black text-purple-900">★ {selectedLaundry.rating.toFixed(1)}</p>
+                  <p className="text-[11px] text-purple-700 font-semibold">{selectedLaundry.totalReviews} ulasan customer</p>
+                </Card>
+              </div>
+
+              {/* RECENT ORDERS TABLE BRIEF */}
+              <Card variant="white" className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <ShoppingBag className="w-5 h-5 text-teal-600" />
+                    <span>Pesanan Masuk Terbaru ({laundryOrders.slice(0, 5).length})</span>
+                  </h3>
+                  <Button variant="outline" size="sm" onClick={() => setActiveTab('orders')}>
+                    Lihat Semua Pesanan
+                  </Button>
                 </div>
 
-                <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto scrollbar-none">
-                  <Filter className="w-4 h-4 text-slate-400 shrink-0" />
-                  {[
-                    { key: 'all', label: 'Semua Pesanan' },
-                    { key: 'pending', label: 'Pesanan Baru' },
-                    { key: 'in_washing', label: 'Diproses' },
-                    { key: 'ready_for_delivery', label: 'Siap Diambil' },
-                    { key: 'delivered', label: 'Selesai' },
-                  ].map((st) => (
-                    <button
-                      key={st.key}
-                      onClick={() => setStatusFilter(st.key)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors cursor-pointer ${
-                        statusFilter === st.key
-                          ? 'bg-teal-600 text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      {st.label}
-                    </button>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-400 font-bold bg-slate-50">
+                        <th className="p-3">No. Tracking</th>
+                        <th className="p-3">Customer</th>
+                        <th className="p-3">Layanan</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3">Total</th>
+                        <th className="p-3 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {laundryOrders.slice(0, 5).map((order) => {
+                        const statusCfg = getStatusConfig(order.status);
+                        return (
+                          <tr key={order.id} className="hover:bg-slate-50/80">
+                            <td className="p-3 font-bold text-slate-800">{order.trackingNumber}</td>
+                            <td className="p-3 font-semibold text-slate-700">{order.customerName || 'Customer'}</td>
+                            <td className="p-3 text-slate-600">{order.serviceType}</td>
+                            <td className="p-3">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${statusCfg.bg} ${statusCfg.color}`}>
+                                {statusCfg.label}
+                              </span>
+                            </td>
+                            <td className="p-3 font-black text-slate-900">{formatIDR(order.totalPrice)}</td>
+                            <td className="p-3 text-right">
+                              <Link href={`/orders/${order.id}`}>
+                                <Button variant="outline" size="sm" leftIcon={<Eye className="w-3.5 h-3.5" />}>
+                                  Detail
+                                </Button>
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              </Card>
-
-              {/* Orders Table */}
-              <Card variant="white" className="overflow-hidden p-0 shadow-lg">
-                {filteredOrders.length === 0 ? (
-                  <div className="text-center py-12 space-y-3">
-                    <Package className="w-12 h-12 text-slate-300 mx-auto" />
-                    <h3 className="text-base font-bold text-slate-700">Belum ada pesanan</h3>
-                    <p className="text-xs text-slate-500">Toko laundry ini belum memiliki pesanan yang sesuai dengan filter.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 text-slate-600 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
-                        <tr>
-                          <th className="px-6 py-4">No. Resi</th>
-                          <th className="px-6 py-4">Pelanggan</th>
-                          <th className="px-6 py-4">Layanan</th>
-                          <th className="px-6 py-4">Status Pesanan</th>
-                          <th className="px-6 py-4">Total</th>
-                          <th className="px-6 py-4 text-right">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                        {filteredOrders.map((order) => {
-                          const statusConfig = getStatusConfig(order.status);
-                          return (
-                            <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
-                              <td className="px-6 py-4 font-bold text-slate-900">
-                                <div>#{order.trackingNumber}</div>
-                                <div className="text-[10px] font-normal text-slate-400">{formatDateTimeIndo(order.createdAt)}</div>
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="font-bold text-slate-800">{order.customerName}</div>
-                                <div className="text-[11px] text-slate-500">{order.customerPhone}</div>
-                              </td>
-                              <td className="px-6 py-4">
-                                <span className="font-semibold text-slate-800">{order.serviceName}</span>
-                                {order.estimatedWeightKg && (
-                                  <span className="text-[11px] text-slate-500 block">{order.estimatedWeightKg} kg</span>
-                                )}
-                              </td>
-                              <td className="px-6 py-4">
-                                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${statusConfig.bg} ${statusConfig.color}`}>
-                                  {order.paymentStatus === 'paid' && order.status === 'pending'
-                                    ? 'Pesanan Baru (Perlu Konfirmasi)'
-                                    : statusConfig.label}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 font-bold text-slate-900">
-                                {formatIDR(order.totalPrice)}
-                              </td>
-                              <td className="px-6 py-4 text-right space-y-1">
-                                <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                                  {order.paymentStatus === 'paid' && order.status === 'pending' && (
-                                    <Button
-                                      variant="primary"
-                                      size="sm"
-                                      onClick={async () => {
-                                        try {
-                                          await orderService.assignCourierAsync(order.id, undefined, undefined, currentUser?.id || '');
-                                          alert(`Pesanan #${order.trackingNumber} berhasil dikonfirmasi!`);
-                                          window.location.reload();
-                                        } catch (err: any) {
-                                          alert(err.message || 'Gagal mengonfirmasi pesanan.');
-                                        }
-                                      }}
-                                    >
-                                      Konfirmasi Pesanan
-                                    </Button>
-                                  )}
-                                  {order.status === 'picked_up' && (
-                                    <Button
-                                      variant="primary"
-                                      size="sm"
-                                      onClick={async () => {
-                                        try {
-                                          await orderService.transitionOrderStatusAsync(order.id, 'in_washing', { id: currentUser?.id || '', role: currentUser?.role || 'laundry_owner', laundryId: order.laundryId }, 'Masuk ke proses cuci');
-                                          window.location.reload();
-                                        } catch (err: any) {
-                                          alert(err.message || 'Gagal merubah status.');
-                                        }
-                                      }}
-                                    >
-                                      Proses Cuci
-                                    </Button>
-                                  )}
-                                  {order.status === 'in_washing' && (
-                                    <Button
-                                      variant="primary"
-                                      size="sm"
-                                      onClick={async () => {
-                                        try {
-                                          await orderService.transitionOrderStatusAsync(order.id, 'ready_for_delivery', { id: currentUser?.id || '', role: currentUser?.role || 'laundry_owner', laundryId: order.laundryId }, 'Cucian selesai & siap diantar');
-                                          window.location.reload();
-                                        } catch (err: any) {
-                                          alert(err.message || 'Gagal merubah status.');
-                                        }
-                                      }}
-                                    >
-                                      Siap Diantar
-                                    </Button>
-                                  )}
-                                  <Link href={`/orders/${order.id}`}>
-                                    <Button variant="outline" size="sm" leftIcon={<Eye className="w-3.5 h-3.5" />}>
-                                      Lihat Detail
-                                    </Button>
-                                  </Link>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
               </Card>
             </div>
-          ) : null}
+          )}
 
-          {/* TAB LAYANAN */}
+          {/* TAB 2: DAFTAR PESANAN FULL */}
+          {activeTab === 'orders' && (
+            <Card variant="white" className="p-6 space-y-6">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">Manajemen Pesanan Laundry</h3>
+                  <p className="text-xs text-slate-500">Kelola status penerimaan cucian, timbangan, dan proses pencucian.</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Cari tracking / customer..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 pr-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50"
+                    />
+                  </div>
+
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="text-xs font-bold py-2 px-3 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer"
+                  >
+                    <option value="all">Semua Status</option>
+                    <option value="picked_up">Pakaian Diambil</option>
+                    <option value="in_washing">Sedang Dicuci</option>
+                    <option value="ready_for_delivery">Siap Diantar</option>
+                    <option value="delivered">Selesai/Tiba</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-400 font-bold bg-slate-50">
+                      <th className="p-3">No. Tracking</th>
+                      <th className="p-3">Customer</th>
+                      <th className="p-3">Alamat</th>
+                      <th className="p-3">Layanan</th>
+                      <th className="p-3">Estimasi / Final Weight</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Total</th>
+                      <th className="p-3 text-right">Aksi Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredOrders.map((order) => {
+                      const statusCfg = getStatusConfig(order.status);
+                      return (
+                        <tr key={order.id} className="hover:bg-slate-50/80">
+                          <td className="p-3 font-bold text-slate-900">{order.trackingNumber}</td>
+                          <td className="p-3 font-semibold text-slate-800">{order.customerName || 'Customer'}</td>
+                          <td className="p-3 text-slate-500 max-w-xs truncate">{order.pickupAddress}</td>
+                          <td className="p-3 text-slate-700 font-medium">{order.serviceType}</td>
+                          <td className="p-3 text-slate-600">
+                            {order.finalWeightKg ? `${order.finalWeightKg} kg (Final)` : `${order.estimatedWeightKg || '-'} kg (Est)`}
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${statusCfg.bg} ${statusCfg.color}`}>
+                              {statusCfg.label}
+                            </span>
+                          </td>
+                          <td className="p-3 font-black text-slate-900">{formatIDR(order.totalPrice)}</td>
+                          <td className="p-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {order.status === 'picked_up' && (
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      await orderService.transitionOrderStatusAsync(order.id, 'in_washing', { id: currentUser?.id || '', role: currentUser?.role || 'laundry_owner', laundryId: order.laundryId }, 'Mulai pencucian cucian customer');
+                                      window.location.reload();
+                                    } catch (err: any) {
+                                      alert(err.message || 'Gagal merubah status.');
+                                    }
+                                  }}
+                                >
+                                  Mulai Cuci
+                                </Button>
+                              )}
+                              {order.status === 'in_washing' && (
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      await orderService.transitionOrderStatusAsync(order.id, 'ready_for_delivery', { id: currentUser?.id || '', role: currentUser?.role || 'laundry_owner', laundryId: order.laundryId }, 'Cucian selesai & siap diantar');
+                                      window.location.reload();
+                                    } catch (err: any) {
+                                      alert(err.message || 'Gagal merubah status.');
+                                    }
+                                  }}
+                                >
+                                  Siap Diantar
+                                </Button>
+                              )}
+                              <Link href={`/orders/${order.id}`}>
+                                <Button variant="outline" size="sm" leftIcon={<Eye className="w-3.5 h-3.5" />}>
+                                  Lihat Detail
+                                </Button>
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {/* TAB 3: KATALOG LAYANAN (Dapat Mengubah Status Aktif & Harga) */}
           {activeTab === 'services' && (
             <Card variant="white" className="p-6 space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Manajemen Layanan Laundry</h3>
-                  <p className="text-xs text-slate-500">
-                    Layanan terendah yang AKTIF akan otomatis ditampilkan pada marketplace ("Mulai Rp X/kg").
+                  <h3 className="text-lg font-black text-slate-900">Katalog Layanan Outlet</h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Atur tarif harga per unit (kg / pcs) dan aktifkan/nonaktifkan layanan yang ditawarkan di marketplace.
                   </p>
                 </div>
-                <Link href="/owner/services">
-                  <Button variant="primary" size="sm" leftIcon={<Layers className="w-4 h-4" />}>
-                    Kelola Katalog Layanan
+                <Link href="/owner/services/create">
+                  <Button variant="primary" size="sm" leftIcon={<PlusCircle className="w-4 h-4" />}>
+                    + Tambah Layanan Baru
                   </Button>
                 </Link>
               </div>
 
-              {laundryServices.length === 0 ? (
-                <div className="text-center py-10 space-y-2">
-                  <Layers className="w-10 h-10 text-slate-300 mx-auto" />
-                  <p className="text-xs font-semibold text-slate-600">Belum ada layanan terdaftar untuk toko ini.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {laundryServices.map((srv) => (
-                    <div
-                      key={srv.id}
-                      className={`p-4 rounded-2xl border space-y-2 transition-all ${
-                        srv.isActive ? 'bg-slate-50/80 border-slate-200' : 'bg-rose-50/30 border-rose-200 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900">{srv.name}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          srv.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                        }`}>
-                          {srv.isActive ? 'Aktif' : 'Nonaktif'}
-                        </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {laundryServices.map((service) => (
+                  <div key={service.id} className="p-4 rounded-2xl border border-slate-200 space-y-3 bg-white shadow-xs">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-900">{service.name}</h4>
+                        <p className="text-[11px] text-slate-500">{service.description}</p>
                       </div>
-                      <p className="text-xs text-slate-500">{srv.description}</p>
-                      <div className="pt-2 flex items-center justify-between border-t border-slate-200/60">
-                        <span className="text-xs font-black text-teal-700">{formatIDR(srv.price)} / {srv.unit}</span>
-                        <span className="text-[11px] font-semibold text-slate-400">{srv.estimatedHours || 24} Jam</span>
-                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        service.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                      }`}>
+                        {service.isActive ? 'Aktif' : 'Non-Aktif'}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-sm font-black text-teal-700">
+                        {formatIDR(service.price)} / {service.unit}
+                      </span>
+                      <Link href={`/owner/services/${service.id}/edit`}>
+                        <Button variant="outline" size="sm">
+                          Edit Tarif
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </Card>
           )}
 
-          {/* TAB PROFIL MITRA (Contains Storefront Photo Permission Restriction & Operating Hours) */}
+          {/* TAB 4: PROFIL MITRA & OPERASIONAL */}
           {activeTab === 'profile' && selectedLaundry && (
             <div className="space-y-6">
               
-              {/* REQUIREMENT #11: STOREFRONT PHOTO SECTION - STRICTLY READ ONLY */}
+              {/* STOREFRONT 5-PHOTO GALLERY SECTION - READ ONLY */}
               <Card variant="white" className="p-6 space-y-4 border-amber-200/80 bg-amber-50/20">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                   <div>
                     <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                       <Store className="w-5 h-5 text-teal-600" />
-                      <span>Foto Storefront Mitra Laundry</span>
+                      <span>Galeri Foto Storefront Mitra (5 Foto)</span>
                     </h3>
-                    <p className="text-xs text-slate-500">Foto fisik tampak depan toko mitra yang tampil pada marketplace.</p>
+                    <p className="text-xs text-slate-500">Foto fisik tampak depan toko mitra yang tampil pada marketplace FreshLaundry.</p>
                   </div>
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
                     <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    ✓ Foto telah diverifikasi
+                    ✓ Foto terverifikasi ({ownerPhotos.length} / 5)
                   </span>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 pt-2">
-                  <div className="w-full sm:w-48 aspect-[4/3] rounded-2xl overflow-hidden bg-slate-200 shrink-0 shadow-md">
-                    <img
-                      src={selectedLaundry.logoUrl || FALLBACK_STOREFRONT}
-                      alt={`Storefront ${selectedLaundry.name}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-
-                  <div className="space-y-3 flex-1">
-                    <div className="p-4 bg-slate-900 text-white rounded-2xl text-xs space-y-1.5 shadow-sm">
-                      <p className="font-bold flex items-center gap-1.5 text-amber-300">
-                        <Lock className="w-4 h-4 text-amber-400 shrink-0" />
-                        Otorisasi Khusus Admin Platform:
-                      </p>
-                      <p className="text-slate-300 leading-relaxed italic">
-                        "Foto mitra dikelola oleh Admin Platform. Hubungi Admin jika ingin mengganti foto."
-                      </p>
+                {/* READ ONLY 5-PHOTO GALLERY */}
+                <div className="space-y-3 pt-1">
+                  {ownerPhotos.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                      {ownerPhotos.map((p, idx) => (
+                        <div key={p.id} className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-slate-200 border-2 border-slate-200 shadow-xs">
+                          <img src={p.public_url} alt={`Storefront ${idx + 1}`} className="w-full h-full object-cover" />
+                          {p.is_primary && (
+                            <div className="absolute top-1.5 left-1.5 bg-teal-800 text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <Star className="w-3 h-3 fill-amber-300 text-amber-300" /> Utama
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 pt-2">
+                      <div className="w-full sm:w-48 aspect-[4/3] rounded-2xl overflow-hidden bg-slate-200 shrink-0 shadow-md">
+                        <img
+                          src={selectedLaundry.logoUrl || FALLBACK_STOREFRONT}
+                          alt={`Storefront ${selectedLaundry.name}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-bold text-xs text-slate-800">Foto Utama Standar Storefront</p>
+                        <p className="text-xs text-slate-500">Belum ada galeri 5 foto yang diunggah oleh Platform Admin.</p>
+                      </div>
+                    </div>
+                  )}
 
-                    <p className="text-[11px] text-slate-500">
-                      Demi menjaga kualitas dan keaslian foto marketplace FreshLaundry, Pemilik dan Staf Mitra tidak memiliki wewenang untuk mengganti foto secara mandiri.
+                  {/* READ ONLY NOTICE BANNER */}
+                  <div className="p-4 bg-slate-900 text-white rounded-2xl text-xs space-y-1.5 shadow-sm mt-3">
+                    <p className="font-bold flex items-center gap-1.5 text-amber-300">
+                      <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+                      Otorisasi Khusus Admin Platform:
+                    </p>
+                    <p className="text-slate-300 leading-relaxed italic">
+                      "Foto mitra dikelola oleh Admin Platform. Hubungi Admin jika ingin mengganti foto."
+                    </p>
+                    <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-800">
+                      Demi menjaga kualitas dan keaslian foto marketplace FreshLaundry, Pemilik dan Staf Mitra tidak memiliki wewenang untuk menambah, mengubah, atau menghapus foto secara mandiri.
                     </p>
                   </div>
                 </div>
@@ -809,7 +789,7 @@ export default function LaundryOwnerDashboardPage() {
                     />
                   </div>
 
-                  {/* JAM OPERASIONAL INSIDE PROFIL MITRA (Requirement #7) */}
+                  {/* JAM OPERASIONAL INSIDE PROFIL MITRA */}
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
                     <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                       <Clock className="w-4 h-4 text-teal-600" />
@@ -858,33 +838,14 @@ export default function LaundryOwnerDashboardPage() {
                       variant="primary"
                       size="md"
                       disabled={isSavingProfile}
-                      leftIcon={<Save className="w-4 h-4" />}
-                      className="bg-teal-600 hover:bg-teal-500 font-bold shadow-md cursor-pointer"
+                      className="bg-teal-600 hover:bg-teal-500 font-bold"
                     >
-                      {isSavingProfile ? 'Menyimpan...' : 'Simpan Perubahan Profil'}
+                      {isSavingProfile ? 'Menyimpan...' : 'Simpan Informasi Profil'}
                     </Button>
                   </div>
                 </form>
               </Card>
             </div>
-          )}
-
-          {/* TAB ULASAN */}
-          {activeTab === 'reviews' && selectedLaundry && (
-            <Card variant="white" className="p-6 space-y-4">
-              <h3 className="text-base font-bold text-slate-900">Ulasan &amp; Rating Pelanggan</h3>
-              <p className="text-xs text-slate-500">Seluruh ulasan dan penilaian bintang dari pelanggan yang telah memesan.</p>
-              
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-4">
-                <div className="text-center">
-                  <span className="text-3xl font-black text-amber-600 block">★ {selectedLaundry.rating.toFixed(1)}</span>
-                  <span className="text-[10px] text-slate-500 uppercase font-bold">{selectedLaundry.totalReviews} Ulasan Total</span>
-                </div>
-                <p className="text-xs text-slate-600">
-                  Terus pertahankan kualitas cuci dan ketepatan waktu pengantaran untuk meraih kepercayaan pelanggan yang lebih tinggi.
-                </p>
-              </div>
-            </Card>
           )}
         </>
       )}
