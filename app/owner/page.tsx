@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
-import { isSupabaseConfigured } from '@/services/supabase';
+import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import { orderService } from '@/services/orderService';
 import { laundryService } from '@/services/laundryService';
 import { laundryPhotoService } from '@/services/laundryPhotoService';
@@ -115,19 +115,32 @@ export default function OwnerDashboardPage() {
     setWeighError(null);
 
     try {
-      const res = await orderService.updateActualWeightAndRecalculatePriceAsync(
-        weighModalOrder.id,
-        parsedWeight,
-        {
-          id: currentUser.id,
-          role: currentUser.role,
-          laundryId: weighModalOrder.laundryId,
-        }
-      );
+      const sessionRes = await supabase?.auth?.getSession();
+      const token = sessionRes?.data?.session?.access_token;
+
+      const apiRes = await fetch(`/api/orders/${weighModalOrder.id}/weigh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ finalWeightKg: parsedWeight }),
+      });
+
+      const apiData = await apiRes.json();
+      if (!apiRes.ok || !apiData.success) {
+        throw new Error(apiData.message || 'Gagal menyimpan penimbangan di server.');
+      }
+
+      const res = apiData;
 
       let msg = `Penimbangan berhasil disimpan! Berat aktual: ${parsedWeight} kg (Total: ${formatIDR(res.order.totalPrice)})`;
       if (res.priceDelta > 0) {
-        msg += `. Selisih +${formatIDR(res.priceDelta)} perlu dibayar customer sebelum pencucian.`;
+        if (res.adjustmentPaymentAttempt) {
+          msg += `. Selisih +${formatIDR(res.priceDelta)} perlu dibayar customer sebelum pencucian.`;
+        } else {
+          msg += `. Selisih +${formatIDR(res.priceDelta)} terdeteksi, namun pembuatan tiket pembayaran mengalami kendala.`;
+        }
       } else if (res.priceDelta < 0) {
         msg += `. Berat lebih rendah dari estimasi. Selisih: -${formatIDR(Math.abs(res.priceDelta))}. Catatan: Pengembalian dana otomatis belum tersedia (kelebihan pembayaran dicatat).`;
       } else {

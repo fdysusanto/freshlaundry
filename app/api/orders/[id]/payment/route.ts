@@ -57,12 +57,33 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const action = body.action || 'create';
 
-    // ACTION: Customer Requesting Price Adjustment Payment Attempt Retrieval
-    if (action === 'create_adjustment') {
-      const pendingAdj = await paymentService.getPendingAdjustmentPaymentAttemptAsync(
+    // Helper to get or auto-create adjustment attempt for overweight orders
+    const getOrCreateAdjustmentAttemptAsync = async () => {
+      let pendingAdj = await paymentService.getPendingAdjustmentPaymentAttemptAsync(
         orderId,
         userClient || undefined
       );
+
+      if (!pendingAdj && order.finalWeightKg && order.estimatedWeightKg && order.finalWeightKg > order.estimatedWeightKg) {
+        const estimatedWeight = Number(order.estimatedWeightKg) || 5;
+        const unitPrice = Number(order.items[0]?.unitPrice) || 8000;
+        const estimatedTotal = Math.round((estimatedWeight * unitPrice) + (Number(order.deliveryFee) || 0) + (Number(order.platformFee) || 2000) - (Number(order.discount) || 0));
+        const actualSubtotal = Math.round(Number(order.finalWeightKg) * unitPrice);
+        const newTotalPrice = Math.round(actualSubtotal + (Number(order.deliveryFee) || 0) + (Number(order.platformFee) || 2000) - (Number(order.discount) || 0));
+        const priceDelta = newTotalPrice - estimatedTotal;
+
+        if (priceDelta > 0) {
+          const { createServiceRoleClient, isSupabaseConfigured } = await import('@/services/supabase');
+          const serviceDb = isSupabaseConfigured ? createServiceRoleClient() : undefined;
+          pendingAdj = await paymentService.createAdjustmentPaymentAttemptAsync(orderId, priceDelta, serviceDb);
+        }
+      }
+      return pendingAdj;
+    };
+
+    // ACTION: Customer Requesting Price Adjustment Payment Attempt Retrieval / Creation
+    if (action === 'create_adjustment') {
+      const pendingAdj = await getOrCreateAdjustmentAttemptAsync();
 
       if (!pendingAdj) {
         return NextResponse.json(
@@ -77,10 +98,7 @@ export async function POST(
     // ACTION: Customer Requesting Payment Attempt Creation / Retrieval
     if (action === 'create') {
       if (order.paymentStatus === 'paid') {
-        const pendingAdj = await paymentService.getPendingAdjustmentPaymentAttemptAsync(
-          orderId,
-          userClient || undefined
-        );
+        const pendingAdj = await getOrCreateAdjustmentAttemptAsync();
         if (pendingAdj) {
           return NextResponse.json({ success: true, payment: pendingAdj });
         }
