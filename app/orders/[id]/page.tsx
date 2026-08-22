@@ -109,8 +109,12 @@ export default function OrderDetailPage() {
           const liveOrder = await orderService.getOrderByIdAsync(orderId);
           if (liveOrder && isMounted) {
             setOrder(liveOrder);
-            let adj = await paymentService.getPendingAdjustmentPaymentAttemptAsync(liveOrder.id);
-            if (!adj && liveOrder.paymentStatus === 'paid' && liveOrder.finalWeightKg && liveOrder.estimatedWeightKg && liveOrder.finalWeightKg > liveOrder.estimatedWeightKg) {
+            const adjStatus = await paymentService.getAdjustmentPaymentStatusAsync(liveOrder.id);
+            if (adjStatus.status === 'paid') {
+              if (isMounted) setPendingAdjustment(null);
+            } else if (adjStatus.status === 'pending' && adjStatus.attempt) {
+              if (isMounted) setPendingAdjustment(adjStatus.attempt);
+            } else if (liveOrder.paymentStatus === 'paid' && liveOrder.finalWeightKg && liveOrder.estimatedWeightKg && liveOrder.finalWeightKg > liveOrder.estimatedWeightKg) {
               try {
                 const sessionRes = await (supabase?.auth?.getSession() || Promise.resolve({ data: { session: null } }));
                 const token = sessionRes?.data?.session?.access_token;
@@ -124,13 +128,18 @@ export default function OrderDetailPage() {
                 });
                 const data = await res.json();
                 if (res.ok && data.success && data.payment) {
-                  adj = data.payment;
+                  if (data.payment.status === 'paid') {
+                    if (isMounted) setPendingAdjustment(null);
+                  } else {
+                    if (isMounted) setPendingAdjustment(data.payment);
+                  }
                 }
               } catch (adjFetchErr) {
                 console.warn('[ORDER-PAGE] Error fetching/creating adjustment attempt:', adjFetchErr);
               }
+            } else {
+              if (isMounted) setPendingAdjustment(null);
             }
-            if (isMounted) setPendingAdjustment(adj);
             return;
           }
         } catch (err: any) {
@@ -142,8 +151,10 @@ export default function OrderDetailPage() {
           const localOrder = orderService.getOrderById(orderId);
           setOrder(localOrder);
           if (localOrder) {
-            paymentService.getPendingAdjustmentPaymentAttemptAsync(localOrder.id).then((adj) => {
-              if (isMounted) setPendingAdjustment(adj);
+            paymentService.getAdjustmentPaymentStatusAsync(localOrder.id).then((adjStatus) => {
+              if (isMounted) {
+                setPendingAdjustment(adjStatus.status === 'pending' ? adjStatus.attempt : null);
+              }
             });
           }
         } else if (isMounted) {

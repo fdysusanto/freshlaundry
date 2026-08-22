@@ -252,7 +252,30 @@ export const paymentService = {
         .maybeSingle();
 
       if (existing) {
-        // console.log('[PAYMENT-SERVICE] Found existing adjustment attempt:', existing.id);
+        const existingStatus = normalizePaymentStatus(existing.status);
+        if (existingStatus === 'paid') {
+          return {
+            id: existing.id,
+            orderId: existing.order_id,
+            customerId: existing.customer_id,
+            provider: existing.provider,
+            providerReference: existing.provider_reference || undefined,
+            paymentMethod: existing.payment_method,
+            amount: Number(existing.amount),
+            currency: 'IDR',
+            status: 'paid',
+            adjustmentType: existing.adjustment_type || 'weight_increase',
+            idempotencyKey: existing.idempotency_key,
+            expiresAt: existing.expires_at || undefined,
+            paidAt: existing.paid_at || undefined,
+            rawResponse: existing.raw_response,
+            createdAt: existing.created_at,
+            updatedAt: existing.updated_at,
+            invoiceUrl: existing.raw_response?.invoice_url || existing.raw_response?.redirect_url,
+            paymentToken: existing.raw_response?.token || existing.raw_response?.snap_token,
+            paymentUrl: existing.raw_response?.redirect_url || existing.raw_response?.invoice_url,
+          };
+        }
         try {
           const freshRef = `${order.id.slice(0, 8).toUpperCase()}-ADJ-${Date.now().toString().slice(-6)}`;
           const gatewayRes = await getPaymentGateway().createPaymentRequest({
@@ -457,6 +480,88 @@ export const paymentService = {
       );
       return existing || null;
     }
+  },
+
+  /**
+   * Fetches any price adjustment payment attempt for a given order (paid or pending).
+   * Prioritizes 'paid' attempt if present, otherwise latest attempt.
+   */
+  async getAdjustmentPaymentAttemptAsync(
+    orderId: string,
+    client?: any
+  ): Promise<PaymentAttempt | null> {
+    const db = client || (isSupabaseConfigured ? supabase : null);
+    if (db) {
+      const { data: attempts } = await (db.from('payment_attempts') as any)
+        .select('*')
+        .eq('order_id', orderId)
+        .eq('adjustment_type', 'weight_increase')
+        .order('created_at', { ascending: false });
+
+      if (attempts && attempts.length > 0) {
+        const paidAttempt = attempts.find((a: any) => normalizePaymentStatus(a.status) === 'paid');
+        const target = paidAttempt || attempts[0];
+        return {
+          id: target.id,
+          orderId: target.order_id,
+          customerId: target.customer_id,
+          provider: target.provider,
+          providerReference: target.provider_reference || undefined,
+          paymentMethod: target.payment_method,
+          amount: Number(target.amount),
+          currency: 'IDR',
+          status: normalizePaymentStatus(target.status),
+          adjustmentType: target.adjustment_type || 'weight_increase',
+          idempotencyKey: target.idempotency_key,
+          expiresAt: target.expires_at || undefined,
+          paidAt: target.paid_at || undefined,
+          rawResponse: target.raw_response,
+          createdAt: target.created_at,
+          updatedAt: target.updated_at,
+          invoiceUrl: target.raw_response?.invoice_url || target.raw_response?.redirect_url,
+          paymentToken: target.raw_response?.token || target.raw_response?.snap_token,
+          paymentUrl: target.raw_response?.redirect_url || target.raw_response?.invoice_url,
+        };
+      }
+      return null;
+    } else {
+      const mockPayments = this.getMockPayments();
+      const attempts = mockPayments.filter(
+        (p) => p.orderId === orderId && p.adjustmentType === 'weight_increase'
+      );
+      if (attempts.length > 0) {
+        const paidAttempt = attempts.find((p) => p.status === 'paid');
+        return paidAttempt || attempts[0];
+      }
+      return null;
+    }
+  },
+
+  /**
+   * Explicit helper to check the full status of adjustment payment for an order.
+   */
+  async getAdjustmentPaymentStatusAsync(
+    orderId: string,
+    client?: any
+  ): Promise<{
+    exists: boolean;
+    status: 'paid' | 'pending' | 'none';
+    amount: number;
+    paidAt?: string;
+    attempt: PaymentAttempt | null;
+  }> {
+    const attempt = await this.getAdjustmentPaymentAttemptAsync(orderId, client);
+    if (!attempt) {
+      return { exists: false, status: 'none', amount: 0, attempt: null };
+    }
+    const status = attempt.status === 'paid' ? 'paid' : attempt.status === 'pending' ? 'pending' : 'none';
+    return {
+      exists: true,
+      status,
+      amount: attempt.amount,
+      paidAt: attempt.paidAt,
+      attempt,
+    };
   },
 
   /**
