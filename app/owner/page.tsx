@@ -86,6 +86,8 @@ export default function OwnerDashboardPage() {
   const [weighError, setWeighError] = useState<string | null>(null);
   const [weighSuccessMsg, setWeighSuccessMsg] = useState<string | null>(null);
 
+  const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
+
   const openWeighModal = (order: Order) => {
     setWeighModalOrder(order);
     setWeighInput(order.finalWeightKg ? String(order.finalWeightKg) : String(order.estimatedWeightKg || 5));
@@ -95,10 +97,16 @@ export default function OwnerDashboardPage() {
 
   const handleSaveWeighVerification = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!weighModalOrder || !currentUser) return;
+    if (!weighModalOrder || !currentUser || isSubmittingWeigh) return;
 
-    const parsedWeight = parseFloat(weighInput);
-    if (isNaN(parsedWeight) || parsedWeight <= 0) {
+    const rawNum = Number(weighInput);
+    if (isNaN(rawNum) || !isFinite(rawNum) || rawNum <= 0) {
+      setWeighError('Masukkan angka berat aktual yang valid (harus berupa angka > 0 kg).');
+      return;
+    }
+
+    const parsedWeight = Math.round(rawNum * 100) / 100;
+    if (parsedWeight <= 0) {
       setWeighError('Masukkan angka berat aktual yang valid (> 0 kg).');
       return;
     }
@@ -119,11 +127,11 @@ export default function OwnerDashboardPage() {
 
       let msg = `Penimbangan berhasil disimpan! Berat aktual: ${parsedWeight} kg (Total: ${formatIDR(res.order.totalPrice)})`;
       if (res.priceDelta > 0) {
-        msg += `. Selisih +${formatIDR(res.priceDelta)} perlu dibayar customer sebelum pickup.`;
+        msg += `. Selisih +${formatIDR(res.priceDelta)} perlu dibayar customer sebelum pencucian.`;
       } else if (res.priceDelta < 0) {
-        msg += `. Berat lebih rendah dari estimasi (kelebihan pembayaran dicatat).`;
+        msg += `. Berat lebih rendah dari estimasi. Selisih: -${formatIDR(Math.abs(res.priceDelta))}. Catatan: Pengembalian dana otomatis belum tersedia (kelebihan pembayaran dicatat).`;
       } else {
-        msg += `. Berat sesuai estimasi. Kurir dapat meluncur pickup.`;
+        msg += `. Berat sesuai estimasi. Cucian siap diproses.`;
       }
 
       setWeighSuccessMsg(msg);
@@ -131,7 +139,7 @@ export default function OwnerDashboardPage() {
         setWeighModalOrder(null);
         setWeighSuccessMsg(null);
         window.location.reload();
-      }, 2000);
+      }, 2500);
     } catch (err: any) {
       setWeighError(err.message || 'Gagal menyimpan penimbangan.');
     } finally {
@@ -624,10 +632,10 @@ export default function OwnerDashboardPage() {
                               <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${statusCfg.bg} ${statusCfg.color}`}>
                                 {statusCfg.label}
                               </span>
-                              {(order.status === 'pending' || order.status === 'assigned') && (
+                              {(order.status === 'pending' || order.status === 'assigned' || order.status === 'picked_up') && (
                                 <div className="text-[10px] font-bold">
-                                  {order.logs?.some((l) => l.notes?.includes('courier_arrived') || l.notes?.includes('Tiba di Outlet') || l.notes?.includes('sampai di outlet')) ? (
-                                    <span className="text-emerald-700 font-extrabold flex items-center gap-1">📍 Kurir Sudah Tiba</span>
+                                  {order.logs?.some((l) => l.notes?.includes('courier_arrived') || l.notes?.includes('Tiba di Outlet') || l.notes?.includes('sampai di outlet')) || order.status === 'picked_up' ? (
+                                    <span className="text-emerald-700 font-extrabold flex items-center gap-1">📍 Cucian Tiba di Outlet</span>
                                   ) : (
                                     <span className="text-amber-700 font-semibold flex items-center gap-1">🚴 Kurir Menuju Outlet</span>
                                   )}
@@ -642,43 +650,58 @@ export default function OwnerDashboardPage() {
                                 <Button
                                   variant="primary"
                                   size="sm"
-                                  className="bg-amber-600 hover:bg-amber-500 font-bold"
+                                  className="bg-amber-600 hover:bg-amber-500 font-bold flex items-center gap-1"
                                   onClick={() => openWeighModal(order)}
                                 >
-                                  Timbang &amp; Verifikasi
+                                  ⚖️ Terima &amp; Timbang
                                 </Button>
                               )}
                               {order.finalWeightKg && (order.status === 'picked_up' || order.status === 'assigned') && (
                                 <Button
                                   variant="primary"
                                   size="sm"
-                                  className="bg-teal-600 hover:bg-teal-500 font-bold"
+                                  className="bg-teal-600 hover:bg-teal-500 font-bold flex items-center gap-1"
+                                  disabled={processingOrderId === order.id}
                                   onClick={async () => {
+                                    if (processingOrderId) return;
+                                    setProcessingOrderId(order.id);
                                     try {
-                                      await orderService.transitionOrderStatusAsync(order.id, 'in_washing', { id: currentUser?.id || '', role: currentUser?.role || 'laundry_owner', laundryId: order.laundryId }, 'Mulai pencucian cucian customer');
+                                      await orderService.transitionOrderStatusAsync(
+                                        order.id,
+                                        'in_washing',
+                                        { id: currentUser?.id || '', role: currentUser?.role || 'laundry_owner', laundryId: order.laundryId },
+                                        'Laundry outlet mulai mencuci cucian customer'
+                                      );
                                       window.location.reload();
                                     } catch (err: any) {
                                       alert(err.message || 'Gagal merubah status.');
+                                    } finally {
+                                      setProcessingOrderId(null);
                                     }
                                   }}
                                 >
-                                  Mulai Cuci
+                                  {processingOrderId === order.id ? 'Memproses...' : '🧼 Mulai Pencucian'}
                                 </Button>
                               )}
                               {order.status === 'in_washing' && (
                                 <Button
                                   variant="primary"
                                   size="sm"
+                                  disabled={processingOrderId === order.id}
                                   onClick={async () => {
+                                    if (processingOrderId) return;
+                                    setProcessingOrderId(order.id);
                                     try {
                                       await orderService.transitionOrderStatusAsync(order.id, 'ready_for_delivery', { id: currentUser?.id || '', role: currentUser?.role || 'laundry_owner', laundryId: order.laundryId }, 'Cucian selesai & siap diantar');
                                       window.location.reload();
                                     } catch (err: any) {
                                       alert(err.message || 'Gagal merubah status.');
+                                    } finally {
+                                      setProcessingOrderId(null);
                                     }
                                   }}
                                 >
-                                  Siap Diantar
+                                  {processingOrderId === order.id ? 'Memproses...' : 'Siap Diantar'}
                                 </Button>
                               )}
                               <Link href={`/orders/${order.id}`}>
