@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { orderService } from '@/services/orderService';
 import { paymentService } from '@/services/paymentService';
-import { isSupabaseConfigured } from '@/services/supabase';
+import { supabase, isSupabaseConfigured } from '@/services/supabase';
 import { Order } from '@/types/order';
 import { PaymentAttempt } from '@/types/payment';
 import { getStatusConfig } from '@/utils/helpers';
@@ -13,7 +13,8 @@ import { Stepper } from '@/components/ui/Stepper';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Search, Sparkles, Truck, MapPin, CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Search, Sparkles, Truck, MapPin, CheckCircle2, AlertTriangle, AlertCircle, ArrowLeft, ExternalLink } from 'lucide-react';
+import { triggerPaymentFlow } from '@/utils/midtransSnap';
 
 export default function OrderTrackingPage() {
   const params = useParams();
@@ -23,6 +24,79 @@ export default function OrderTrackingPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [pendingAdjustment, setPendingAdjustment] = useState<PaymentAttempt | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [isPayingAdjustment, setIsPayingAdjustment] = useState(false);
+  const [payAdjustmentError, setPayAdjustmentError] = useState('');
+
+  const handlePayAdjustmentPayment = async () => {
+    if (!order || isPayingAdjustment) return;
+    setIsPayingAdjustment(true);
+    setPayAdjustmentError('');
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (isSupabaseConfigured && supabase) {
+        const { data: { session } } = await (supabase?.auth?.getSession() || Promise.resolve({ data: { session: null } }));
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+      }
+
+      const res = await fetch(`/api/orders/${order.id}/payment`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action: 'create_adjustment',
+          paymentMethod: 'qris',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Gagal memproses pembuatan transaksi pembayaran selisih.');
+      }
+
+      const paymentToken = data.payment?.paymentToken || data.payment?.rawResponse?.token;
+      const paymentUrl = data.payment?.paymentUrl || data.payment?.rawResponse?.redirect_url;
+      const invoiceUrl =
+        data.payment?.invoiceUrl ||
+        data.payment?.rawResponse?.invoice_url ||
+        data.payment?.rawResponse?.invoiceUrl ||
+        data.payment?.qrCodeUrl;
+
+      const triggered = triggerPaymentFlow({
+        paymentToken,
+        paymentUrl,
+        invoiceUrl,
+        onSuccess: async () => {
+          setPayAdjustmentError('');
+          const updatedOrder = (await orderService.getOrderByIdAsync(order.id)) || orderService.getOrderByTracking(order.trackingNumber);
+          if (updatedOrder) setOrder(updatedOrder);
+          const adj = await paymentService.getPendingAdjustmentPaymentAttemptAsync(order.id);
+          setPendingAdjustment(adj);
+        },
+        onPending: () => {
+          setPayAdjustmentError('Pembayaran selisih masih menunggu penyelesaian.');
+        },
+        onError: (errMsg) => {
+          setPayAdjustmentError(errMsg || 'Gagal memproses pembayaran selisih via gateway.');
+        },
+        onClose: () => {
+          setIsPayingAdjustment(false);
+        },
+      });
+
+      if (!triggered) {
+        throw new Error('Token atau URL pembayaran selisih tidak ditemukan dari response payment gateway.');
+      }
+    } catch (err: any) {
+      setPayAdjustmentError(err.message || 'Gagal memproses pembayaran selisih.');
+    } finally {
+      setIsPayingAdjustment(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -142,13 +216,21 @@ export default function OrderTrackingPage() {
                 <p className="text-xs text-amber-800 leading-relaxed">
                   Pesanan telah ditimbang ({order.finalWeightKg} kg) dan terdapat penyesuaian harga. Silakan lunasi pembayaran selisih agar laundry dapat melanjutkan proses pencucian.
                 </p>
+                {payAdjustmentError && (
+                  <div className="p-2.5 bg-red-100 border border-red-200 rounded-xl text-xs font-semibold text-red-700 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{payAdjustmentError}</span>
+                  </div>
+                )}
                 <Button
                   variant="primary"
                   size="sm"
-                  onClick={() => router.push(`/orders/${order.id}`)}
-                  className="bg-amber-600 hover:bg-amber-500 font-bold cursor-pointer"
+                  disabled={isPayingAdjustment}
+                  onClick={handlePayAdjustmentPayment}
+                  className="bg-amber-600 hover:bg-amber-500 font-bold cursor-pointer flex items-center gap-1.5"
+                  rightIcon={<ExternalLink className="w-3.5 h-3.5" />}
                 >
-                  Bayar Selisih {formatIDR(pendingAdjustment.amount)} →
+                  {isPayingAdjustment ? 'Memproses Pembayaran...' : `Bayar Selisih ${formatIDR(pendingAdjustment.amount)}`}
                 </Button>
               </div>
             </div>
