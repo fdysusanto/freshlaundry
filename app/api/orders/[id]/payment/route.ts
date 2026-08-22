@@ -57,8 +57,35 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const action = body.action || 'create';
 
+    // ACTION: Customer Requesting Price Adjustment Payment Attempt Retrieval
+    if (action === 'create_adjustment') {
+      const pendingAdj = await paymentService.getPendingAdjustmentPaymentAttemptAsync(
+        orderId,
+        userClient || undefined
+      );
+
+      if (!pendingAdj) {
+        return NextResponse.json(
+          { success: false, message: 'Tidak ada kekurangan pembayaran selisih yang harus dibayar untuk pesanan ini.' },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json({ success: true, payment: pendingAdj });
+    }
+
     // ACTION: Customer Requesting Payment Attempt Creation / Retrieval
     if (action === 'create') {
+      if (order.paymentStatus === 'paid') {
+        const pendingAdj = await paymentService.getPendingAdjustmentPaymentAttemptAsync(
+          orderId,
+          userClient || undefined
+        );
+        if (pendingAdj) {
+          return NextResponse.json({ success: true, payment: pendingAdj });
+        }
+      }
+
       const payment = await paymentService.createPaymentAttemptAsync(
         orderId,
         body.paymentMethod || 'qris',

@@ -222,6 +222,15 @@ export default function CustomerDashboardPage() {
                       <span className="text-slate-500 font-bold">Total Biaya:</span>
                       <span className="font-black text-teal-700 text-sm">{formatIDR(o.totalPrice)}</span>
                     </div>
+
+                    {o.finalWeightKg && o.estimatedWeightKg && o.finalWeightKg > o.estimatedWeightKg && (
+                      <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-xs flex items-center justify-between text-amber-900 font-bold">
+                        <span>⚠️ Perlu Pelunasan Selisih Berat ({o.finalWeightKg} kg)</span>
+                        <Link href={`/orders/${o.id}`}>
+                          <span className="text-amber-700 underline text-[11px] cursor-pointer">Bayar →</span>
+                        </Link>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-2 flex items-center justify-between gap-3">

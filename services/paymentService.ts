@@ -301,6 +301,7 @@ export const paymentService = {
         amount: Math.round(adjustmentAmount),
         currency: 'IDR',
         status: 'pending',
+        adjustmentType: 'weight_increase',
         idempotencyKey,
         expiresAt: gatewayRes.expiresAt,
         invoiceUrl: gatewayRes.invoiceUrl || gatewayRes.rawResponse?.invoice_url || gatewayRes.rawResponse?.redirect_url,
@@ -326,6 +327,7 @@ export const paymentService = {
         amount: Math.round(adjustmentAmount),
         currency: 'IDR',
         status: 'pending',
+        adjustment_type: 'weight_increase',
         idempotency_key: idempotencyKey,
         expires_at: gatewayRes.expiresAt,
         raw_response: gatewayRes.rawResponse,
@@ -347,12 +349,68 @@ export const paymentService = {
       amount: Number(inserted.amount),
       currency: 'IDR',
       status: 'pending',
+      adjustmentType: inserted.adjustment_type || 'weight_increase',
       idempotencyKey: inserted.idempotency_key,
       expiresAt: inserted.expires_at || undefined,
       rawResponse: inserted.raw_response,
       createdAt: inserted.created_at,
       updatedAt: inserted.updated_at,
+      invoiceUrl: inserted.raw_response?.invoice_url || inserted.raw_response?.redirect_url,
+      paymentToken: inserted.raw_response?.token || inserted.raw_response?.snap_token,
+      paymentUrl: inserted.raw_response?.redirect_url || inserted.raw_response?.invoice_url,
     };
+  },
+
+  /**
+   * Fetches the pending price adjustment payment attempt for a given order if present.
+   * Filters strictly by order_id, adjustment_type = 'weight_increase', and status = 'pending'.
+   */
+  async getPendingAdjustmentPaymentAttemptAsync(
+    orderId: string,
+    client?: any
+  ): Promise<PaymentAttempt | null> {
+    const db = client || (isSupabaseConfigured ? supabase : null);
+    if (isSupabaseConfigured && db) {
+      const { data: existing } = await (db.from('payment_attempts') as any)
+        .select('*')
+        .eq('order_id', orderId)
+        .eq('adjustment_type', 'weight_increase')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        return {
+          id: existing.id,
+          orderId: existing.order_id,
+          customerId: existing.customer_id,
+          provider: existing.provider,
+          providerReference: existing.provider_reference || undefined,
+          paymentMethod: existing.payment_method,
+          amount: Number(existing.amount),
+          currency: 'IDR',
+          status: normalizePaymentStatus(existing.status),
+          adjustmentType: existing.adjustment_type || 'weight_increase',
+          idempotencyKey: existing.idempotency_key,
+          expiresAt: existing.expires_at || undefined,
+          paidAt: existing.paid_at || undefined,
+          rawResponse: existing.raw_response,
+          createdAt: existing.created_at,
+          updatedAt: existing.updated_at,
+          invoiceUrl: existing.raw_response?.invoice_url || existing.raw_response?.redirect_url,
+          paymentToken: existing.raw_response?.token || existing.raw_response?.snap_token,
+          paymentUrl: existing.raw_response?.redirect_url || existing.raw_response?.invoice_url,
+        };
+      }
+      return null;
+    } else {
+      const mockPayments = this.getMockPayments();
+      const existing = mockPayments.find(
+        (p) => p.orderId === orderId && p.adjustmentType === 'weight_increase' && p.status === 'pending'
+      );
+      return existing || null;
+    }
   },
 
   /**

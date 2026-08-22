@@ -10,6 +10,7 @@ export interface PaymentAttempt {
   amount: number; // Integer IDR
   currency: 'IDR';
   status: PaymentStatus;
+  adjustmentType?: string;
   idempotencyKey: string;
   expiresAt?: string;
   paidAt?: string;

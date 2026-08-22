@@ -12,7 +12,9 @@ import { Stepper } from '@/components/ui/Stepper';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Truck, MapPin, Calendar, Clock, ArrowLeft, Phone, User, FileText, Store, CreditCard, ShieldCheck, AlertCircle, CheckCircle2, ExternalLink } from 'lucide-react';
+import { paymentService } from '@/services/paymentService';
+import { PaymentAttempt } from '@/types/payment';
+import { Truck, MapPin, Calendar, Clock, ArrowLeft, Phone, User, FileText, Store, CreditCard, ShieldCheck, AlertCircle, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
 import { triggerPaymentFlow } from '@/utils/midtransSnap';
 
 export default function OrderDetailPage() {
@@ -20,10 +22,11 @@ export default function OrderDetailPage() {
   const router = useRouter();
   const orderId = (params?.id as string) || '';
   const [order, setOrder] = useState<Order | null>(null);
+  const [pendingAdjustment, setPendingAdjustment] = useState<PaymentAttempt | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [payError, setPayError] = useState('');
 
-  const handlePayNow = async () => {
+  const handlePayNow = async (actionType: 'create' | 'create_adjustment' = 'create') => {
     if (!order) return;
     setIsPaying(true);
     setPayError('');
@@ -44,7 +47,7 @@ export default function OrderDetailPage() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          action: 'create',
+          action: actionType,
           paymentMethod: 'qris',
         }),
       });
@@ -68,8 +71,10 @@ export default function OrderDetailPage() {
         invoiceUrl,
         onSuccess: () => {
           setPayError('');
-          orderService.getOrderByIdAsync(order.id).then((updated) => {
+          orderService.getOrderByIdAsync(order.id).then(async (updated) => {
             if (updated) setOrder(updated);
+            const adj = await paymentService.getPendingAdjustmentPaymentAttemptAsync(order.id);
+            setPendingAdjustment(adj);
           });
         },
         onPending: () => {
@@ -103,10 +108,9 @@ export default function OrderDetailPage() {
         try {
           const liveOrder = await orderService.getOrderByIdAsync(orderId);
           if (liveOrder && isMounted) {
-            if (typeof window !== 'undefined') {
-              console.log('[ORDER-PAGE] Successfully set order state from getOrderByIdAsync');
-            }
             setOrder(liveOrder);
+            const adj = await paymentService.getPendingAdjustmentPaymentAttemptAsync(liveOrder.id);
+            if (isMounted) setPendingAdjustment(adj);
             return;
           }
         } catch (err: any) {
@@ -115,10 +119,13 @@ export default function OrderDetailPage() {
           }
         }
         if (isMounted && !isSupabaseConfigured) {
-          if (typeof window !== 'undefined') {
-            console.log('[ORDER-PAGE] Falling back to synchronous getOrderById');
+          const localOrder = orderService.getOrderById(orderId);
+          setOrder(localOrder);
+          if (localOrder) {
+            paymentService.getPendingAdjustmentPaymentAttemptAsync(localOrder.id).then((adj) => {
+              if (isMounted) setPendingAdjustment(adj);
+            });
           }
-          setOrder(orderService.getOrderById(orderId));
         } else if (isMounted) {
           setOrder(null);
         }
@@ -144,8 +151,10 @@ export default function OrderDetailPage() {
     );
   }
 
-  const cfg = getStatusConfig(order.status);
-  const subtotal = order.subtotal ?? order.totalPrice;
+  const statusCfg = getStatusConfig(order.status);
+  const cfg = statusCfg;
+  const items = order.items || [];
+  const subtotal = order.subtotal ?? 0;
   const platformFee = order.platformFee ?? 2000;
   const deliveryFee = order.deliveryFee ?? 0;
   const discount = order.discount ?? 0;
@@ -177,8 +186,8 @@ export default function OrderDetailPage() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={order.paymentStatus === 'paid' ? 'emerald' : 'amber'}>
-              {order.paymentStatus === 'paid' ? 'Lunas' : 'Belum Dibayar'}
+            <Badge variant={pendingAdjustment ? 'amber' : order.paymentStatus === 'paid' ? 'emerald' : 'amber'}>
+              {pendingAdjustment ? 'Perlu Selisih' : order.paymentStatus === 'paid' ? 'Lunas' : 'Belum Dibayar'}
             </Badge>
             <Badge variant={cfg.stepIndex >= 6 ? 'emerald' : cfg.stepIndex >= 3 ? 'blue' : 'amber'}>
               {cfg.label}
@@ -207,7 +216,60 @@ export default function OrderDetailPage() {
         </div>
 
         {/* Payment CTA Banner */}
-        {order.paymentStatus === 'paid' ? (
+        {pendingAdjustment ? (
+          <div className="p-5 bg-amber-50 rounded-2xl border-2 border-amber-300 space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0" />
+                <div>
+                  <h3 className="text-sm font-black text-amber-900 uppercase tracking-tight">
+                    ⚠️ Pembayaran Tambahan Diperlukan
+                  </h3>
+                  <p className="text-xs text-amber-800 font-medium">
+                    Berat cucian setelah ditimbang ({order.finalWeightKg} kg) lebih besar dari estimasi awal ({order.estimatedWeightKg || 5} kg). Pesanan belum dapat diproses ke tahap pencucian sampai pembayaran selisih dilunasi.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-white/90 rounded-xl border border-amber-200 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div>
+                <span className="text-slate-500 block text-[11px]">Berat Estimasi:</span>
+                <span className="font-bold text-slate-800">{order.estimatedWeightKg || 5} kg</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[11px]">Berat Aktual:</span>
+                <span className="font-extrabold text-amber-900">{order.finalWeightKg} kg</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[11px]">Harga Total Aktual:</span>
+                <span className="font-extrabold text-slate-900">{formatIDR(order.totalPrice)}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[11px]">Kekurangan Selisih:</span>
+                <span className="font-black text-amber-700 text-sm">+{formatIDR(pendingAdjustment.amount)}</span>
+              </div>
+            </div>
+
+            {payError && (
+              <div className="p-3 bg-red-100 border border-red-200 rounded-xl text-xs font-semibold text-red-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{payError}</span>
+              </div>
+            )}
+
+            <Button
+              variant="primary"
+              size="md"
+              disabled={isPaying}
+              onClick={() => handlePayNow('create_adjustment')}
+              className="w-full sm:w-auto bg-amber-600 hover:bg-amber-500 text-white font-bold cursor-pointer"
+              rightIcon={<ExternalLink className="w-4 h-4" />}
+            >
+              {isPaying ? 'Menghubungkan ke Gateway Pembayaran...' : `Bayar Selisih ${formatIDR(pendingAdjustment.amount)}`}
+            </Button>
+          </div>
+        ) : order.paymentStatus === 'paid' ? (
           <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center gap-3">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
             <div>
@@ -240,7 +302,7 @@ export default function OrderDetailPage() {
               variant="primary"
               size="md"
               disabled={isPaying}
-              onClick={handlePayNow}
+              onClick={() => handlePayNow('create')}
               className="w-full sm:w-auto bg-amber-600 hover:bg-amber-500 text-white font-bold cursor-pointer"
               rightIcon={<ExternalLink className="w-4 h-4" />}
             >

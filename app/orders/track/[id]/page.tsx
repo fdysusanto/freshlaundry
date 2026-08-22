@@ -3,15 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { orderService } from '@/services/orderService';
+import { paymentService } from '@/services/paymentService';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { Order } from '@/types/order';
+import { PaymentAttempt } from '@/types/payment';
 import { getStatusConfig } from '@/utils/helpers';
 import { formatIDR, formatDateIndo } from '@/utils/formatters';
 import { Stepper } from '@/components/ui/Stepper';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Search, Sparkles, Truck, MapPin, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Search, Sparkles, Truck, MapPin, CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
 
 export default function OrderTrackingPage() {
   const params = useParams();
@@ -19,12 +21,22 @@ export default function OrderTrackingPage() {
   const rawId = (params?.id as string) || '';
   const [searchInput, setSearchInput] = useState(rawId);
   const [order, setOrder] = useState<Order | null>(null);
+  const [pendingAdjustment, setPendingAdjustment] = useState<PaymentAttempt | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     if (rawId) {
       const loadOrderData = async () => {
+        const liveOrder = await orderService.getOrderByIdAsync(rawId) || orderService.getOrderByTracking(rawId);
+        if (liveOrder && isMounted) {
+          setOrder(liveOrder);
+          setHasSearched(true);
+          const adj = await paymentService.getPendingAdjustmentPaymentAttemptAsync(liveOrder.id);
+          if (isMounted) setPendingAdjustment(adj);
+          return;
+        }
+
         const publicTrack = await orderService.trackOrderByNumberAsync(rawId);
         if (publicTrack && isMounted) {
           const mappedOrder: Partial<Order> = {
@@ -37,13 +49,6 @@ export default function OrderTrackingPage() {
             deliveryDate: publicTrack.estimatedDeliveryDate,
           };
           setOrder(mappedOrder as Order);
-          setHasSearched(true);
-          return;
-        }
-
-        const liveOrder = await orderService.getOrderByIdAsync(rawId);
-        if (liveOrder && isMounted) {
-          setOrder(liveOrder);
           setHasSearched(true);
           return;
         }
@@ -127,15 +132,37 @@ export default function OrderTrackingPage() {
           </div>
 
           {/* Current Status Highlight Box */}
-          <div className="p-4 bg-teal-50/80 rounded-2xl border border-teal-200 flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold shrink-0 shadow-md">
-              <CheckCircle2 className="w-5 h-5" />
+          {pendingAdjustment ? (
+            <div className="p-4 bg-amber-50 rounded-2xl border-2 border-amber-300 flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold shrink-0 shadow-md">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-2 flex-1">
+                <p className="text-sm font-bold text-amber-900">⚠️ Menunggu Pembayaran Selisih ({formatIDR(pendingAdjustment.amount)})</p>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Pesanan telah ditimbang ({order.finalWeightKg} kg) dan terdapat penyesuaian harga. Silakan lunasi pembayaran selisih agar laundry dapat melanjutkan proses pencucian.
+                </p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => router.push(`/orders/${order.id}`)}
+                  className="bg-amber-600 hover:bg-amber-500 font-bold cursor-pointer"
+                >
+                  Bayar Selisih {formatIDR(pendingAdjustment.amount)} →
+                </Button>
+              </div>
             </div>
-            <div className="space-y-0.5">
-              <p className="text-sm font-bold text-teal-900">{statusCfg?.label}</p>
-              <p className="text-xs text-teal-700 leading-relaxed">{statusCfg?.description}</p>
+          ) : (
+            <div className="p-4 bg-teal-50/80 rounded-2xl border border-teal-200 flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold shrink-0 shadow-md">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold text-teal-900">{statusCfg?.label}</p>
+                <p className="text-xs text-teal-700 leading-relaxed">{statusCfg?.description}</p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Details Summary Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
