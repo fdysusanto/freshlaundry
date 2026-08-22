@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { authService } from '@/services/authService';
+import { supabase } from '@/services/supabase';
 import { orderService } from '@/services/orderService';
 import { Order, OrderStatus } from '@/types/order';
 import { UserProfile } from '@/types/user';
@@ -84,7 +85,25 @@ export default function CourierDashboardPage() {
   const handlePickupOrder = async (order: Order) => {
     if (!currentUser) return;
     try {
-      await orderService.transitionOrderStatusAsync(order.id, 'picked_up', { id: currentUser.id, role: 'courier' }, 'Cucian berhasil di-pickup oleh kurir.');
+      const sessionRes = await (supabase?.auth?.getSession() || Promise.resolve({ data: { session: null } }));
+      const token = sessionRes?.data?.session?.access_token;
+      const res = await fetch(`/api/orders/${order.id}/transition`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          targetStatus: 'picked_up',
+          notes: 'Cucian berhasil di-pickup oleh kurir.',
+          userId: currentUser.id,
+          role: 'courier',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Gagal melakukan pickup laundry.');
+      }
       alert(`Cucian order #${order.trackingNumber} berhasil di-pickup! Status kini 'picked_up'.`);
       loadData();
     } catch (err: any) {

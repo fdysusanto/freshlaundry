@@ -82,12 +82,25 @@ export default function AdminDashboardPage() {
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus, notes: string) => {
     if (!currentUser) return;
     try {
-      await orderService.transitionOrderStatusAsync(
-        orderId,
-        newStatus,
-        { id: currentUser.id, role: currentUser.role },
-        notes
-      );
+      const sessionRes = await (supabase?.auth?.getSession() || Promise.resolve({ data: { session: null } }));
+      const token = sessionRes?.data?.session?.access_token;
+      const res = await fetch(`/api/orders/${orderId}/transition`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          targetStatus: newStatus,
+          notes,
+          userId: currentUser.id,
+          role: currentUser.role,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Gagal memperbarui status order.');
+      }
       await loadData();
     } catch (err: any) {
       alert(`Gagal memperbarui status order: ${err.message}`);

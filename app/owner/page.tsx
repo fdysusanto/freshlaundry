@@ -679,12 +679,26 @@ export default function OwnerDashboardPage() {
                                     if (processingOrderId) return;
                                     setProcessingOrderId(order.id);
                                     try {
-                                      await orderService.transitionOrderStatusAsync(
-                                        order.id,
-                                        'in_washing',
-                                        { id: currentUser?.id || '', role: currentUser?.role || 'laundry_owner', laundryId: order.laundryId },
-                                        'Laundry outlet mulai mencuci cucian customer'
-                                      );
+                                      const sessionRes = await (supabase?.auth?.getSession() || Promise.resolve({ data: { session: null } }));
+                                      const token = sessionRes?.data?.session?.access_token;
+                                      const res = await fetch(`/api/orders/${order.id}/transition`, {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                                        },
+                                        body: JSON.stringify({
+                                          targetStatus: 'in_washing',
+                                          notes: 'Laundry outlet mulai mencuci cucian customer',
+                                          userId: currentUser?.id,
+                                          role: currentUser?.role || 'laundry_owner',
+                                          laundryId: order.laundryId,
+                                        }),
+                                      });
+                                      const data = await res.json();
+                                      if (!res.ok || !data.success) {
+                                        throw new Error(data.message || 'Gagal merubah status.');
+                                      }
                                       window.location.reload();
                                     } catch (err: any) {
                                       alert(err.message || 'Gagal merubah status.');
@@ -705,7 +719,26 @@ export default function OwnerDashboardPage() {
                                     if (processingOrderId) return;
                                     setProcessingOrderId(order.id);
                                     try {
-                                      await orderService.transitionOrderStatusAsync(order.id, 'ready_for_delivery', { id: currentUser?.id || '', role: currentUser?.role || 'laundry_owner', laundryId: order.laundryId }, 'Cucian selesai & siap diantar');
+                                      const sessionRes = await (supabase?.auth?.getSession() || Promise.resolve({ data: { session: null } }));
+                                      const token = sessionRes?.data?.session?.access_token;
+                                      const res = await fetch(`/api/orders/${order.id}/transition`, {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                                        },
+                                        body: JSON.stringify({
+                                          targetStatus: 'ready_for_delivery',
+                                          notes: 'Cucian selesai & siap diantar',
+                                          userId: currentUser?.id,
+                                          role: currentUser?.role || 'laundry_owner',
+                                          laundryId: order.laundryId,
+                                        }),
+                                      });
+                                      const data = await res.json();
+                                      if (!res.ok || !data.success) {
+                                        throw new Error(data.message || 'Gagal merubah status.');
+                                      }
                                       window.location.reload();
                                     } catch (err: any) {
                                       alert(err.message || 'Gagal merubah status.');

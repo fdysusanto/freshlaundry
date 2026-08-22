@@ -856,8 +856,8 @@ export const orderService = {
     }
 
     const { createServiceRoleClient } = await import('./supabase');
-    const serviceDb = isSupabaseConfigured ? createServiceRoleClient() : null;
-    const writeDb = client || serviceDb;
+    const serviceDb = isSupabaseConfigured && typeof window === 'undefined' ? createServiceRoleClient() : null;
+    const writeDb = client || serviceDb || (isSupabaseConfigured ? supabase : null);
 
     const cleanId = orderId.trim();
     let orderQuery = (writeDb.from('orders') as any).update({
@@ -1582,8 +1582,8 @@ export const orderService = {
 
     // Actual Total > Estimated Total: Check if adjustment payment attempt exists and is paid
     const { createServiceRoleClient } = await import('./supabase');
-    const serviceDb = isSupabaseConfigured ? createServiceRoleClient() : null;
-    const db = serviceDb || client || (isSupabaseConfigured ? (typeof window === 'undefined' ? createServiceRoleClient() : supabase) : null);
+    const serviceDb = isSupabaseConfigured && typeof window === 'undefined' ? createServiceRoleClient() : null;
+    const db = client || serviceDb || (isSupabaseConfigured ? supabase : null);
     const { paymentService } = await import('./paymentService');
     let adjustmentPaid = false;
     let isAdjustmentPending = false;
