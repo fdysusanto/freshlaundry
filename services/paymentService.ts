@@ -226,6 +226,136 @@ export const paymentService = {
   },
 
   /**
+   * Creates a supplementary payment attempt for Price Adjustment (when actual > estimated).
+   * Guarantees Idempotency: Returns existing pending adjustment payment attempt if present.
+   */
+  async createAdjustmentPaymentAttemptAsync(
+    orderId: string,
+    adjustmentAmount: number,
+    client?: any
+  ): Promise<PaymentAttempt | null> {
+    if (adjustmentAmount <= 0) return null;
+
+    const db = client || (isSupabaseConfigured ? supabase : null);
+    const order = await orderService.getOrderByIdAsync(orderId, db);
+    if (!order) {
+      throw new Error(`Pesanan dengan ID/Resi '${orderId}' tidak ditemukan.`);
+    }
+
+    const idempotencyKey = `ORD-${order.id.slice(0, 8).toUpperCase()}-ADJ-1`;
+
+    // 1. Check if adjustment payment attempt already exists (Idempotency Guard)
+    if (isSupabaseConfigured && db) {
+      const { data: existing } = await (db.from('payment_attempts') as any)
+        .select('*')
+        .eq('order_id', order.id)
+        .eq('idempotency_key', idempotencyKey)
+        .maybeSingle();
+
+      if (existing) {
+        return {
+          id: existing.id,
+          orderId: existing.order_id,
+          customerId: existing.customer_id,
+          provider: existing.provider,
+          providerReference: existing.provider_reference || undefined,
+          paymentMethod: existing.payment_method,
+          amount: Number(existing.amount),
+          currency: 'IDR',
+          status: normalizePaymentStatus(existing.status),
+          idempotencyKey: existing.idempotency_key,
+          expiresAt: existing.expires_at || undefined,
+          paidAt: existing.paid_at || undefined,
+          rawResponse: existing.raw_response,
+          createdAt: existing.created_at,
+          updatedAt: existing.updated_at,
+        };
+      }
+    } else {
+      const mockPayments = this.getMockPayments();
+      const existing = mockPayments.find((p) => p.orderId === order.id && p.idempotencyKey === idempotencyKey);
+      if (existing) return existing;
+    }
+
+    // 2. Create Gateway transaction for adjustment amount
+    const gatewayRes = await getPaymentGateway().createPaymentRequest({
+      orderId: `${order.id}-ADJ`,
+      amount: Math.round(adjustmentAmount),
+      currency: 'IDR',
+      paymentMethod: 'qris',
+      idempotencyKey,
+    });
+
+    const now = new Date().toISOString();
+    const paymentToken = gatewayRes.paymentToken || gatewayRes.rawResponse?.token;
+    const paymentUrl = gatewayRes.paymentUrl || gatewayRes.rawResponse?.redirect_url || gatewayRes.invoiceUrl || gatewayRes.rawResponse?.invoice_url;
+
+    if (!isSupabaseConfigured || !db) {
+      const newPayment: PaymentAttempt = {
+        id: `pay_adj_${Date.now()}`,
+        orderId: order.id,
+        customerId: order.customerId,
+        provider: gatewayRes.provider,
+        providerReference: gatewayRes.providerReference,
+        paymentMethod: 'qris',
+        amount: Math.round(adjustmentAmount),
+        currency: 'IDR',
+        status: 'pending',
+        idempotencyKey,
+        expiresAt: gatewayRes.expiresAt,
+        invoiceUrl: gatewayRes.invoiceUrl || gatewayRes.rawResponse?.invoice_url || gatewayRes.rawResponse?.redirect_url,
+        paymentToken,
+        paymentUrl,
+        rawResponse: gatewayRes.rawResponse,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const mockPayments = this.getMockPayments();
+      this.saveMockPayments([newPayment, ...mockPayments]);
+      return newPayment;
+    }
+
+    const { data: inserted, error: insertErr } = await (db.from('payment_attempts') as any)
+      .insert({
+        order_id: order.id,
+        customer_id: order.customerId,
+        provider: gatewayRes.provider,
+        provider_reference: gatewayRes.providerReference,
+        payment_method: 'qris',
+        amount: Math.round(adjustmentAmount),
+        currency: 'IDR',
+        status: 'pending',
+        idempotency_key: idempotencyKey,
+        expires_at: gatewayRes.expiresAt,
+        raw_response: gatewayRes.rawResponse,
+      })
+      .select()
+      .single();
+
+    if (insertErr) {
+      throw new Error(`Gagal menyimpan payment attempt selisih di database: ${insertErr.message}`);
+    }
+
+    return {
+      id: inserted.id,
+      orderId: inserted.order_id,
+      customerId: inserted.customer_id,
+      provider: inserted.provider,
+      providerReference: inserted.provider_reference || undefined,
+      paymentMethod: inserted.payment_method,
+      amount: Number(inserted.amount),
+      currency: 'IDR',
+      status: 'pending',
+      idempotencyKey: inserted.idempotency_key,
+      expiresAt: inserted.expires_at || undefined,
+      rawResponse: inserted.raw_response,
+      createdAt: inserted.created_at,
+      updatedAt: inserted.updated_at,
+    };
+  },
+
+  /**
    * Controlled Payment State Machine Transition.
    * Uses Atomic Conditional Update to prevent race conditions.
    */
@@ -604,8 +734,10 @@ export const paymentService = {
           if (fullOrder) {
             await triggerStatusChangeWebhook(fullOrder, 'pending');
           }
+          const { dispatchService } = await import('./dispatchService');
+          await dispatchService.dispatchOrderAsync(p.orderId, 'pickup', 'system_payment_webhook');
         } catch (err: any) {
-          console.warn('[OUTBOUND-WEBHOOK-WARNING] Gagal mengirim notifikasi n8n:', err.message);
+          console.warn('[AUTOMATIC-DISPATCH-WARNING] Gagal memicu dispatch otomatis:', err.message);
         }
       }
 
@@ -669,15 +801,17 @@ export const paymentService = {
     // 6. ATOMIC STATE TRANSITION & ORDER RECONCILIATION
     const updatedPayment = await this.transitionPaymentStatusAsync(p.id, targetStatus, 'Webhook Midtrans terverifikasi', db);
 
-    // 7. OUTBOUND N8N NOTIFICATION
-    if (targetStatus === 'paid' && p.orders) {
+    // 7. OUTBOUND N8N NOTIFICATION & AUTOMATIC COURIER DISPATCH
+    if (targetStatus === 'paid' && p.order_id) {
       try {
         const fullOrder = await orderService.getOrderByIdAsync(p.order_id, db);
         if (fullOrder) {
           await triggerStatusChangeWebhook(fullOrder, 'pending');
         }
+        const { dispatchService } = await import('./dispatchService');
+        await dispatchService.dispatchOrderAsync(p.order_id, 'pickup', 'system_payment_webhook');
       } catch (err: any) {
-        console.warn('[OUTBOUND-WEBHOOK-WARNING] Gagal mengirim notifikasi n8n:', err.message);
+        console.warn('[AUTOMATIC-DISPATCH-WARNING] Gagal memicu dispatch otomatis:', err.message);
       }
     }
 

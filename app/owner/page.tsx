@@ -79,6 +79,66 @@ export default function OwnerDashboardPage() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSuccessMsg, setProfileSuccessMsg] = useState<string | null>(null);
 
+  // Weigh & Verify Modal State
+  const [weighModalOrder, setWeighModalOrder] = useState<Order | null>(null);
+  const [weighInput, setWeighInput] = useState<string>('');
+  const [isSubmittingWeigh, setIsSubmittingWeigh] = useState(false);
+  const [weighError, setWeighError] = useState<string | null>(null);
+  const [weighSuccessMsg, setWeighSuccessMsg] = useState<string | null>(null);
+
+  const openWeighModal = (order: Order) => {
+    setWeighModalOrder(order);
+    setWeighInput(order.finalWeightKg ? String(order.finalWeightKg) : String(order.estimatedWeightKg || 5));
+    setWeighError(null);
+    setWeighSuccessMsg(null);
+  };
+
+  const handleSaveWeighVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!weighModalOrder || !currentUser) return;
+
+    const parsedWeight = parseFloat(weighInput);
+    if (isNaN(parsedWeight) || parsedWeight <= 0) {
+      setWeighError('Masukkan angka berat aktual yang valid (> 0 kg).');
+      return;
+    }
+
+    setIsSubmittingWeigh(true);
+    setWeighError(null);
+
+    try {
+      const res = await orderService.updateActualWeightAndRecalculatePriceAsync(
+        weighModalOrder.id,
+        parsedWeight,
+        {
+          id: currentUser.id,
+          role: currentUser.role,
+          laundryId: weighModalOrder.laundryId,
+        }
+      );
+
+      let msg = `Penimbangan berhasil disimpan! Berat aktual: ${parsedWeight} kg (Total: ${formatIDR(res.order.totalPrice)})`;
+      if (res.priceDelta > 0) {
+        msg += `. Selisih +${formatIDR(res.priceDelta)} perlu dibayar customer sebelum pickup.`;
+      } else if (res.priceDelta < 0) {
+        msg += `. Berat lebih rendah dari estimasi (kelebihan pembayaran dicatat).`;
+      } else {
+        msg += `. Berat sesuai estimasi. Kurir dapat meluncur pickup.`;
+      }
+
+      setWeighSuccessMsg(msg);
+      setTimeout(() => {
+        setWeighModalOrder(null);
+        setWeighSuccessMsg(null);
+        window.location.reload();
+      }, 2000);
+    } catch (err: any) {
+      setWeighError(err.message || 'Gagal menyimpan penimbangan.');
+    } finally {
+      setIsSubmittingWeigh(false);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -560,17 +620,39 @@ export default function OwnerDashboardPage() {
                             {order.finalWeightKg ? `${order.finalWeightKg} kg (Final)` : `${order.estimatedWeightKg || '-'} kg (Est)`}
                           </td>
                           <td className="p-3">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${statusCfg.bg} ${statusCfg.color}`}>
-                              {statusCfg.label}
-                            </span>
+                            <div className="space-y-1">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${statusCfg.bg} ${statusCfg.color}`}>
+                                {statusCfg.label}
+                              </span>
+                              {(order.status === 'pending' || order.status === 'assigned') && (
+                                <div className="text-[10px] font-bold">
+                                  {order.logs?.some((l) => l.notes?.includes('courier_arrived') || l.notes?.includes('Tiba di Outlet') || l.notes?.includes('sampai di outlet')) ? (
+                                    <span className="text-emerald-700 font-extrabold flex items-center gap-1">📍 Kurir Sudah Tiba</span>
+                                  ) : (
+                                    <span className="text-amber-700 font-semibold flex items-center gap-1">🚴 Kurir Menuju Outlet</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="p-3 font-black text-slate-900">{formatIDR(order.totalPrice)}</td>
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              {order.status === 'picked_up' && (
+                              {!order.finalWeightKg && (order.status === 'pending' || order.status === 'assigned' || order.status === 'picked_up') && (
                                 <Button
                                   variant="primary"
                                   size="sm"
+                                  className="bg-amber-600 hover:bg-amber-500 font-bold"
+                                  onClick={() => openWeighModal(order)}
+                                >
+                                  Timbang &amp; Verifikasi
+                                </Button>
+                              )}
+                              {order.finalWeightKg && (order.status === 'picked_up' || order.status === 'assigned') && (
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  className="bg-teal-600 hover:bg-teal-500 font-bold"
                                   onClick={async () => {
                                     try {
                                       await orderService.transitionOrderStatusAsync(order.id, 'in_washing', { id: currentUser?.id || '', role: currentUser?.role || 'laundry_owner', laundryId: order.laundryId }, 'Mulai pencucian cucian customer');
@@ -848,6 +930,128 @@ export default function OwnerDashboardPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* MODAL VERIFIKASI & TIMBANG LAUNDRY */}
+      {weighModalOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">Verifikasi &amp; Timbang Laundry</h3>
+                <p className="text-xs text-slate-500 font-medium">Order #{weighModalOrder.trackingNumber}</p>
+              </div>
+              <button
+                onClick={() => setWeighModalOrder(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveWeighVerification} className="space-y-4 text-xs">
+              <div className="p-3 bg-slate-50 rounded-2xl space-y-2 border border-slate-200">
+                <div className="flex justify-between text-slate-600">
+                  <span>Customer:</span>
+                  <span className="font-bold text-slate-900">{weighModalOrder.customerName}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Berat Estimasi (Awal):</span>
+                  <span className="font-semibold text-slate-800">{weighModalOrder.estimatedWeightKg || 5} kg</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Harga Estimasi (Awal):</span>
+                  <span className="font-semibold text-slate-800">{formatIDR(weighModalOrder.totalPrice)}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-800 block">
+                  Berat Aktual Timbangan (kg) <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.5"
+                    value={weighInput}
+                    onChange={(e) => setWeighInput(e.target.value)}
+                    className="w-full text-base font-extrabold p-3 rounded-2xl border-2 border-teal-500 bg-teal-50/20 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-teal-600"
+                    placeholder="Contoh: 7.0"
+                    required
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">kg</span>
+                </div>
+              </div>
+
+              {/* Server-Side Calculated Actual Summary Preview */}
+              {(() => {
+                const w = parseFloat(weighInput);
+                if (isNaN(w) || w <= 0) return null;
+                const unitPrice = weighModalOrder.items[0]?.unitPrice || 8000;
+                const estTotal = Math.round(weighModalOrder.totalPrice);
+                const actualTotal = Math.round(
+                  (w * unitPrice) + (weighModalOrder.deliveryFee || 0) + (weighModalOrder.platformFee || 2000) - (weighModalOrder.discount || 0)
+                );
+                const delta = actualTotal - estTotal;
+
+                return (
+                  <div className="p-3 bg-teal-50/60 border border-teal-200 rounded-2xl space-y-1.5 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-teal-800 font-medium">Harga per kg:</span>
+                      <span className="font-bold text-slate-800">{formatIDR(unitPrice)} / kg</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-teal-800 font-medium">Harga Aktual (Server Calculated):</span>
+                      <span className="font-black text-teal-900">{formatIDR(actualTotal)}</span>
+                    </div>
+                    <div className="flex justify-between pt-1 border-t border-teal-200 font-bold">
+                      <span className="text-slate-800">Selisih Penyesuaian Harga:</span>
+                      <span className={delta > 0 ? 'text-amber-700 font-black' : delta < 0 ? 'text-blue-700 font-black' : 'text-emerald-700 font-black'}>
+                        {delta > 0 ? `+${formatIDR(delta)}` : delta < 0 ? `-${formatIDR(Math.abs(delta))}` : 'Rp 0'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {weighError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{weighError}</span>
+                </div>
+              )}
+
+              {weighSuccessMsg && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{weighSuccessMsg}</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  onClick={() => setWeighModalOrder(null)}
+                  className="w-1/2 font-bold"
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  disabled={isSubmittingWeigh}
+                  className="w-1/2 bg-teal-600 hover:bg-teal-500 font-bold"
+                >
+                  {isSubmittingWeigh ? 'Menyimpan...' : 'Simpan & Verifikasi'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

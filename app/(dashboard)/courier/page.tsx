@@ -70,6 +70,28 @@ export default function CourierDashboardPage() {
     }
   };
 
+  const handleArrivedAtOutlet = async (order: Order) => {
+    if (!currentUser) return;
+    try {
+      await orderService.markCourierArrivedAtLaundryAsync(order.id, currentUser.id);
+      alert(`Kedatangan Anda di outlet laundry untuk order #${order.trackingNumber} berhasil dicatat!\nSilakan tunggu Owner/Staff menimbang cucian.`);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Gagal mencatat kedatangan kurir.');
+    }
+  };
+
+  const handlePickupOrder = async (order: Order) => {
+    if (!currentUser) return;
+    try {
+      await orderService.transitionOrderStatusAsync(order.id, 'picked_up', { id: currentUser.id, role: 'courier' }, 'Cucian berhasil di-pickup oleh kurir.');
+      alert(`Cucian order #${order.trackingNumber} berhasil di-pickup! Status kini 'picked_up'.`);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Gagal melakukan pickup laundry.');
+    }
+  };
+
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus, notes: string) => {
     if (!currentUser) return;
     try {
@@ -201,6 +223,8 @@ export default function CourierDashboardPage() {
                 order={o}
                 onUpdateClick={(target) => setSelectedUpdateOrder(target)}
                 onAcceptClick={handleAcceptTask}
+                onArrivedClick={handleArrivedAtOutlet}
+                onPickupClick={handlePickupOrder}
               />
             ))}
           </div>

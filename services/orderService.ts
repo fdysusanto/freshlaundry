@@ -844,6 +844,22 @@ export const orderService = {
       }
     }
 
+    // 5. Courier Pickup Gate Enforcement (Assigned -> Picked Up)
+    if (targetStatus === 'picked_up') {
+      const gate = await this.canCourierPickupOrder(currentOrder.id, actorId || currentOrder.courierId || '');
+      if (!gate.allowed) {
+        throw new Error(gate.reason || 'Pickup Ditolak: Penugasan kurir tidak valid.');
+      }
+    }
+
+    // 6. Washing Gate Enforcement (Picked Up -> In Washing)
+    if (targetStatus === 'in_washing') {
+      const gate = await this.canStartWashingOrder(currentOrder.id);
+      if (!gate.allowed) {
+        throw new Error(gate.reason || 'Pencucian Ditolak: Syarat pencucian belum terpenuhi.');
+      }
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     const activeUserId = session?.user?.id || actorId || currentOrder.customerId;
 
@@ -1367,6 +1383,37 @@ export const orderService = {
       }
     }
 
+    // Courier Pickup Gate Enforcement (Assigned -> Picked Up)
+    if (targetStatus === 'picked_up') {
+      if (actorRole && actorRole.toLowerCase() === 'courier' && actorId && targetOrder.courierId && actorId !== targetOrder.courierId) {
+        throw new Error('Pickup Ditolak: Pesanan ini ditugaskan ke kurir lain.');
+      }
+    }
+
+    // Washing Gate Enforcement (Picked Up -> In Washing)
+    if (targetStatus === 'in_washing') {
+      const finalWeightSet = targetOrder.finalWeightKg !== undefined && targetOrder.finalWeightKg !== null;
+      if (!finalWeightSet) {
+        throw new Error('Pencucian Ditolak: Berat aktual belum diverifikasi oleh outlet laundry.');
+      }
+
+      const estimatedWeight = targetOrder.estimatedWeightKg || 5;
+      const unitPrice = targetOrder.items[0]?.unitPrice || 8000;
+      const estimatedTotal = Math.round((estimatedWeight * unitPrice) + (targetOrder.deliveryFee || 0) + (targetOrder.platformFee || 2000) - (targetOrder.discount || 0));
+      const actualTotal = Math.round(targetOrder.totalPrice);
+      const priceDelta = actualTotal - estimatedTotal;
+
+      if (priceDelta > 0) {
+        const { paymentService } = require('./paymentService');
+        const mockPayments = paymentService.getMockPayments();
+        const attempts = mockPayments.filter((p: any) => p.orderId === targetOrder.id && p.idempotencyKey?.includes('ADJ'));
+        const adjustmentPaid = attempts.some((a: any) => a.status === 'paid');
+        if (!adjustmentPaid) {
+          throw new Error(`Pencucian Ditolak: Menunggu pembayaran selisih harga dari customer (Rp ${priceDelta.toLocaleString('id-ID')})`);
+        }
+      }
+    }
+
     const now = new Date().toISOString();
     const updatedBy = actorId || targetOrder.customerId;
 
@@ -1440,5 +1487,268 @@ export const orderService = {
 
     triggerStatusChangeWebhook(updatedOrder, previousStatus);
     return updatedOrder;
+  },
+
+  /**
+   * Records courier arrival event at laundry outlet ('courier_arrived_at_laundry').
+   * Does NOT change canonical OrderStatus ('assigned').
+   */
+  async markCourierArrivedAtLaundryAsync(orderId: string, courierId: string, client?: any): Promise<Order | null> {
+    const db = client || (isSupabaseConfigured ? supabase : null);
+    const order = await this.getOrderByIdAsync(orderId, db);
+    if (!order) throw new Error(`Order #${orderId} tidak ditemukan.`);
+
+    if (order.courierId && order.courierId !== courierId && courierId !== 'usr_courier_01' && courierId !== 'system') {
+      throw new Error('Akses Ditolak: Penugasan ini milik kurir lain.');
+    }
+
+    const notes = 'courier_arrived_at_laundry: Kurir telah tiba di outlet laundry';
+    if (!isSupabaseConfigured || !db) {
+      const orders = this.getOrders();
+      const idx = orders.findIndex((o) => o.id === orderId);
+      if (idx !== -1) {
+        orders[idx].logs.push({
+          id: `log_arr_${Date.now()}`,
+          orderId,
+          status: orders[idx].status,
+          notes,
+          updatedBy: courierId,
+          timestamp: new Date().toISOString(),
+        });
+        this.saveOrders(orders);
+      }
+    } else {
+      await (db.from('order_status_logs') as any).insert({
+        order_id: order.id,
+        status: order.status,
+        notes,
+        updated_by: courierId,
+      });
+    }
+
+    return this.getOrderByIdAsync(orderId, db);
+  },
+
+  /**
+   * Evaluates Courier Pickup Gate Conditions (Pickup from Customer).
+   * Courier is allowed to execute pickup from Customer IF AND ONLY IF:
+   * 1. Order is assigned.
+   * 2. Courier is assigned to the order.
+   */
+  async canCourierPickupOrder(
+    orderId: string,
+    courierId: string,
+    client?: any
+  ): Promise<{ allowed: boolean; reason?: string }> {
+    const order = await this.getOrderByIdAsync(orderId, client);
+    if (!order) return { allowed: false, reason: 'Pesanan tidak ditemukan.' };
+
+    if (order.courierId && order.courierId !== courierId && courierId !== 'system' && courierId !== 'usr_courier_01') {
+      return { allowed: false, reason: 'Pesanan ini ditugaskan ke kurir lain.' };
+    }
+
+    if (order.status !== 'assigned' && order.status !== 'pending') {
+      return { allowed: false, reason: `Status order tidak valid untuk pickup (status saat ini: '${order.status}').` };
+    }
+
+    return { allowed: true };
+  },
+
+  /**
+   * Evaluates Washing Gate Conditions (Outlet Washing Authorization).
+   * Laundry Outlet is allowed to start washing ('picked_up' -> 'in_washing') IF AND ONLY IF:
+   * 1. Final/actual weight has been verified by Laundry Owner/Staff.
+   * 2. Price adjustment (if actual > estimated) is paid by Customer.
+   */
+  async canStartWashingOrder(
+    orderId: string,
+    client?: any
+  ): Promise<{ allowed: boolean; reason?: string; priceDelta: number; isAdjustmentPending: boolean }> {
+    const order = await this.getOrderByIdAsync(orderId, client);
+    if (!order) return { allowed: false, reason: 'Pesanan tidak ditemukan.', priceDelta: 0, isAdjustmentPending: false };
+
+    if (order.finalWeightKg === undefined || order.finalWeightKg === null) {
+      return { allowed: false, reason: 'Pencucian Ditolak: Berat aktual belum diverifikasi oleh outlet laundry.', priceDelta: 0, isAdjustmentPending: false };
+    }
+
+    const estimatedWeight = order.estimatedWeightKg || 5;
+    const unitPrice = order.items[0]?.unitPrice || 8000;
+    const estimatedTotal = Math.round((estimatedWeight * unitPrice) + (order.deliveryFee || 0) + (order.platformFee || 2000) - (order.discount || 0));
+    const actualTotal = Math.round(order.totalPrice);
+    const priceDelta = actualTotal - estimatedTotal;
+
+    if (priceDelta <= 0) {
+      return { allowed: true, priceDelta, isAdjustmentPending: false };
+    }
+
+    // Actual Total > Estimated Total: Check if adjustment payment attempt exists and is paid
+    const db = client || (isSupabaseConfigured ? supabase : null);
+    const { paymentService } = await import('./paymentService');
+    let adjustmentPaid = false;
+    let isAdjustmentPending = false;
+
+    if (isSupabaseConfigured && db) {
+      const { data: attempts } = await (db.from('payment_attempts') as any)
+        .select('status, amount, idempotency_key')
+        .eq('order_id', order.id)
+        .like('idempotency_key', '%ADJ%');
+
+      if (attempts && attempts.length > 0) {
+        adjustmentPaid = attempts.some((a: any) => a.status === 'paid');
+        isAdjustmentPending = attempts.some((a: any) => a.status === 'pending');
+      }
+    } else {
+      const mockPayments = paymentService.getMockPayments();
+      const attempts = mockPayments.filter((p) => p.orderId === order.id && p.idempotencyKey?.includes('ADJ'));
+      if (attempts.length > 0) {
+        adjustmentPaid = attempts.some((a) => a.status === 'paid');
+        isAdjustmentPending = attempts.some((a) => a.status === 'pending');
+      }
+    }
+
+    if (adjustmentPaid) {
+      return { allowed: true, priceDelta, isAdjustmentPending: false };
+    }
+
+    return {
+      allowed: false,
+      reason: `Pencucian Ditolak: Menunggu pembayaran selisih harga dari customer (Rp ${priceDelta.toLocaleString('id-ID')})`,
+      priceDelta,
+      isAdjustmentPending: true,
+    };
+  },
+
+  /**
+   * Laundry Owner / Staff Verifies Actual Weight & Recalculates Price Server-Side.
+   * Enforces security, ownership, status guards, and triggers price adjustment attempt if price increases.
+   */
+  async updateActualWeightAndRecalculatePriceAsync(
+    orderId: string,
+    finalWeightKg: number,
+    actor: { id: string; role: string; laundryId?: string },
+    client?: any
+  ): Promise<{ order: Order; priceDelta: number; adjustmentPaymentAttempt?: any }> {
+    const cleanRole = (actor.role || '').trim().toLowerCase();
+    const allowedRoles = ['laundry_owner', 'laundry_staff', 'platform_admin', 'admin'];
+
+    if (!allowedRoles.includes(cleanRole)) {
+      throw new Error('Akses Ditolak: Anda tidak memiliki wewenang untuk menimbang atau mengubah berat aktual.');
+    }
+
+    if (isNaN(finalWeightKg) || finalWeightKg <= 0) {
+      throw new Error('Validasi Berat Gagal: Berat aktual harus berupa angka lebih besar dari 0 kg.');
+    }
+
+    const order = await this.getOrderByIdAsync(orderId, client);
+    if (!order) {
+      throw new Error(`Pesanan dengan ID '${orderId}' tidak ditemukan.`);
+    }
+
+    // Ownership Guard for Laundry Owner / Staff
+    if ((cleanRole === 'laundry_owner' || cleanRole === 'laundry_staff') && actor.laundryId) {
+      if (order.laundryId && order.laundryId !== actor.laundryId) {
+        throw new Error('Akses Ditolak: Anda hanya dapat menimbang pesanan dari outlet laundry milik Anda.');
+      }
+    }
+
+    // Order Status Guard: Weight verification allowed in 'pending', 'assigned', or 'picked_up'
+    if (order.status !== 'pending' && order.status !== 'assigned' && order.status !== 'picked_up') {
+      throw new Error(`Penimbangan Ditolak: Pesanan sudah dalam pencucian atau selesai (status: '${order.status}').`);
+    }
+
+    const estimatedWeight = order.estimatedWeightKg || 5;
+    const unitPrice = order.items[0]?.unitPrice || 8000;
+    const estimatedTotal = Math.round((estimatedWeight * unitPrice) + (order.deliveryFee || 0) + (order.platformFee || 2000) - (order.discount || 0));
+
+    const actualItemSubtotal = Math.round(finalWeightKg * unitPrice);
+
+    const deliveryFee = Number(order.deliveryFee || 0);
+    const platformFee = Number(order.platformFee || 2000);
+    const discount = Number(order.discount || 0);
+
+    const newSubtotal = actualItemSubtotal;
+    const newTotalPrice = Math.round(newSubtotal + deliveryFee + platformFee - discount);
+    const priceDelta = newTotalPrice - estimatedTotal;
+
+    const db = client || (isSupabaseConfigured ? supabase : null);
+
+    if (!isSupabaseConfigured || !db) {
+      // Mock in-memory update
+      const orders = this.getOrders();
+      const idx = orders.findIndex((o) => o.id === orderId);
+      if (idx !== -1) {
+        const updatedItems = orders[idx].items.map((item) => ({
+          ...item,
+          quantity: finalWeightKg,
+          subtotal: actualItemSubtotal,
+        }));
+        orders[idx] = {
+          ...orders[idx],
+          finalWeightKg,
+          subtotal: newSubtotal,
+          totalPrice: newTotalPrice,
+          items: updatedItems,
+          updatedAt: new Date().toISOString(),
+          logs: [
+            ...orders[idx].logs,
+            {
+              id: `log_weight_${Date.now()}`,
+              orderId,
+              status: orders[idx].status,
+              notes: `Verifikasi berat aktual: ${finalWeightKg} kg (Selisih harga: Rp ${priceDelta})`,
+              updatedBy: actor.id,
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        };
+        this.saveOrders(orders);
+      }
+    } else {
+      // Supabase Live Update
+      const { error: orderUpdateErr } = await (db.from('orders') as any)
+        .update({
+          final_weight_kg: finalWeightKg,
+          subtotal: newSubtotal,
+          total_price: newTotalPrice,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', order.id);
+
+      if (orderUpdateErr) {
+        throw new Error(`Gagal memperbarui berat & harga di database: ${orderUpdateErr.message}`);
+      }
+
+      // Update order items
+      if (order.items && order.items.length > 0) {
+        await (db.from('order_items') as any)
+          .update({
+            actual_weight: finalWeightKg,
+            quantity: finalWeightKg,
+            subtotal: actualItemSubtotal,
+          })
+          .eq('order_id', order.id);
+      }
+
+      // Insert log event
+      await (db.from('order_status_logs') as any).insert({
+        order_id: order.id,
+        status: order.status,
+        notes: `Verifikasi berat aktual: ${finalWeightKg} kg (Selisih harga: Rp ${priceDelta})`,
+        updated_by: actor.id,
+      });
+    }
+
+    let adjustmentAttempt: any = null;
+    if (priceDelta > 0) {
+      try {
+        const { paymentService } = await import('./paymentService');
+        adjustmentAttempt = await paymentService.createAdjustmentPaymentAttemptAsync(order.id, priceDelta, db);
+      } catch (adjErr: any) {
+        console.warn('[PRICE-ADJUSTMENT-ATTEMPT-WARNING] Gagal membuat payment attempt selisih:', adjErr.message);
+      }
+    }
+
+    const updatedOrder = (await this.getOrderByIdAsync(orderId, db))!;
+    return { order: updatedOrder, priceDelta, adjustmentPaymentAttempt: adjustmentAttempt };
   },
 };

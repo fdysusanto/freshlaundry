@@ -308,8 +308,14 @@ export default function OrderDetailPage() {
                 <span className="font-bold text-slate-800">{order.serviceName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Estimasi Kiloan / Pcs:</span>
-                <span className="font-semibold text-slate-800">{order.estimatedWeightKg} Unit</span>
+                <span className="text-slate-500">Estimasi Kiloan:</span>
+                <span className="font-semibold text-slate-800">{order.estimatedWeightKg || 5} kg</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Berat Aktual Timbangan:</span>
+                <span className={order.finalWeightKg ? 'font-bold text-teal-700' : 'font-medium text-amber-600 italic'}>
+                  {order.finalWeightKg ? `${order.finalWeightKg} kg (Sudah Diverifikasi)` : 'Belum Ditimbang'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Jadwal Pickup:</span>
@@ -331,7 +337,7 @@ export default function OrderDetailPage() {
                   <span className="font-semibold text-slate-800">{formatIDR(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-slate-500">
-                  <span>Ongkos Kirim Pickup & Delivery:</span>
+                  <span>Ongkos Kirim Pickup &amp; Delivery:</span>
                   <span className="font-bold text-emerald-600">GRATIS</span>
                 </div>
                 <div className="flex justify-between text-slate-500">
@@ -339,7 +345,7 @@ export default function OrderDetailPage() {
                   <span className="font-semibold text-slate-800">{formatIDR(platformFee)}</span>
                 </div>
                 <div className="flex justify-between pt-2 border-t border-slate-200 text-sm font-bold">
-                  <span className="text-slate-900">Total Tagihan:</span>
+                  <span className="text-slate-900">Total Tagihan (Aktual):</span>
                   <span className="font-black text-teal-700">{formatIDR(order.totalPrice)}</span>
                 </div>
               </div>
