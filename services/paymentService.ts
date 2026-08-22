@@ -735,9 +735,9 @@ export const paymentService = {
             await triggerStatusChangeWebhook(fullOrder, 'pending');
           }
           const { dispatchService } = await import('./dispatchService');
-          await dispatchService.dispatchOrderAsync(p.orderId, 'pickup', 'system_payment_webhook');
+          await dispatchService.dispatchOrderAsync(p.orderId, 'pickup', 'system_payment_webhook', db);
         } catch (err: any) {
-          console.warn('[AUTOMATIC-DISPATCH-WARNING] Gagal memicu dispatch otomatis:', err.message);
+          console.error('[AUTOMATIC-DISPATCH-ERROR] Gagal memicu dispatch otomatis (mock mode):', err.message, err.stack);
         }
       }
 
@@ -809,9 +809,9 @@ export const paymentService = {
           await triggerStatusChangeWebhook(fullOrder, 'pending');
         }
         const { dispatchService } = await import('./dispatchService');
-        await dispatchService.dispatchOrderAsync(p.order_id, 'pickup', 'system_payment_webhook');
+        await dispatchService.dispatchOrderAsync(p.order_id, 'pickup', 'system_payment_webhook', db);
       } catch (err: any) {
-        console.warn('[AUTOMATIC-DISPATCH-WARNING] Gagal memicu dispatch otomatis:', err.message);
+        console.error('[AUTOMATIC-DISPATCH-ERROR] Gagal memicu dispatch otomatis:', err.message, err.stack);
       }
     }
 

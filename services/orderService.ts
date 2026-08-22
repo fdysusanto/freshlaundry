@@ -778,33 +778,28 @@ export const orderService = {
     orderId: string,
     targetStatusInput: string | OrderStatus,
     actorInput?: { id?: string; role?: string; laundryId?: string } | string,
-    roleOrNotes?: string,
-    notesInput: string = ''
+    notes: string = '',
+    client?: any
   ): Promise<Order | null> {
+    const db = client || (isSupabaseConfigured ? supabase : null);
+
     let actorId: string | undefined;
     let actorRole: string | undefined;
     let actorLaundryId: string | undefined;
-    let notes = notesInput;
 
     if (typeof actorInput === 'string') {
       actorId = actorInput;
-      if (typeof roleOrNotes === 'string' && ['customer', 'courier', 'laundry_owner', 'laundry_staff', 'platform_admin', 'admin'].includes(roleOrNotes.toLowerCase())) {
-        actorRole = roleOrNotes;
-      } else {
-        notes = roleOrNotes || '';
-      }
     } else if (actorInput) {
       actorId = actorInput.id;
       actorRole = actorInput.role;
       actorLaundryId = actorInput.laundryId;
-      notes = roleOrNotes || notesInput;
     }
 
-    if (!isSupabaseConfigured || !supabase) {
+    if (!isSupabaseConfigured || !db) {
       return this.transitionOrderStatus(orderId, targetStatusInput, { id: actorId, role: actorRole, laundryId: actorLaundryId }, notes);
     }
 
-    const currentOrder = await this.getOrderByIdAsync(orderId);
+    const currentOrder = await this.getOrderByIdAsync(orderId, db);
     if (!currentOrder) {
       throw new Error(`Order dengan ID/Resi ${orderId} tidak ditemukan.`);
     }
@@ -846,7 +841,7 @@ export const orderService = {
 
     // 5. Courier Pickup Gate Enforcement (Assigned -> Picked Up)
     if (targetStatus === 'picked_up') {
-      const gate = await this.canCourierPickupOrder(currentOrder.id, actorId || currentOrder.courierId || '');
+      const gate = await this.canCourierPickupOrder(currentOrder.id, actorId || currentOrder.courierId || '', db);
       if (!gate.allowed) {
         throw new Error(gate.reason || 'Pickup Ditolak: Penugasan kurir tidak valid.');
       }
@@ -854,17 +849,16 @@ export const orderService = {
 
     // 6. Washing Gate Enforcement (Picked Up -> In Washing)
     if (targetStatus === 'in_washing') {
-      const gate = await this.canStartWashingOrder(currentOrder.id);
+      const gate = await this.canStartWashingOrder(currentOrder.id, db);
       if (!gate.allowed) {
         throw new Error(gate.reason || 'Pencucian Ditolak: Syarat pencucian belum terpenuhi.');
       }
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    const activeUserId = session?.user?.id || actorId || currentOrder.customerId;
+    const activeUserId = actorId || currentOrder.customerId;
 
     const cleanId = orderId.trim();
-    let orderQuery = (supabase.from('orders') as any).update({
+    let orderQuery = (db.from('orders') as any).update({
       status: targetStatus,
       updated_at: new Date().toISOString(),
     });
@@ -881,7 +875,7 @@ export const orderService = {
     }
 
     if (activeUserId && isValidUuid(activeUserId)) {
-      const { error: logError } = await (supabase.from('order_status_logs') as any).insert({
+      const { error: logError } = await (db.from('order_status_logs') as any).insert({
         order_id: currentOrder.id,
         status: targetStatus,
         notes: notes || `Status diperbarui dari ${currentStatus} menjadi ${targetStatus}`,
@@ -893,7 +887,7 @@ export const orderService = {
       }
     }
 
-    const updatedOrder = await this.getOrderByIdAsync(orderId);
+    const updatedOrder = await this.getOrderByIdAsync(orderId, db);
     if (updatedOrder) {
       triggerStatusChangeWebhook(updatedOrder, currentStatus);
     }
@@ -1094,8 +1088,9 @@ export const orderService = {
   /**
    * Atomic Courier Assignment Acceptance (Pickup or Delivery).
    */
-  async acceptCourierAssignmentAsync(assignmentId: string, courierId: string): Promise<Order | null> {
-    if (!isSupabaseConfigured || !supabase) {
+  async acceptCourierAssignmentAsync(assignmentId: string, courierId: string, client?: any): Promise<Order | null> {
+    const db = client || supabase;
+    if (!isSupabaseConfigured || !db) {
       const orders = this.getOrders();
       const targetOrder = orders.find((o) => o.id === assignmentId || o.assignmentId === assignmentId) ||
         orders.find((o) => (o.status === 'pending' || o.status === 'ready_for_delivery'));
@@ -1105,17 +1100,17 @@ export const orderService = {
       return this.updateOrderStatus(targetOrder.id, newStatus, 'Kurir menerima tugas.', courierId);
     }
 
-    const { data: res, error } = await (supabase.rpc as any)('accept_courier_assignment_atomic', {
+    const { data: res, error } = await (db.rpc as any)('accept_courier_assignment_atomic', {
       p_assignment_id: assignmentId,
       p_courier_id: courierId,
     });
 
     const resObj = res as any;
     if (error || !resObj || !resObj.success) {
-      throw new Error(error?.message || 'Gagal mengonfirmasi penerimaan penugasan kurir secara atomic.');
+      throw new Error(resObj?.message || error?.message || 'Gagal mengonfirmasi penerimaan penugasan kurir secara atomic.');
     }
 
-    return this.getOrderByIdAsync(resObj.order_id);
+    return this.getOrderByIdAsync(resObj.order_id, db);
   },
 
   /**
