@@ -106,7 +106,27 @@ export default function OrderTrackingPage() {
         if (liveOrder && isMounted) {
           setOrder(liveOrder);
           setHasSearched(true);
-          const adj = await paymentService.getPendingAdjustmentPaymentAttemptAsync(liveOrder.id);
+          let adj = await paymentService.getPendingAdjustmentPaymentAttemptAsync(liveOrder.id);
+          if (!adj && liveOrder.paymentStatus === 'paid' && liveOrder.finalWeightKg && liveOrder.estimatedWeightKg && liveOrder.finalWeightKg > liveOrder.estimatedWeightKg) {
+            try {
+              const sessionRes = await (supabase?.auth?.getSession() || Promise.resolve({ data: { session: null } }));
+              const token = sessionRes?.data?.session?.access_token;
+              const res = await fetch(`/api/orders/${liveOrder.id}/payment`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({ action: 'create_adjustment' }),
+              });
+              const data = await res.json();
+              if (res.ok && data.success && data.payment) {
+                adj = data.payment;
+              }
+            } catch (adjFetchErr) {
+              console.warn('[TRACK-PAGE] Error fetching/creating adjustment attempt:', adjFetchErr);
+            }
+          }
           if (isMounted) setPendingAdjustment(adj);
           return;
         }
