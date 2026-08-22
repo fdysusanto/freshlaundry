@@ -81,18 +81,50 @@ export async function POST(
       return pendingAdj;
     };
 
-    // ACTION: Customer Requesting Price Adjustment Payment Attempt Retrieval / Creation
+    // ACTION: Customer Requesting Price Adjustment Payment Attempt Creation / Refresh
     if (action === 'create_adjustment') {
-      const pendingAdj = await getOrCreateAdjustmentAttemptAsync();
-
-      if (!pendingAdj) {
+      if (!order.finalWeightKg || !order.estimatedWeightKg || Number(order.finalWeightKg) <= Number(order.estimatedWeightKg)) {
         return NextResponse.json(
           { success: false, message: 'Tidak ada kekurangan pembayaran selisih yang harus dibayar untuk pesanan ini.' },
           { status: 400 }
         );
       }
 
-      return NextResponse.json({ success: true, payment: pendingAdj });
+      const estimatedWeight = Number(order.estimatedWeightKg) || 5;
+      const unitPrice = Number(order.items[0]?.unitPrice) || 8000;
+      const estimatedTotal = Math.round((estimatedWeight * unitPrice) + (Number(order.deliveryFee) || 0) + (Number(order.platformFee) || 2000) - (Number(order.discount) || 0));
+      const actualSubtotal = Math.round(Number(order.finalWeightKg) * unitPrice);
+      const newTotalPrice = Math.round(actualSubtotal + (Number(order.deliveryFee) || 0) + (Number(order.platformFee) || 2000) - (Number(order.discount) || 0));
+      const priceDelta = newTotalPrice - estimatedTotal;
+
+      if (priceDelta <= 0) {
+        return NextResponse.json(
+          { success: false, message: 'Tidak ada selisih pembayaran yang harus dibayar.' },
+          { status: 400 }
+        );
+      }
+
+      try {
+        const { createServiceRoleClient, isSupabaseConfigured } = await import('@/services/supabase');
+        const serviceDb = isSupabaseConfigured ? createServiceRoleClient() : undefined;
+        const adjPayment = await paymentService.createAdjustmentPaymentAttemptAsync(orderId, priceDelta, serviceDb);
+
+        if (!adjPayment) {
+          return NextResponse.json(
+            { success: false, message: 'Gagal membuat transaksi pembayaran selisih.' },
+            { status: 500 }
+          );
+        }
+
+        return NextResponse.json({ success: true, payment: adjPayment });
+      } catch (err: any) {
+        const errMsg = err?.message || 'Gagal memproses pembayaran selisih via gateway.';
+        const status = errMsg.includes('Authentication') ? 401 : 500;
+        return NextResponse.json(
+          { success: false, message: errMsg },
+          { status }
+        );
+      }
     }
 
     // ACTION: Customer Requesting Payment Attempt Creation / Retrieval

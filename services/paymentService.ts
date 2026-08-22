@@ -244,8 +244,7 @@ export const paymentService = {
 
     const idempotencyKey = `ORD-${order.id.slice(0, 8).toUpperCase()}-ADJ-1`;
 
-    // 1. Check if adjustment payment attempt already exists (Idempotency Guard)
-    if (isSupabaseConfigured && db) {
+    if (db) {
       const { data: existing } = await (db.from('payment_attempts') as any)
         .select('*')
         .eq('order_id', order.id)
@@ -253,23 +252,70 @@ export const paymentService = {
         .maybeSingle();
 
       if (existing) {
-        return {
-          id: existing.id,
-          orderId: existing.order_id,
-          customerId: existing.customer_id,
-          provider: existing.provider,
-          providerReference: existing.provider_reference || undefined,
-          paymentMethod: existing.payment_method,
-          amount: Number(existing.amount),
-          currency: 'IDR',
-          status: normalizePaymentStatus(existing.status),
-          idempotencyKey: existing.idempotency_key,
-          expiresAt: existing.expires_at || undefined,
-          paidAt: existing.paid_at || undefined,
-          rawResponse: existing.raw_response,
-          createdAt: existing.created_at,
-          updatedAt: existing.updated_at,
-        };
+        // console.log('[PAYMENT-SERVICE] Found existing adjustment attempt:', existing.id);
+        try {
+          const freshRef = `${order.id.slice(0, 8).toUpperCase()}-ADJ-${Date.now().toString().slice(-6)}`;
+          const gatewayRes = await getPaymentGateway().createPaymentRequest({
+            orderId: `${order.id}-ADJ`,
+            amount: Math.round(adjustmentAmount),
+            currency: 'IDR',
+            paymentMethod: 'qris',
+            idempotencyKey: freshRef,
+          });
+
+          const now = new Date().toISOString();
+          const freshToken = gatewayRes.paymentToken || gatewayRes.rawResponse?.token;
+          const freshUrl = gatewayRes.paymentUrl || gatewayRes.rawResponse?.redirect_url || gatewayRes.invoiceUrl || gatewayRes.rawResponse?.invoice_url;
+
+          const { data: updated, error: updateErr } = await (db.from('payment_attempts') as any)
+            .update({
+              raw_response: gatewayRes.rawResponse,
+              expires_at: gatewayRes.expiresAt,
+              provider_reference: gatewayRes.providerReference,
+              updated_at: now,
+            })
+            .eq('id', existing.id)
+            .select()
+            .single();
+
+          if (updateErr) {
+            throw new Error(`Database Update Error: Gagal memperbarui status payment_attempt di database. ${updateErr.message}`);
+          }
+
+          const activeRow = updated || existing;
+          const activeRaw = gatewayRes.rawResponse || activeRow.raw_response;
+
+          return {
+            id: activeRow.id,
+            orderId: activeRow.order_id,
+            customerId: activeRow.customer_id,
+            provider: activeRow.provider,
+            providerReference: activeRow.provider_reference || undefined,
+            paymentMethod: activeRow.payment_method,
+            amount: Number(activeRow.amount),
+            currency: 'IDR',
+            status: normalizePaymentStatus(activeRow.status),
+            adjustmentType: activeRow.adjustment_type || 'weight_increase',
+            idempotencyKey: activeRow.idempotency_key,
+            expiresAt: activeRow.expires_at || undefined,
+            paidAt: activeRow.paid_at || undefined,
+            rawResponse: activeRaw,
+            createdAt: activeRow.created_at,
+            updatedAt: activeRow.updated_at,
+            invoiceUrl: activeRaw?.invoice_url || activeRaw?.redirect_url || freshUrl,
+            paymentToken: activeRaw?.token || activeRaw?.snap_token || freshToken,
+            paymentUrl: activeRaw?.redirect_url || activeRaw?.invoice_url || freshUrl,
+          };
+        } catch (refreshErr: any) {
+          const errMsg = refreshErr?.message || String(refreshErr);
+          if (errMsg.includes('401') || errMsg.includes('unauthorized') || errMsg.includes('server_key') || errMsg.includes('Authentication')) {
+            throw new Error(`Midtrans Authentication Error: Gagal mengautentikasi kunci server Midtrans. ${errMsg}`);
+          }
+          if (errMsg.includes('Database Update Error')) {
+            throw refreshErr;
+          }
+          throw new Error(`Midtrans Transaction Refresh Error: Gagal memperbarui token pembayaran Midtrans Snap. ${errMsg}`);
+        }
       }
     } else {
       const mockPayments = this.getMockPayments();

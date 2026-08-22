@@ -17,6 +17,7 @@ if (fs.existsSync(envPath)) {
 
 import { orderService } from '../services/orderService';
 import { paymentService } from '../services/paymentService';
+import { MidtransPaymentGateway } from '../services/paymentGateway';
 
 async function runServerSideWeighAdjustmentTests() {
   console.log('==================================================');
@@ -104,7 +105,6 @@ async function runServerSideWeighAdjustmentTests() {
   assert(estTot === 51000 && actTot === 58000 && delta === 7000, 'F. LND-AMRRJV yields exact Rp 7.000 adjustment');
 
   // Test G. Midtrans Environment Auto-Detection & Mismatch Validation
-  const { MidtransPaymentGateway } = await import('../services/paymentGateway');
   const gw = new MidtransPaymentGateway();
 
   const origServerKey = process.env.MIDTRANS_SERVER_KEY;
@@ -158,9 +158,144 @@ async function runServerSideWeighAdjustmentTests() {
   }
   assert(g4Error, 'G4. Production client + Sandbox server -> ERROR (Mismatch detected)');
 
-  // Restore env
-  process.env.MIDTRANS_SERVER_KEY = origServerKey;
-  process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY = origClientKey;
+  // Unset MIDTRANS_SERVER_KEY for Test H to use MockPaymentGateway
+  delete process.env.MIDTRANS_SERVER_KEY;
+  delete process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
+
+  // Test H. Automatic Snap Token Refresh Verification for Existing Attempts
+  const mockExistingAttempt = {
+    id: 'att_existing_123',
+    order_id: 'ord_test_refresh',
+    customer_id: 'usr_cust_1',
+    provider: 'mock',
+    provider_reference: 'ORD-ORD_TEST-ADJ-1',
+    payment_method: 'qris',
+    amount: 7000,
+    currency: 'IDR',
+    status: 'pending',
+    adjustment_type: 'weight_increase',
+    idempotency_key: 'ORD-ORD_TEST-ADJ-1',
+    raw_response: { token: 'old_stale_token_7db3d4f5' },
+    created_at: new Date(Date.now() - 3600000).toISOString(),
+    updated_at: new Date(Date.now() - 3600000).toISOString(),
+  };
+
+  let updateCalled = false;
+  let updateData: any = null;
+
+  const mockQueryBuilder: any = {
+    select: function() { return this; },
+    update: function(data: any) {
+      updateCalled = true;
+      updateData = data;
+      return this;
+    },
+    eq: function() { return this; },
+    maybeSingle: function() { return Promise.resolve({ data: mockExistingAttempt, error: null }); },
+    single: function() {
+      return Promise.resolve({
+        data: {
+          ...mockExistingAttempt,
+          ...updateData,
+          updated_at: new Date().toISOString()
+        },
+        error: null
+      });
+    }
+  };
+
+  const refreshMockClient = {
+    from: (table: string) => mockQueryBuilder
+  };
+
+  const origGetOrder2 = orderService.getOrderByIdAsync;
+  orderService.getOrderByIdAsync = (async () => ({
+    id: 'ord_test_refresh',
+    customerId: 'usr_cust_1',
+    laundryId: 'lnd_001',
+    status: 'picked_up',
+    paymentStatus: 'paid',
+    estimatedWeightKg: 7,
+    finalWeightKg: 8,
+    subtotal: 56000,
+    totalPrice: 58000,
+    items: [{ id: 'it_1', unitPrice: 7000, subtotal: 56000, quantity: 7 }],
+    logs: [],
+  })) as any;
+
+  try {
+    const refreshedRes = await paymentService.createAdjustmentPaymentAttemptAsync('ord_test_refresh', 7000, refreshMockClient as any);
+    assert(updateCalled, 'H1. Existing pending attempt updates database row with fresh token');
+    assert(refreshedRes?.id === 'att_existing_123', 'H2. Existing attempt ID is preserved (no second row created)');
+    assert(Boolean(refreshedRes?.paymentUrl || refreshedRes?.rawResponse?.invoice_url), 'H3. Returned object has valid fresh payment/invoice URL');
+  } catch (err: any) {
+    console.error('Error during H test:', err);
+    assert(false, 'H. Automatic Snap Token Refresh failed');
+  }
+
+  // Test R1-R6: Regression Tests for Direct create_adjustment Execution & Error Handling
+  console.log('\n--- REGRESSION TESTS R1-R6 ---');
+  let r1Executed = false;
+  let r6ErrorCaught = false;
+
+  const mockQueryBuilderR: any = {
+    select: function() { return this; },
+    update: function(data: any) {
+      r1Executed = true;
+      return this;
+    },
+    eq: function() { return this; },
+    maybeSingle: function() { return Promise.resolve({ data: mockExistingAttempt, error: null }); },
+    single: function() {
+      return Promise.resolve({
+        data: {
+          ...mockExistingAttempt,
+          raw_response: { token: 'fresh_token_r1_999', redirect_url: 'https://app.sandbox.midtrans.com/snap/v4/redirection/fresh_token_r1_999' },
+          updated_at: new Date().toISOString()
+        },
+        error: null
+      });
+    }
+  };
+
+  const refreshMockClientR = {
+    from: (table: string) => mockQueryBuilderR
+  };
+
+  try {
+    const resR = await paymentService.createAdjustmentPaymentAttemptAsync('ord_test_refresh', 7000, refreshMockClientR as any);
+    assert(r1Executed, 'R1. Existing pending adjustment executes createAdjustmentPaymentAttemptAsync (update triggered)');
+    assert(resR?.id === 'att_existing_123', 'R2. Existing adjustment row ID remains att_existing_123');
+    assert(resR?.idempotencyKey === 'ORD-ORD_TEST-ADJ-1', 'R3. Idempotency key remains ORD-ORD_TEST-ADJ-1');
+    assert(Boolean(resR?.paymentToken || resR?.paymentUrl || resR?.rawResponse?.invoice_url), 'R4. Fresh paymentToken/paymentUrl is returned in payment object');
+    assert(Boolean(r1Executed), 'R5. getPendingAdjustmentPaymentAttemptAsync is NOT used as an early-return guard');
+  } catch (err: any) {
+    assert(false, 'R1-R5 Regression tests failed: ' + err.message);
+  }
+
+  // Test R6: No silent fallback to stale token when refresh fails
+  const origCreatePaymentRequest = MidtransPaymentGateway.prototype.createPaymentRequest;
+  MidtransPaymentGateway.prototype.createPaymentRequest = async function() {
+    throw new Error('Midtrans API Error [401]: Access denied due to unauthorized transaction');
+  };
+
+  process.env.MIDTRANS_SERVER_KEY = 'SB-Mid-server-test';
+  process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY = 'SB-Mid-client-test';
+
+  try {
+    await paymentService.createAdjustmentPaymentAttemptAsync('ord_test_refresh', 7000, refreshMockClientR as any);
+    assert(false, 'R6. API/Service should NOT return old stale token as success fallback when refresh fails');
+  } catch (err: any) {
+    if (err.message.includes('Midtrans Authentication Error') || err.message.includes('Midtrans Transaction Refresh Error')) {
+      r6ErrorCaught = true;
+    }
+  } finally {
+    MidtransPaymentGateway.prototype.createPaymentRequest = origCreatePaymentRequest;
+    orderService.getOrderByIdAsync = origGetOrder2;
+    if (origServerKey) process.env.MIDTRANS_SERVER_KEY = origServerKey;
+    if (origClientKey) process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY = origClientKey;
+  }
+  assert(r6ErrorCaught, 'R6. If Midtrans fails to refresh token, explicit error is thrown instead of returning old token');
 
   console.log(`\n==================================================`);
   console.log(`SUMMARY: ${passed} PASS, ${failed} FAIL`);
@@ -175,3 +310,4 @@ runServerSideWeighAdjustmentTests().catch((err) => {
   console.error('Unhandled error during test run:', err);
   process.exit(1);
 });
+
