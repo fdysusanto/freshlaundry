@@ -297,6 +297,160 @@ async function runServerSideWeighAdjustmentTests() {
   }
   assert(r6ErrorCaught, 'R6. If Midtrans fails to refresh token, explicit error is thrown instead of returning old token');
 
+  // Test WG-R1 to WG-R6: Washing Gate Enforcement Regression Tests
+  console.log('\n--- WASHING GATE REGRESSION TESTS (WG-R1 to WG-R6) ---');
+
+  const origGetOrderWG = orderService.getOrderByIdAsync;
+  orderService.getOrderByIdAsync = (async () => ({
+    id: 'ord_wg_test_1',
+    customerId: 'usr_cust_wg',
+    laundryId: 'lnd_wg_001',
+    status: 'picked_up',
+    paymentStatus: 'paid',
+    estimatedWeightKg: 7,
+    finalWeightKg: 8,
+    subtotal: 56000,
+    totalPrice: 58000,
+    items: [{ id: 'it_1', unitPrice: 7000, subtotal: 56000, quantity: 7 }],
+    logs: [],
+  })) as any;
+
+  // WG-R1: Adjustment status = paid -> allowed: true
+  const createMockDb = (status: 'paid' | 'pending' | 'empty') => ({
+    from: (table: string) => {
+      if (table === 'payment_attempts') {
+        return {
+          select: () => ({
+            eq: () => ({
+              like: () => Promise.resolve({
+                data: status === 'empty' ? [] : [{ status, amount: 7000, idempotency_key: 'ORD-TEST-ADJ-1' }],
+                error: null
+              })
+            })
+          })
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            single: () => Promise.resolve({
+              data: {
+                id: 'ord_wg_test_1',
+                customer_id: 'usr_cust_wg',
+                laundry_id: 'lnd_wg_001',
+                status: 'picked_up',
+                payment_status: 'paid',
+                estimated_weight_kg: 7,
+                final_weight_kg: 8,
+                total_price: 58000,
+                delivery_fee: 0,
+                platform_fee: 2000,
+                discount: 0
+              },
+              error: null
+            }),
+            maybeSingle: () => Promise.resolve({
+              data: {
+                id: 'ord_wg_test_1',
+                customer_id: 'usr_cust_wg',
+                laundry_id: 'lnd_wg_001',
+                status: 'picked_up',
+                payment_status: 'paid',
+                estimated_weight_kg: 7,
+                final_weight_kg: 8,
+                total_price: 58000,
+                delivery_fee: 0,
+                platform_fee: 2000,
+                discount: 0
+              },
+              error: null
+            })
+          })
+        }),
+        update: () => ({
+          eq: () => Promise.resolve({ data: {}, error: null })
+        })
+      };
+    }
+  });
+
+  const mockServiceDbPaid = createMockDb('paid');
+  const mockServiceDbPending = createMockDb('pending');
+  const mockAnonDbBlocked = createMockDb('empty');
+
+  const wgResult1 = await orderService.canStartWashingOrder('ord_wg_test_1', mockServiceDbPaid as any);
+  assert(wgResult1.allowed === true, 'WG-R1. Adjustment payment status = paid -> canStartWashingOrder() = allowed: true');
+
+  const wgResult2 = await orderService.canStartWashingOrder('ord_wg_test_1', mockServiceDbPending as any);
+  assert(wgResult2.allowed === false, 'WG-R2. Adjustment payment status = pending -> canStartWashingOrder() = allowed: false');
+
+  const wgAnonResult = await orderService.canStartWashingOrder('ord_wg_test_1', mockAnonDbBlocked as any);
+  assert(wgAnonResult.allowed === false, 'WG-R3a. ANON client blocked by RLS returns allowed: false');
+
+  const wgServiceResult = await orderService.canStartWashingOrder('ord_wg_test_1', mockServiceDbPaid as any);
+  assert(wgServiceResult.allowed === true, 'WG-R3b. Passing serviceDb allows reading payment_attempts and returns allowed: true');
+
+  // WG-R4: Laundry owner must be authorized (cross-laundry owner rejected)
+  let crossOwnerRejected = false;
+  try {
+    await orderService.transitionOrderStatusAsync(
+      'ord_wg_test_1',
+      'in_washing',
+      { id: 'usr_owner_other', role: 'laundry_owner', laundryId: 'lnd_other_999' },
+      'Mulai cuci',
+      mockServiceDbPaid as any
+    );
+  } catch (err: any) {
+    if (err.message.includes('Akses Ditolak')) crossOwnerRejected = true;
+  }
+  assert(crossOwnerRejected, 'WG-R4. Cross-laundry owner rejected by role permission guard');
+
+  // WG-R5: Customer role cannot transition order to in_washing
+  let customerRejected = false;
+  try {
+    await orderService.transitionOrderStatusAsync(
+      'ord_wg_test_1',
+      'in_washing',
+      { id: 'usr_cust_wg', role: 'customer' },
+      'Mulai cuci',
+      mockServiceDbPaid as any
+    );
+  } catch (err: any) {
+    if (err.message.includes('Akses Ditolak')) customerRejected = true;
+  }
+  assert(customerRejected, 'WG-R5. Customer role cannot transition order to in_washing');
+
+  // WG-R6: No duplicate payment_attempt created during washing gate check
+  let insertCount = 0;
+  const mockServiceDbInsertCount = {
+    from: (table: string) => {
+      if (table === 'payment_attempts') {
+        return {
+          select: () => ({
+            eq: () => ({
+              like: () => Promise.resolve({
+                data: [{ status: 'paid', amount: 7000, idempotency_key: 'ORD-TEST-ADJ-1' }],
+                error: null
+              })
+            })
+          }),
+          insert: () => {
+            insertCount++;
+            return { select: () => ({ single: () => Promise.resolve({ data: {}, error: null }) }) };
+          }
+        };
+      }
+      return {
+        update: () => ({ eq: () => Promise.resolve({ error: null }) })
+      };
+    }
+  };
+
+  await orderService.canStartWashingOrder('ord_wg_test_1', mockServiceDbInsertCount as any);
+  assert(insertCount === 0, 'WG-R6. 0 insert calls made to payment_attempts during washing gate evaluation');
+
+  orderService.getOrderByIdAsync = origGetOrderWG;
+
   console.log(`\n==================================================`);
   console.log(`SUMMARY: ${passed} PASS, ${failed} FAIL`);
   console.log(`==================================================`);

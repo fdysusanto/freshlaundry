@@ -795,7 +795,7 @@ export const orderService = {
       actorLaundryId = actorInput.laundryId;
     }
 
-    if (!isSupabaseConfigured || !db) {
+    if (!db) {
       return this.transitionOrderStatus(orderId, targetStatusInput, { id: actorId, role: actorRole, laundryId: actorLaundryId }, notes);
     }
 
@@ -855,10 +855,12 @@ export const orderService = {
       }
     }
 
-    const activeUserId = actorId || currentOrder.customerId;
+    const { createServiceRoleClient } = await import('./supabase');
+    const serviceDb = isSupabaseConfigured ? createServiceRoleClient() : null;
+    const writeDb = client || serviceDb;
 
     const cleanId = orderId.trim();
-    let orderQuery = (db.from('orders') as any).update({
+    let orderQuery = (writeDb.from('orders') as any).update({
       status: targetStatus,
       updated_at: new Date().toISOString(),
     });
@@ -873,6 +875,8 @@ export const orderService = {
     if (updateError) {
       throw new Error(`Supabase Status Update Error: ${updateError.message}`);
     }
+
+    const activeUserId = actorId || currentOrder.customerId;
 
     if (activeUserId && isValidUuid(activeUserId)) {
       const { error: logError } = await (db.from('order_status_logs') as any).insert({
@@ -1577,12 +1581,14 @@ export const orderService = {
     }
 
     // Actual Total > Estimated Total: Check if adjustment payment attempt exists and is paid
-    const db = client || (isSupabaseConfigured ? supabase : null);
+    const { createServiceRoleClient } = await import('./supabase');
+    const serviceDb = isSupabaseConfigured ? createServiceRoleClient() : null;
+    const db = serviceDb || client || (isSupabaseConfigured ? (typeof window === 'undefined' ? createServiceRoleClient() : supabase) : null);
     const { paymentService } = await import('./paymentService');
     let adjustmentPaid = false;
     let isAdjustmentPending = false;
 
-    if (isSupabaseConfigured && db) {
+    if (db) {
       const { data: attempts } = await (db.from('payment_attempts') as any)
         .select('status, amount, idempotency_key')
         .eq('order_id', order.id)
