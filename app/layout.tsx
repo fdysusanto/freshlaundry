@@ -20,11 +20,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const isProd = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true';
+  const clientKey = (process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || '').trim();
+  const isSandboxClient = clientKey.startsWith('SB-Mid-client-') || clientKey.startsWith('SB-');
+  const isProd = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true' && !isSandboxClient;
   const snapScriptUrl = isProd
     ? 'https://app.midtrans.com/snap/snap.js'
     : 'https://app.sandbox.midtrans.com/snap/snap.js';
-  const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || 'SB-Mid-client-dummy';
 
   return (
     <html lang="id" className="scroll-smooth">

@@ -103,6 +103,65 @@ async function runServerSideWeighAdjustmentTests() {
   const delta = actTot - estTot; // 7000
   assert(estTot === 51000 && actTot === 58000 && delta === 7000, 'F. LND-AMRRJV yields exact Rp 7.000 adjustment');
 
+  // Test G. Midtrans Environment Auto-Detection & Mismatch Validation
+  const { MidtransPaymentGateway } = await import('../services/paymentGateway');
+  const gw = new MidtransPaymentGateway();
+
+  const origServerKey = process.env.MIDTRANS_SERVER_KEY;
+  const origClientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
+
+  // Case G1: Sandbox client + Sandbox server -> PASS
+  process.env.MIDTRANS_SERVER_KEY = 'SB-Mid-server-test';
+  process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY = 'SB-Mid-client-test';
+  let g1Error = false;
+  try {
+    gw.validateEnvironmentMatch();
+  } catch {
+    g1Error = true;
+  }
+  assert(!g1Error, 'G1. Sandbox client + Sandbox server -> PASS');
+
+  // Case G2: Production client + Production server -> PASS
+  process.env.MIDTRANS_SERVER_KEY = 'Mid-server-test';
+  process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY = 'Mid-client-test';
+  let g2Error = false;
+  try {
+    gw.validateEnvironmentMatch();
+  } catch {
+    g2Error = true;
+  }
+  assert(!g2Error, 'G2. Production client + Production server -> PASS');
+
+  // Case G3: Sandbox client + Production server -> ERROR
+  process.env.MIDTRANS_SERVER_KEY = 'Mid-server-test';
+  process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY = 'SB-Mid-client-test';
+  let g3Error = false;
+  try {
+    gw.validateEnvironmentMatch();
+  } catch (err: any) {
+    if (err.message.includes('Midtrans environment mismatch')) {
+      g3Error = true;
+    }
+  }
+  assert(g3Error, 'G3. Sandbox client + Production server -> ERROR (Mismatch detected)');
+
+  // Case G4: Production client + Sandbox server -> ERROR
+  process.env.MIDTRANS_SERVER_KEY = 'SB-Mid-server-test';
+  process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY = 'Mid-client-test';
+  let g4Error = false;
+  try {
+    gw.validateEnvironmentMatch();
+  } catch (err: any) {
+    if (err.message.includes('Midtrans environment mismatch')) {
+      g4Error = true;
+    }
+  }
+  assert(g4Error, 'G4. Production client + Sandbox server -> ERROR (Mismatch detected)');
+
+  // Restore env
+  process.env.MIDTRANS_SERVER_KEY = origServerKey;
+  process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY = origClientKey;
+
   console.log(`\n==================================================`);
   console.log(`SUMMARY: ${passed} PASS, ${failed} FAIL`);
   console.log(`==================================================`);

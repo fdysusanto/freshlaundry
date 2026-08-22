@@ -101,15 +101,40 @@ export function generateShortProviderReference(orderId: string): string {
  * Never logs or exposes MIDTRANS_SERVER_KEY.
  */
 export class MidtransPaymentGateway implements PaymentGateway {
+  private isProductionEnvironment(): boolean {
+    const serverKey = (process.env.MIDTRANS_SERVER_KEY || '').trim();
+    if (serverKey.startsWith('SB-Mid-server-') || serverKey.startsWith('SB-')) {
+      return false;
+    }
+    return process.env.MIDTRANS_IS_PRODUCTION === 'true';
+  }
+
+  public validateEnvironmentMatch(): void {
+    const serverKey = (process.env.MIDTRANS_SERVER_KEY || '').trim();
+    const clientKey = (process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || '').trim();
+
+    if (!serverKey) return;
+
+    const isServerSandbox = serverKey.startsWith('SB-Mid-server-') || serverKey.startsWith('SB-');
+    if (clientKey) {
+      const isClientSandbox = clientKey.startsWith('SB-Mid-client-') || clientKey.startsWith('SB-');
+      if (isServerSandbox !== isClientSandbox) {
+        throw new Error('Midtrans environment mismatch between client and server credentials.');
+      }
+    }
+  }
+
   private getSnapUrl(): string {
-    const isProd = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+    this.validateEnvironmentMatch();
+    const isProd = this.isProductionEnvironment();
     return isProd
       ? 'https://app.midtrans.com/snap/v1/transactions'
       : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
   }
 
   private getCoreUrl(): string {
-    const isProd = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+    this.validateEnvironmentMatch();
+    const isProd = this.isProductionEnvironment();
     return isProd
       ? 'https://api.midtrans.com/v2'
       : 'https://api.sandbox.midtrans.com/v2';
