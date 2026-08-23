@@ -1669,7 +1669,7 @@ export const orderService = {
 
     const newSubtotal = actualItemSubtotal;
     const newTotalPrice = Math.round(newSubtotal + deliveryFee + platformFee - discount);
-    const priceDelta = newTotalPrice - estimatedTotal;
+    let priceDelta = newTotalPrice - estimatedTotal;
 
     const db = client || (isSupabaseConfigured ? supabase : null);
 
