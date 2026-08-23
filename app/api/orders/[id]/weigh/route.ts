@@ -65,10 +65,9 @@ export async function POST(
 
     const parsedWeight = Math.round(rawWeight * 100) / 100;
 
-    // Use service_role client for server-side database updates & payment_attempts insert
-    const dbClient = isSupabaseConfigured ? createServiceRoleClient() : null;
+    // Removed createServiceRoleClient to adhere to RLS policies and not bypass them
 
-    const order = await orderService.getOrderByIdAsync(orderId, dbClient || undefined);
+    const order = await orderService.getOrderByIdAsync(orderId, authClient || undefined);
     if (!order) {
       return NextResponse.json(
         { success: false, message: `Pesanan dengan ID '${orderId}' tidak ditemukan.` },
@@ -84,7 +83,7 @@ export async function POST(
         role: userRole,
         laundryId: order.laundryId,
       },
-      dbClient || undefined
+      authClient || undefined
     );
 
     return NextResponse.json({

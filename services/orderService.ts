@@ -1705,45 +1705,30 @@ export const orderService = {
         this.saveOrders(orders);
       }
     } else {
-      // Supabase Live Update
-      const { error: orderUpdateErr } = await (db.from('orders') as any)
-        .update({
-          final_weight_kg: finalWeightKg,
-          subtotal: newSubtotal,
-          total_price: newTotalPrice,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', order.id);
-
-      if (orderUpdateErr) {
-        throw new Error(`Gagal memperbarui berat & harga di database: ${orderUpdateErr.message}`);
-      }
-
-      // Update order items
-      if (order.items && order.items.length > 0) {
-        await (db.from('order_items') as any)
-          .update({
-            actual_weight: finalWeightKg,
-            quantity: finalWeightKg,
-            subtotal: actualItemSubtotal,
-          })
-          .eq('order_id', order.id);
-      }
-
-      // Insert log event
-      await (db.from('order_status_logs') as any).insert({
-        order_id: order.id,
-        status: order.status,
-        notes: `Verifikasi berat aktual: ${finalWeightKg} kg (Selisih harga: Rp ${priceDelta})`,
-        updated_by: actor.id,
+      // Supabase Live Update via Secure Atomic RPC (auth.uid() identity enforcement)
+      const { data: rpcRes, error: rpcErr } = await (db.rpc as any)('update_order_actual_weight_atomic', {
+        p_order_id: order.id,
+        p_final_weight_kg: finalWeightKg,
+        p_notes: `Verifikasi berat aktual: ${finalWeightKg} kg (Selisih harga: Rp ${priceDelta})`,
       });
+
+      if (rpcErr) {
+        throw new Error(`Gagal memperbarui berat & harga di database: ${rpcErr.message}`);
+      }
+
+      if (rpcRes && typeof rpcRes.price_delta !== 'undefined') {
+        priceDelta = Number(rpcRes.price_delta);
+      }
     }
 
     let adjustmentAttempt: any = null;
     if (priceDelta > 0) {
       try {
         const { paymentService } = await import('./paymentService');
-        adjustmentAttempt = await paymentService.createAdjustmentPaymentAttemptAsync(order.id, priceDelta, db);
+        const { createServiceRoleClient, isSupabaseConfigured } = await import('./supabase');
+        // Service Role client is used strictly server-side ONLY for payment attempt & gateway link generation
+        const serviceDb = (isSupabaseConfigured && typeof window === 'undefined') ? createServiceRoleClient() : db;
+        adjustmentAttempt = await paymentService.createAdjustmentPaymentAttemptAsync(order.id, priceDelta, serviceDb);
       } catch (adjErr: any) {
         console.warn('[PRICE-ADJUSTMENT-ATTEMPT-WARNING] Gagal membuat payment attempt selisih:', adjErr.message);
       }
