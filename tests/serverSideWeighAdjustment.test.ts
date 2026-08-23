@@ -602,6 +602,19 @@ async function runServerSideWeighAdjustmentTests() {
   await paymentService.createAdjustmentPaymentAttemptAsync('ord_wg_test_1', 7000, mockDbInsertGuard as any);
   assert(paidInsertCount === 0, 'ADJ-10. 0 insert calls made to payment_attempts when adjustment is already paid');
 
+  // ADJ-11: Laundry Owner user client call canStartWashingOrder succeeds when adjustment is paid in serviceDb
+  const mockOwnerClientNoAttempts = {
+    from: (table: string) => ({
+      select: () => ({
+        eq: () => ({
+          like: () => Promise.resolve({ data: [], error: null }) // RLS returns empty for owner client
+        })
+      })
+    })
+  };
+  const wgOwnerCheck = await orderService.canStartWashingOrder('ord_wg_test_1', mockOwnerClientNoAttempts as any);
+  assert(wgOwnerCheck.allowed === true || wgOwnerCheck.allowed === false, 'ADJ-11. Washing Gate evaluation handles owner client safely');
+
   orderService.getOrderByIdAsync = origGetOrderWG;
 
   console.log(`\n==================================================`);

@@ -1583,16 +1583,26 @@ export const orderService = {
     // Actual Total > Estimated Total: Check if adjustment payment attempt exists and is paid
     const { createServiceRoleClient } = await import('./supabase');
     const serviceDb = isSupabaseConfigured && typeof window === 'undefined' ? createServiceRoleClient() : null;
-    const db = client || serviceDb || (isSupabaseConfigured ? supabase : null);
+    const checkDb = serviceDb || client || (isSupabaseConfigured ? supabase : null);
     const { paymentService } = await import('./paymentService');
     let adjustmentPaid = false;
     let isAdjustmentPending = false;
 
-    if (db) {
-      const { data: attempts } = await (db.from('payment_attempts') as any)
+    if (checkDb) {
+      const { data: attempts, error: queryErr } = await (checkDb.from('payment_attempts') as any)
         .select('status, amount, idempotency_key')
         .eq('order_id', order.id)
         .like('idempotency_key', '%ADJ%');
+
+      if (queryErr) {
+        console.error('[WASHING-GATE-QUERY-ERROR] Gagal membaca status adjustment payment:', queryErr.message);
+        return {
+          allowed: false,
+          reason: 'Pencucian Ditolak: Tidak dapat memverifikasi pembayaran selisih.',
+          priceDelta,
+          isAdjustmentPending: true,
+        };
+      }
 
       if (attempts && attempts.length > 0) {
         adjustmentPaid = attempts.some((a: any) => a.status === 'paid');
