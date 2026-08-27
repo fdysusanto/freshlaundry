@@ -286,9 +286,10 @@ export default function OrderTrackingPage() {
 
             <div className="p-3.5 bg-slate-50 rounded-xl space-y-1.5">
               <p className="font-bold text-slate-700">Kurir & Penjemputan:</p>
-              <p className="text-slate-600">Kurir: <strong>{order.courierName || 'Mencari kurir...'}</strong></p>
-              <p className="text-slate-600">Pickup: <strong>{formatDateIndo(order.pickupDate)} ({order.pickupTimeSlot})</strong></p>
-              <p className="text-slate-600">Delivery: <strong>{order.deliveryDate ? `${formatDateIndo(order.deliveryDate)} ${order.deliveryTimeSlot ? `(${order.deliveryTimeSlot})` : ''}` : '-'}</strong></p>
+              <p className="text-slate-600">Kurir Pickup: <strong>{order.pickupCourier ? order.pickupCourier.name : 'Mencari kurir...'}</strong></p>
+              <p className="text-slate-600">Kurir Delivery: <strong className={order.deliveryCourier ? 'text-indigo-700 font-bold' : 'text-slate-500 italic'}>{order.deliveryCourier ? order.deliveryCourier.name : 'Belum Ditugaskan'}</strong></p>
+              <p className="text-slate-600">Jadwal Pickup: <strong>{formatDateIndo(order.pickupDate)} ({order.pickupTimeSlot})</strong></p>
+              <p className="text-slate-600">Jadwal Delivery: <strong>{order.deliveryDate ? `${formatDateIndo(order.deliveryDate)} ${order.deliveryTimeSlot ? `(${order.deliveryTimeSlot})` : ''}` : '-'}</strong></p>
             </div>
           </div>
 

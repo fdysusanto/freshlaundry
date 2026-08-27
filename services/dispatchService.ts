@@ -38,6 +38,44 @@ export interface DispatchStatusResult {
   status: 'active' | 'expired' | 'completed' | 'cancelled' | 'idle';
   expiresAt: string | null;
   winnerCourierName?: string;
+  message?: string;
+  isNewBatch?: boolean;
+}
+
+export interface DeliverySchedulerDetail {
+  orderId: string;
+  deliveryDate?: string;
+  deliveryTimeSlot?: string;
+  currentTimeWib: string;
+  result: 'dispatched' | 'skipped' | 'failed';
+  reason?: string;
+}
+
+export interface DeliverySchedulerSummary {
+  scanned: number;
+  eligible: number;
+  dispatched: number;
+  skipped: number;
+  failed: number;
+  details: DeliverySchedulerDetail[];
+}
+
+export interface PickupSchedulerDetail {
+  orderId: string;
+  pickupDate?: string;
+  pickupTimeSlot?: string;
+  currentTimeWib: string;
+  result: 'dispatched' | 'skipped' | 'failed';
+  reason?: string;
+}
+
+export interface PickupSchedulerSummary {
+  scanned: number;
+  eligible: number;
+  dispatched: number;
+  skipped: number;
+  failed: number;
+  details: PickupSchedulerDetail[];
 }
 
 // In-memory fallback dispatch batches for local dev/mock mode
@@ -70,13 +108,167 @@ export function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lo
 }
 
 /**
+ * Checks if current time in Asia/Jakarta (WIB) has reached or passed the scheduled delivery window.
+ */
+export function isDeliveryDispatchWindowDue(
+  deliveryDate?: string,
+  deliveryTimeSlot?: string,
+  nowInput: Date | string = new Date()
+): boolean {
+  // Legacy orders without delivery schedule are immediately due
+  if (!deliveryDate) return true;
+
+  const now = typeof nowInput === 'string' ? new Date(nowInput) : nowInput;
+  if (isNaN(now.getTime())) return false;
+
+  // Strict YYYY-MM-DD format check
+  const dateMatch = deliveryDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!dateMatch) {
+    console.warn(`[DELIVERY_SCHEDULER_ANOMALY] Format deliveryDate '${deliveryDate}' tidak valid.`);
+    return false; // Rule E: Scheduling Anomaly
+  }
+  const [, targetYear, targetMonth, targetDay] = dateMatch;
+  const month = parseInt(targetMonth, 10);
+  const day = parseInt(targetDay, 10);
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    console.warn(`[DELIVERY_SCHEDULER_ANOMALY] Komponen tanggal '${deliveryDate}' di luar rentang kalender.`);
+    return false; // Rule E
+  }
+
+  // Parse time slot start hour & minute
+  let startHour = 0;
+  let startMinute = 0;
+  if (deliveryTimeSlot) {
+    const slotMatch = deliveryTimeSlot.match(/(\d{1,2}):(\d{2})/);
+    if (!slotMatch) {
+      console.warn(`[DELIVERY_SCHEDULER_ANOMALY] Format deliveryTimeSlot '${deliveryTimeSlot}' tidak valid.`);
+      return false; // Rule E: Scheduling Anomaly
+    }
+    startHour = parseInt(slotMatch[1], 10);
+    startMinute = parseInt(slotMatch[2], 10);
+    if (startHour < 0 || startHour > 23 || startMinute < 0 || startMinute > 59) {
+      console.warn(`[DELIVERY_SCHEDULER_ANOMALY] Komponen jam '${deliveryTimeSlot}' di luar rentang 24 jam.`);
+      return false; // Rule E
+    }
+  }
+
+  // Construct target Window Start Timestamp in Asia/Jakarta (+07:00)
+  const windowStartIso = `${targetYear}-${targetMonth}-${targetDay}T${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000+07:00`;
+  const windowStart = new Date(windowStartIso);
+  if (isNaN(windowStart.getTime())) {
+    console.warn(`[DELIVERY_SCHEDULER_ANOMALY] Gagal mengonstruksi timestamp windowStart dari '${deliveryDate} ${deliveryTimeSlot}'.`);
+    return false; // Rule E
+  }
+
+  return now.getTime() >= windowStart.getTime();
+}
+
+/**
+ * Helper to determine if a customer is allowed to SELECT a specific pickup slot.
+ * RULE: A slot is AVAILABLE for customer selection ONLY IF slot.start > current business time in Asia/Jakarta (WIB, UTC+7).
+ * - Future pickup date: All valid slots are selectable.
+ * - Past pickup date: Unselectable (false).
+ * - Today pickup date: Selectable ONLY IF slot.start > current WIB time.
+ * - Invalid date or time slot format: Unselectable (false).
+ */
+export function isPickupSlotSelectable(
+  pickupDateStr?: string,
+  pickupTimeSlotStr?: string,
+  nowInput: Date | string = new Date()
+): boolean {
+  if (!pickupDateStr || !pickupTimeSlotStr) return false;
+
+  const now = typeof nowInput === 'string' ? new Date(nowInput) : nowInput;
+  if (isNaN(now.getTime())) return false;
+
+  const dateMatch = pickupDateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!dateMatch) return false;
+
+  const [, targetYear, targetMonth, targetDay] = dateMatch;
+  const month = parseInt(targetMonth, 10);
+  const day = parseInt(targetDay, 10);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+
+  const slotMatch = pickupTimeSlotStr.match(/(\d{1,2}):(\d{2})/);
+  if (!slotMatch) return false;
+
+  const startHour = parseInt(slotMatch[1], 10);
+  const startMinute = parseInt(slotMatch[2], 10);
+  if (startHour < 0 || startHour > 23 || startMinute < 0 || startMinute > 59) return false;
+
+  const windowStartIso = `${targetYear}-${targetMonth}-${targetDay}T${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000+07:00`;
+  const windowStart = new Date(windowStartIso);
+  if (isNaN(windowStart.getTime())) return false;
+
+  // Strict rule: slot.start MUST be strictly greater than current business time
+  return windowStart.getTime() > now.getTime();
+}
+
+/**
+ * Checks if current time in Asia/Jakarta (WIB) has reached or passed the scheduled pickup window.
+ * - Legacy orders without pickup schedule are immediately due (true).
+ * - Overdue pickup schedules are due (true) to prevent orders from being stuck.
+ * - Invalid date or time slot format returns false + logs anomaly.
+ */
+export function isPickupDispatchWindowDue(
+  pickupDateStr?: string,
+  pickupTimeSlotStr?: string,
+  nowInput: Date | string = new Date()
+): boolean {
+  if (!pickupDateStr) return true; // Legacy orders without pickup schedule are immediately due
+
+  const now = typeof nowInput === 'string' ? new Date(nowInput) : nowInput;
+  if (isNaN(now.getTime())) return false;
+
+  const dateMatch = pickupDateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!dateMatch) {
+    console.warn(`[PICKUP_SCHEDULER_ANOMALY] Format pickupDate '${pickupDateStr}' tidak valid.`);
+    return false;
+  }
+
+  const [, targetYear, targetMonth, targetDay] = dateMatch;
+  const month = parseInt(targetMonth, 10);
+  const day = parseInt(targetDay, 10);
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    console.warn(`[PICKUP_SCHEDULER_ANOMALY] Komponen tanggal '${pickupDateStr}' di luar rentang kalender.`);
+    return false;
+  }
+
+  let startHour = 0;
+  let startMinute = 0;
+  if (pickupTimeSlotStr) {
+    const slotMatch = pickupTimeSlotStr.match(/(\d{1,2}):(\d{2})/);
+    if (!slotMatch) {
+      console.warn(`[PICKUP_SCHEDULER_ANOMALY] Format pickupTimeSlot '${pickupTimeSlotStr}' tidak valid.`);
+      return false;
+    }
+    startHour = parseInt(slotMatch[1], 10);
+    startMinute = parseInt(slotMatch[2], 10);
+    if (startHour < 0 || startHour > 23 || startMinute < 0 || startMinute > 59) {
+      console.warn(`[PICKUP_SCHEDULER_ANOMALY] Komponen jam '${pickupTimeSlotStr}' di luar rentang 24 jam.`);
+      return false;
+    }
+  }
+
+  const windowStartIso = `${targetYear}-${targetMonth}-${targetDay}T${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000+07:00`;
+  const windowStart = new Date(windowStartIso);
+  if (isNaN(windowStart.getTime())) {
+    console.warn(`[PICKUP_SCHEDULER_ANOMALY] Gagal mengonstruksi timestamp windowStart dari '${pickupDateStr} ${pickupTimeSlotStr}'.`);
+    return false;
+  }
+
+  return now.getTime() >= windowStart.getTime();
+}
+
+/**
  * Helper to resolve appropriate Supabase Client instance:
  * 1. Uses explicit `client` if provided (e.g. service_role / adminClient from Webhooks/Cron).
  * 2. Falls back to default `supabase` client (or null in mock mode).
  */
 function getDbClient(client?: any) {
+  if (client) return client;
   if (!isSupabaseConfigured) return null;
-  return client || supabase;
+  return supabase;
 }
 
 export const dispatchService = {
@@ -125,21 +317,40 @@ export const dispatchService = {
   },
 
   /**
-   * Server-Side Busy Courier Check: Verifies if courier is currently handling an active order.
+   * Server-Side Busy Courier Check: Verifies if courier is currently handling an active courier task.
+   * Courier is BUSY if they have an active assignment offer/acceptance OR an active transport order.
+   * Courier is AVAILABLE if order is 'in_washing' or 'ready_for_delivery' (pickup task completed).
    */
   async isCourierBusyAsync(courierId: string, client?: any): Promise<boolean> {
     const db = getDbClient(client);
     if (!isSupabaseConfigured || !db) {
-      return false; // Mock fallback
+      const { orderService } = await import('./orderService');
+      const orders = orderService.getOrders();
+      const isTransporting = orders.some(
+        (o) => o.courierId === courierId && ['assigned', 'picked_up', 'out_for_delivery'].includes(o.status)
+      );
+      if (isTransporting) return true;
+      return mockDispatchBatches.some(
+        (b) => b.status === 'active' && b.offeredCourierIds.includes(courierId)
+      );
     }
 
-    const { count, error } = await (db.from('orders') as any)
+    // Check 1: Active courier_assignments (offered or accepted)
+    const { count: asgCount } = await (db.from('courier_assignments') as any)
       .select('id', { count: 'exact', head: true })
       .eq('courier_id', courierId)
-      .in('status', ['assigned', 'picked_up', 'in_washing', 'ready_for_delivery', 'out_for_delivery']);
+      .in('status', ['offered', 'accepted']);
+
+    if (asgCount && asgCount > 0) return true;
+
+    // Check 2: Active order transportation states ('assigned', 'picked_up', 'out_for_delivery')
+    const { count: orderCount, error } = await (db.from('orders') as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('courier_id', courierId)
+      .in('status', ['assigned', 'picked_up', 'out_for_delivery']);
 
     if (error) return false;
-    return Boolean(count && count > 0);
+    return Boolean(orderCount && orderCount > 0);
   },
 
   /**
@@ -274,17 +485,39 @@ export const dispatchService = {
       throw new Error(`Dispatch Ditolak: Pesanan '${orderId}' belum lunas.`);
     }
 
-    if (assignmentType === 'pickup' && existingOrder.status !== 'pending') {
-      throw new Error(`Dispatch Pickup Ditolak: Status order harus 'pending' (status saat ini: '${existingOrder.status}').`);
+    if (assignmentType === 'pickup') {
+      if (existingOrder.status !== 'pending') {
+        throw new Error(`Dispatch Pickup Ditolak: Status order harus 'pending' (status saat ini: '${existingOrder.status}').`);
+      }
+
+      if (!isPickupDispatchWindowDue(existingOrder.pickupDate, existingOrder.pickupTimeSlot)) {
+        return {
+          hasActiveDispatch: false,
+          batchNumber: 0,
+          radiusKm: DISPATCH_CONFIG.INITIAL_RADIUS_KM,
+          offeredCount: 0,
+          acceptedCount: 0,
+          status: 'idle',
+          expiresAt: null,
+          isNewBatch: false,
+          message: 'PICKUP_DISPATCH_WINDOW_NOT_DUE',
+        };
+      }
     }
 
-    if (assignmentType === 'delivery' && existingOrder.status !== 'ready_for_delivery') {
-      throw new Error(`Dispatch Delivery Ditolak: Status order harus 'ready_for_delivery' (status saat ini: '${existingOrder.status}').`);
+    if (assignmentType === 'delivery') {
+      if (existingOrder.status !== 'ready_for_delivery') {
+        throw new Error(`Dispatch Delivery Ditolak: Status order harus 'ready_for_delivery' (status saat ini: '${existingOrder.status}').`);
+      }
+
+      if (!isDeliveryDispatchWindowDue(existingOrder.deliveryDate, existingOrder.deliveryTimeSlot)) {
+        throw new Error(`Dispatch Delivery Ditolak: Jadwal pengantaran customer (${existingOrder.deliveryDate} ${existingOrder.deliveryTimeSlot || ''}) belum memasuki dispatch window.`);
+      }
     }
 
     const currentStatus = await this.getDispatchStatusAsync(orderId, db);
     if (currentStatus.hasActiveDispatch) {
-      return currentStatus;
+      return { ...currentStatus, isNewBatch: false };
     }
 
     const batchNumber = (currentStatus.batchNumber || 0) + 1;
@@ -294,7 +527,7 @@ export const dispatchService = {
 
     // Fetch previous offered courier IDs to prevent duplicate offers
     let previousCourierIds: string[] = [];
-    if (isSupabaseConfigured && db) {
+    if (db) {
       const { data: prevAssignments } = await (db.from('courier_assignments') as any)
         .select('courier_id')
         .eq('order_id', orderId);
@@ -316,7 +549,21 @@ export const dispatchService = {
     const expiresAtDate = new Date(now.getTime() + DISPATCH_CONFIG.OFFER_TIMEOUT_SECONDS * 1000);
     const expiresAt = expiresAtDate.toISOString();
 
-    if (!isSupabaseConfigured || !db) {
+    if (!db) {
+      const activeMockExisting = mockDispatchBatches.find((b) => b.orderId === orderId && b.status === 'active');
+      if (activeMockExisting) {
+        return {
+          hasActiveDispatch: true,
+          batchNumber: activeMockExisting.batchNumber,
+          radiusKm: activeMockExisting.radiusKm,
+          offeredCount: activeMockExisting.offeredCourierIds.length,
+          acceptedCount: 0,
+          status: 'active',
+          expiresAt: activeMockExisting.expiresAt,
+          isNewBatch: false,
+        };
+      }
+
       const mockBatch: MockDispatchBatch = {
         id: `batch_${Date.now()}`,
         orderId,
@@ -355,6 +602,7 @@ export const dispatchService = {
         acceptedCount: 0,
         status: candidates.length > 0 ? 'active' : 'expired',
         expiresAt,
+        isNewBatch: true,
       };
     }
 
@@ -373,6 +621,26 @@ export const dispatchService = {
       .single();
 
     if (batchErr || !insertedBatch) {
+      const isUniqueViolation =
+        batchErr?.code === '23505' ||
+        batchErr?.message?.includes('uq_active_dispatch_batch') ||
+        batchErr?.message?.includes('unique constraint') ||
+        batchErr?.message?.includes('duplicate key');
+
+      if (isUniqueViolation) {
+        return {
+          hasActiveDispatch: true,
+          batchNumber,
+          radiusKm,
+          offeredCount: candidates.length,
+          acceptedCount: 0,
+          status: 'active',
+          expiresAt,
+          isNewBatch: false,
+          message: 'ACTIVE_DISPATCH_BATCH_EXISTS',
+        };
+      }
+
       throw new Error(`Gagal membuat batch dispatch: ${batchErr?.message || 'Unknown error'}`);
     }
 
@@ -556,6 +824,32 @@ export const dispatchService = {
 
     const assignmentType: 'pickup' | 'delivery' = order.status === 'ready_for_delivery' ? 'delivery' : 'pickup';
 
+    if (assignmentType === 'pickup' && !isPickupDispatchWindowDue(order.pickupDate, order.pickupTimeSlot)) {
+      return {
+        hasActiveDispatch: false,
+        batchNumber: 0,
+        radiusKm: DISPATCH_CONFIG.INITIAL_RADIUS_KM,
+        offeredCount: 0,
+        acceptedCount: 0,
+        status: 'idle',
+        expiresAt: null,
+        message: 'PICKUP_DISPATCH_WINDOW_NOT_DUE',
+      };
+    }
+
+    if (assignmentType === 'delivery' && !isDeliveryDispatchWindowDue(order.deliveryDate, order.deliveryTimeSlot)) {
+      return {
+        hasActiveDispatch: false,
+        batchNumber: 0,
+        radiusKm: DISPATCH_CONFIG.INITIAL_RADIUS_KM,
+        offeredCount: 0,
+        acceptedCount: 0,
+        status: 'idle',
+        expiresAt: null,
+        message: 'DELIVERY_DISPATCH_WINDOW_NOT_DUE',
+      };
+    }
+
     if (isSupabaseConfigured && db) {
       // Expire any stuck active batches safely
       await (db.from('dispatch_batches') as any)
@@ -565,5 +859,420 @@ export const dispatchService = {
     }
 
     return this.dispatchOrderAsync(orderId, assignmentType, actorUserId, db);
+  },
+
+  completeMockDispatchBatchAsync(orderId?: string): void {
+    if (!orderId) {
+      mockDispatchBatches.length = 0;
+      return;
+    }
+    for (const batch of mockDispatchBatches) {
+      if (batch.orderId === orderId && batch.status === 'active') {
+        batch.status = 'completed';
+        batch.offeredCourierIds = [];
+      }
+    }
+  },
+
+  /**
+   * Automated Pickup Dispatch Scheduler: Scans all orders in `pending` + `paid`
+   * whose scheduled pickup window has arrived (`isPickupDispatchWindowDue` = true)
+   * and creates dispatch batch if no active batch/assignment exists.
+   */
+  async processScheduledPickupsAsync(client?: any): Promise<PickupSchedulerSummary> {
+    const db = getDbClient(client);
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    const summary: PickupSchedulerSummary = {
+      scanned: 0,
+      eligible: 0,
+      dispatched: 0,
+      skipped: 0,
+      failed: 0,
+      details: [],
+    };
+
+    if (db) {
+      const { data: candidates, error: candidateErr } = await (db.from('orders') as any)
+        .select('*')
+        .eq('status', 'pending')
+        .eq('payment_status', 'paid');
+
+      if (candidateErr) {
+        console.error('[PICKUP_SCHEDULER_ERROR] Gagal membaca kandidat order pending + paid:', candidateErr.message);
+        throw new Error(`Database Error: Gagal membaca kandidat order scheduled pickup. ${candidateErr.message}`);
+      }
+
+      const pendingOrders = candidates || [];
+      summary.scanned = pendingOrders.length;
+
+      for (const order of pendingOrders) {
+        const dispatchStatus = await this.getDispatchStatusAsync(order.id, db);
+        if (dispatchStatus.hasActiveDispatch) {
+          summary.skipped++;
+          summary.details.push({
+            orderId: order.id,
+            pickupDate: order.pickup_date,
+            pickupTimeSlot: order.pickup_time_slot,
+            currentTimeWib: nowIso,
+            result: 'skipped',
+            reason: 'ACTIVE_DISPATCH_BATCH_EXISTS',
+          });
+          continue;
+        }
+
+        const { data: activeAssignments } = await (db.from('courier_assignments') as any)
+          .select('id')
+          .eq('order_id', order.id)
+          .eq('assignment_type', 'pickup')
+          .in('status', ['assigned', 'picked_up']);
+
+        if (activeAssignments && activeAssignments.length > 0) {
+          summary.skipped++;
+          summary.details.push({
+            orderId: order.id,
+            pickupDate: order.pickup_date,
+            pickupTimeSlot: order.pickup_time_slot,
+            currentTimeWib: nowIso,
+            result: 'skipped',
+            reason: 'ACTIVE_PICKUP_ASSIGNMENT_EXISTS',
+          });
+          continue;
+        }
+
+        const isDue = isPickupDispatchWindowDue(order.pickup_date, order.pickup_time_slot, now);
+        if (!isDue) {
+          summary.skipped++;
+          summary.details.push({
+            orderId: order.id,
+            pickupDate: order.pickup_date,
+            pickupTimeSlot: order.pickup_time_slot,
+            currentTimeWib: nowIso,
+            result: 'skipped',
+            reason: 'PICKUP_WINDOW_NOT_DUE',
+          });
+          continue;
+        }
+
+        summary.eligible++;
+        try {
+          const result = await this.dispatchOrderAsync(order.id, 'pickup', 'system_cron', db);
+          if (result.hasActiveDispatch && (result as any).isNewBatch !== false) {
+            summary.dispatched++;
+            summary.details.push({
+              orderId: order.id,
+              pickupDate: order.pickup_date,
+              pickupTimeSlot: order.pickup_time_slot,
+              currentTimeWib: nowIso,
+              result: 'dispatched',
+            });
+          } else {
+            summary.skipped++;
+            summary.details.push({
+              orderId: order.id,
+              pickupDate: order.pickup_date,
+              pickupTimeSlot: order.pickup_time_slot,
+              currentTimeWib: nowIso,
+              result: 'skipped',
+              reason: result.message || 'ACTIVE_DISPATCH_BATCH_EXISTS',
+            });
+          }
+        } catch (err: any) {
+          summary.failed++;
+          summary.details.push({
+            orderId: order.id,
+            pickupDate: order.pickup_date,
+            pickupTimeSlot: order.pickup_time_slot,
+            currentTimeWib: nowIso,
+            result: 'failed',
+            reason: err.message,
+          });
+        }
+      }
+
+      console.log(`[PICKUP_SCHEDULER] scanned=${summary.scanned} eligible=${summary.eligible} dispatched=${summary.dispatched} skipped=${summary.skipped} failed=${summary.failed}`);
+      return summary;
+    }
+
+    // Mock Store Mode
+    const { orderService } = await import('./orderService');
+    const allMockOrders = orderService.getOrders();
+    const candidateOrders = allMockOrders.filter(
+      (o) => o.status === 'pending' && o.paymentStatus === 'paid'
+    );
+
+    summary.scanned = candidateOrders.length;
+
+    for (const order of candidateOrders) {
+      const dispatchStatus = await this.getDispatchStatusAsync(order.id);
+      if (dispatchStatus.hasActiveDispatch) {
+        summary.skipped++;
+        summary.details.push({
+          orderId: order.id,
+          pickupDate: order.pickupDate,
+          pickupTimeSlot: order.pickupTimeSlot,
+          currentTimeWib: nowIso,
+          result: 'skipped',
+          reason: 'ACTIVE_DISPATCH_BATCH_EXISTS',
+        });
+        continue;
+      }
+
+      const isDue = isPickupDispatchWindowDue(order.pickupDate, order.pickupTimeSlot, now);
+      if (!isDue) {
+        summary.skipped++;
+        summary.details.push({
+          orderId: order.id,
+          pickupDate: order.pickupDate,
+          pickupTimeSlot: order.pickupTimeSlot,
+          currentTimeWib: nowIso,
+          result: 'skipped',
+          reason: 'PICKUP_WINDOW_NOT_DUE',
+        });
+        continue;
+      }
+
+      summary.eligible++;
+      try {
+        const result = await this.dispatchOrderAsync(order.id, 'pickup', 'system_cron');
+        if (result.hasActiveDispatch && (result as any).isNewBatch !== false) {
+          summary.dispatched++;
+          summary.details.push({
+            orderId: order.id,
+            pickupDate: order.pickupDate,
+            pickupTimeSlot: order.pickupTimeSlot,
+            currentTimeWib: nowIso,
+            result: 'dispatched',
+          });
+        } else {
+          summary.skipped++;
+          summary.details.push({
+            orderId: order.id,
+            pickupDate: order.pickupDate,
+            pickupTimeSlot: order.pickupTimeSlot,
+            currentTimeWib: nowIso,
+            result: 'skipped',
+            reason: result.message || 'ACTIVE_DISPATCH_BATCH_EXISTS',
+          });
+        }
+      } catch (err: any) {
+        summary.failed++;
+        summary.details.push({
+          orderId: order.id,
+          pickupDate: order.pickupDate,
+          pickupTimeSlot: order.pickupTimeSlot,
+          currentTimeWib: nowIso,
+          result: 'failed',
+          reason: err.message,
+        });
+      }
+    }
+
+    console.log(`[PICKUP_SCHEDULER] scanned=${summary.scanned} eligible=${summary.eligible} dispatched=${summary.dispatched} skipped=${summary.skipped} failed=${summary.failed}`);
+    return summary;
+  },
+
+  /**
+   * Automated Delivery Dispatch Scheduler: Scans all orders in `ready_for_delivery`
+   * whose scheduled delivery window has arrived (`isDeliveryDispatchWindowDue` = true)
+   * and triggers their initial delivery dispatch via canonical `dispatchOrderAsync()`.
+   */
+  async processScheduledDeliveriesAsync(client?: any): Promise<DeliverySchedulerSummary> {
+    const db = getDbClient(client);
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    const summary: DeliverySchedulerSummary = {
+      scanned: 0,
+      eligible: 0,
+      dispatched: 0,
+      skipped: 0,
+      failed: 0,
+      details: [],
+    };
+
+    if (isSupabaseConfigured && db) {
+      // Fetch candidate orders from Supabase Live DB
+      const { data: candidates, error } = await (db.from('orders') as any)
+        .select('id, status, payment_status, delivery_date, delivery_time_slot, laundry_id, courier_id')
+        .eq('status', 'ready_for_delivery')
+        .eq('payment_status', 'paid');
+
+      if (error || !candidates) {
+        if (error) console.error('[DELIVERY_SCHEDULER_DB_ERROR]', error.message);
+        return summary;
+      }
+
+      summary.scanned = candidates.length;
+
+      for (const order of candidates) {
+        // 1. Check existing active dispatch batch
+        const dispatchStatus = await this.getDispatchStatusAsync(order.id, db);
+        if (dispatchStatus.hasActiveDispatch) {
+          summary.skipped++;
+          summary.details.push({
+            orderId: order.id,
+            deliveryDate: order.delivery_date,
+            deliveryTimeSlot: order.delivery_time_slot,
+            currentTimeWib: nowIso,
+            result: 'skipped',
+            reason: 'ACTIVE_DISPATCH_BATCH_EXISTS',
+          });
+          continue;
+        }
+
+        // 2. Check existing active/accepted delivery assignment
+        if (order.courier_id) {
+          const { data: activeAssignments } = await (db.from('courier_assignments') as any)
+            .select('id, status, assignment_type')
+            .eq('order_id', order.id)
+            .eq('assignment_type', 'delivery')
+            .in('status', ['offered', 'assigned', 'out_for_delivery']);
+
+          if (activeAssignments && activeAssignments.length > 0) {
+            summary.skipped++;
+            summary.details.push({
+              orderId: order.id,
+              deliveryDate: order.delivery_date,
+              deliveryTimeSlot: order.delivery_time_slot,
+              currentTimeWib: nowIso,
+              result: 'skipped',
+              reason: 'ACTIVE_DELIVERY_ASSIGNMENT_EXISTS',
+            });
+            continue;
+          }
+        }
+
+        // 3. Check delivery scheduling window due
+        const isDue = isDeliveryDispatchWindowDue(order.delivery_date, order.delivery_time_slot, now);
+        if (!isDue) {
+          summary.skipped++;
+          summary.details.push({
+            orderId: order.id,
+            deliveryDate: order.delivery_date,
+            deliveryTimeSlot: order.delivery_time_slot,
+            currentTimeWib: nowIso,
+            result: 'skipped',
+            reason: 'DELIVERY_WINDOW_NOT_DUE',
+          });
+          continue;
+        }
+
+        // 4. Eligible -> Trigger canonical dispatch path
+        summary.eligible++;
+        try {
+          const result = await this.dispatchOrderAsync(order.id, 'delivery', 'system_cron', db);
+          if (result.hasActiveDispatch && (result as any).isNewBatch !== false) {
+            summary.dispatched++;
+            summary.details.push({
+              orderId: order.id,
+              deliveryDate: order.delivery_date,
+              deliveryTimeSlot: order.delivery_time_slot,
+              currentTimeWib: nowIso,
+              result: 'dispatched',
+            });
+          } else {
+            summary.skipped++;
+            summary.details.push({
+              orderId: order.id,
+              deliveryDate: order.delivery_date,
+              deliveryTimeSlot: order.delivery_time_slot,
+              currentTimeWib: nowIso,
+              result: 'skipped',
+              reason: result.message || 'ACTIVE_DISPATCH_BATCH_EXISTS',
+            });
+          }
+        } catch (err: any) {
+          summary.failed++;
+          summary.details.push({
+            orderId: order.id,
+            deliveryDate: order.delivery_date,
+            deliveryTimeSlot: order.delivery_time_slot,
+            currentTimeWib: nowIso,
+            result: 'failed',
+            reason: err.message,
+          });
+        }
+      }
+
+      return summary;
+    }
+
+    // Mock Store Mode
+    const { orderService } = await import('./orderService');
+    const allMockOrders = orderService.getOrders();
+    const candidateOrders = allMockOrders.filter(
+      (o) => o.status === 'ready_for_delivery' && o.paymentStatus === 'paid'
+    );
+
+    summary.scanned = candidateOrders.length;
+
+    for (const order of candidateOrders) {
+      const dispatchStatus = await this.getDispatchStatusAsync(order.id);
+      if (dispatchStatus.hasActiveDispatch) {
+        summary.skipped++;
+        summary.details.push({
+          orderId: order.id,
+          deliveryDate: order.deliveryDate,
+          deliveryTimeSlot: order.deliveryTimeSlot,
+          currentTimeWib: nowIso,
+          result: 'skipped',
+          reason: 'ACTIVE_DISPATCH_BATCH_EXISTS',
+        });
+        continue;
+      }
+
+      const isDue = isDeliveryDispatchWindowDue(order.deliveryDate, order.deliveryTimeSlot, now);
+      if (!isDue) {
+        summary.skipped++;
+        summary.details.push({
+          orderId: order.id,
+          deliveryDate: order.deliveryDate,
+          deliveryTimeSlot: order.deliveryTimeSlot,
+          currentTimeWib: nowIso,
+          result: 'skipped',
+          reason: 'DELIVERY_WINDOW_NOT_DUE',
+        });
+        continue;
+      }
+
+      summary.eligible++;
+      try {
+        const result = await this.dispatchOrderAsync(order.id, 'delivery', 'system_cron');
+        if (result.hasActiveDispatch && (result as any).isNewBatch !== false) {
+          summary.dispatched++;
+          summary.details.push({
+            orderId: order.id,
+            deliveryDate: order.deliveryDate,
+            deliveryTimeSlot: order.deliveryTimeSlot,
+            currentTimeWib: nowIso,
+            result: 'dispatched',
+          });
+        } else {
+          summary.skipped++;
+          summary.details.push({
+            orderId: order.id,
+            deliveryDate: order.deliveryDate,
+            deliveryTimeSlot: order.deliveryTimeSlot,
+            currentTimeWib: nowIso,
+            result: 'skipped',
+            reason: result.message || 'ACTIVE_DISPATCH_BATCH_EXISTS',
+          });
+        }
+      } catch (err: any) {
+        summary.failed++;
+        summary.details.push({
+          orderId: order.id,
+          deliveryDate: order.deliveryDate,
+          deliveryTimeSlot: order.deliveryTimeSlot,
+          currentTimeWib: nowIso,
+          result: 'failed',
+          reason: err.message,
+        });
+      }
+    }
+
+    return summary;
   },
 };

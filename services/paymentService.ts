@@ -876,15 +876,20 @@ export const paymentService = {
       updatedPayment = await this.transitionPaymentStatusAsync(p.id, targetStatus, 'Webhook Xendit terverifikasi', db);
     }
 
-    // 7. OUTBOUND N8N NOTIFICATION
+    // 7. OUTBOUND N8N NOTIFICATION & AUTOMATIC COURIER DISPATCH
     if (targetStatus === 'paid' && p.orders) {
       try {
         const fullOrder = await orderService.getOrderByIdAsync(p.order_id, db);
         if (fullOrder) {
           await triggerStatusChangeWebhook(fullOrder, 'pending');
         }
+        const { dispatchService } = await import('./dispatchService');
+        const dispatchRes = await dispatchService.dispatchOrderAsync(p.order_id, 'pickup', 'system_payment_webhook', db);
+        if (!dispatchRes.hasActiveDispatch && dispatchRes.message === 'PICKUP_DISPATCH_WINDOW_NOT_DUE') {
+          console.log(`[XENDIT-WEBHOOK] Order #${p.order_id} lunas. Pickup dispatch ditunda (jadwal pickup belum due).`);
+        }
       } catch (err: any) {
-        console.warn('[OUTBOUND-WEBHOOK-WARNING] Gagal mengirim notifikasi n8n:', err.message);
+        console.warn('[OUTBOUND-WEBHOOK-WARNING] Gagal memicu dispatch/notifikasi n8n:', err.message);
       }
     }
 
@@ -1018,7 +1023,10 @@ export const paymentService = {
           await triggerStatusChangeWebhook(fullOrder, 'pending');
         }
         const { dispatchService } = await import('./dispatchService');
-        await dispatchService.dispatchOrderAsync(p.order_id, 'pickup', 'system_payment_webhook', db);
+        const dispatchRes = await dispatchService.dispatchOrderAsync(p.order_id, 'pickup', 'system_payment_webhook', db);
+        if (!dispatchRes.hasActiveDispatch && dispatchRes.message === 'PICKUP_DISPATCH_WINDOW_NOT_DUE') {
+          console.log(`[MIDTRANS-WEBHOOK] Order #${p.order_id} lunas. Pickup dispatch ditunda (jadwal pickup belum due).`);
+        }
       } catch (err: any) {
         console.error('[AUTOMATIC-DISPATCH-ERROR] Gagal memicu dispatch otomatis:', err.message, err.stack);
       }

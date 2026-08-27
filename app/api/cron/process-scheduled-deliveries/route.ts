@@ -5,8 +5,8 @@ import { verifyCronAuth } from '@/utils/cronAuth';
 export const runtime = 'nodejs';
 
 /**
- * Server-Side Cron API Endpoint for Dispatch Engine Expired Batches Processing.
- * Triggered periodically (e.g. every 1 minute) by Vercel Cron, n8n, pg_cron, or external scheduler.
+ * Server-Side Cron API Endpoint for Processing Scheduled Deliveries.
+ * Triggered periodically (e.g. every 5 minutes) by Vercel Cron, n8n, pg_cron, or external scheduler.
  * Secured via `x-cron-secret` or `Authorization: Bearer <CRON_SECRET>` request header.
  */
 export async function POST(request: NextRequest) {
@@ -16,19 +16,24 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await dispatchService.processExpiredDispatchBatchesAsync();
+    const summary = await dispatchService.processScheduledDeliveriesAsync();
+    console.log(
+      `[DELIVERY_SCHEDULER] scanned=${summary.scanned} eligible=${summary.eligible} dispatched=${summary.dispatched} skipped=${summary.skipped} failed=${summary.failed}`
+    );
+
     return NextResponse.json(
       {
         success: true,
-        message: 'Worker pemrosesan batch expired berhasil dijalankan.',
-        processedAt: new Date().toISOString(),
+        message: 'Delivery scheduler berhasil dijalankan.',
+        summary,
+        executedAt: new Date().toISOString(),
       },
       { status: 200 }
     );
   } catch (err: any) {
-    console.error('[CRON-EXPIRED-BATCHES-ERROR]', err.message);
+    console.error('[CRON-DELIVERY-SCHEDULER-ERROR]', err.message);
     return NextResponse.json(
-      { success: false, message: 'Gagal memproses batch expired.', error: err.message },
+      { success: false, message: 'Gagal memproses scheduled deliveries.', error: err.message },
       { status: 500 }
     );
   }

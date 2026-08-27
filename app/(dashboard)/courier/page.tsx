@@ -9,7 +9,8 @@ import { UserProfile } from '@/types/user';
 import { TaskCard } from '@/components/courier/TaskCard';
 import { StatusUpdateModal } from '@/components/courier/StatusUpdateModal';
 import { Card } from '@/components/ui/Card';
-import { Truck, CheckCircle2, Clock, MapPin, RefreshCw } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
+import { Truck, CheckCircle2, Clock, MapPin, RefreshCw, PackageCheck } from 'lucide-react';
 
 export default function CourierDashboardPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -21,6 +22,7 @@ export default function CourierDashboardPage() {
   const loadData = async () => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
+    if (!user) return;
     try {
       const courierOrders = await orderService.getOrdersByCourierAsync(user.id);
       setOrders(courierOrders);
@@ -64,7 +66,7 @@ export default function CourierDashboardPage() {
     try {
       const assignmentId = order.assignmentId || order.id;
       await orderService.acceptCourierAssignmentAsync(assignmentId, currentUser.id);
-      alert(`Berhasil menerima tugas ${order.assignmentType === 'delivery' ? 'pengantaran' : 'penjemputan'} untuk order #${order.trackingNumber}!`);
+      alert(`Berhasil menerima tugas ${order.assignmentType === 'delivery' ? 'pengantaran (delivery)' : 'penjemputan (pickup)'} untuk order #${order.trackingNumber}!`);
       loadData();
     } catch (err: any) {
       alert(err.message || 'Gagal menerima tugas kurir.');
@@ -121,14 +123,26 @@ export default function CourierDashboardPage() {
     }
   };
 
-  const assignedTasks = orders.filter((o) => o.status === 'assigned' || o.status === 'pending');
-  const activeTasks = orders.filter(
-    (o) => o.status === 'picked_up' || o.status === 'in_washing' || o.status === 'ready_for_delivery' || o.status === 'out_for_delivery'
+  // Group tasks into TUGAS (offered/pending/assigned), DALAM PENANGANAN (picked_up / out_for_delivery), and SELESAI
+  const offeredOrPendingTasks = orders.filter((o) => 
+    o.assignmentStatus === 'offered' || o.status === 'assigned' || o.status === 'pending' || (o.assignmentType === 'delivery' && o.status === 'ready_for_delivery')
   );
-  const completedTasks = orders.filter((o) => o.status === 'delivered');
 
-  const displayedOrders =
-    activeTab === 'assigned' ? assignedTasks : activeTab === 'active' ? activeTasks : completedTasks;
+  const activeHandlingTasks = orders.filter((o) =>
+    o.status === 'picked_up' || o.status === 'out_for_delivery'
+  );
+
+  const completedTasks = orders.filter((o) => 
+    o.status === 'delivered' || o.status === 'in_washing' || o.assignmentStatus === 'completed'
+  );
+
+  // Split TUGAS into Pickup vs Delivery
+  const pickupTugas = offeredOrPendingTasks.filter((o) => o.assignmentType !== 'delivery' && o.status !== 'ready_for_delivery');
+  const deliveryTugas = offeredOrPendingTasks.filter((o) => o.assignmentType === 'delivery' || o.status === 'ready_for_delivery');
+
+  // Split DALAM PENANGANAN into Pickup vs Delivery
+  const pickupActive = activeHandlingTasks.filter((o) => o.status === 'picked_up');
+  const deliveryActive = activeHandlingTasks.filter((o) => o.status === 'out_for_delivery');
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
@@ -137,13 +151,13 @@ export default function CourierDashboardPage() {
         <div className="space-y-2 relative z-10">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 text-xs font-bold">
             <Truck className="w-3.5 h-3.5" />
-            <span>Portal Kurir Driver</span>
+            <span>Portal Kurir Driver — First-Class Logistics Tasks</span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-black tracking-tight">
-            Tugas Kurir: {currentUser?.fullName || 'Kurir Driver'}
+            Tugas Logistik: {currentUser?.fullName || 'Kurir Driver'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-300">
-            Kelola penjemputan & pengantaran laundry. Update status lokasi secara real-time.
+            Kelola penjemputan (Pickup) & pengantaran (Delivery) laundry secara terpisah & real-time.
           </p>
         </div>
 
@@ -157,7 +171,7 @@ export default function CourierDashboardPage() {
             }`}
           >
             <span className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-            Status: {isOnline ? 'ONLINE' : 'OFFLINE'}
+            Status: {isOnline ? 'ONLINE (SIAP TUGAS)' : 'OFFLINE'}
           </button>
           <button
             onClick={loadData}
@@ -172,11 +186,13 @@ export default function CourierDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <Card variant="white" className="border-slate-200">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500 uppercase">Perlu Di-Pickup</span>
+            <span className="text-xs font-bold text-slate-500 uppercase">Tugas Tersedia / Offered</span>
             <Clock className="w-5 h-5 text-amber-600" />
           </div>
-          <p className="text-3xl font-black text-slate-900">{assignedTasks.length}</p>
-          <p className="text-xs text-slate-400 font-medium mt-1">Tugas pickup terjadwal</p>
+          <p className="text-3xl font-black text-slate-900">{offeredOrPendingTasks.length}</p>
+          <p className="text-xs text-slate-400 font-medium mt-1">
+            {pickupTugas.length} Pickup • {deliveryTugas.length} Delivery
+          </p>
         </Card>
 
         <Card variant="white" className="border-slate-200">
@@ -184,73 +200,212 @@ export default function CourierDashboardPage() {
             <span className="text-xs font-bold text-slate-500 uppercase">Dalam Penanganan</span>
             <MapPin className="w-5 h-5 text-sky-600" />
           </div>
-          <p className="text-3xl font-black text-slate-900">{activeTasks.length}</p>
-          <p className="text-xs text-slate-400 font-medium mt-1">Proses cuci & pengantaran</p>
+          <p className="text-3xl font-black text-slate-900">{activeHandlingTasks.length}</p>
+          <p className="text-xs text-slate-400 font-medium mt-1">
+            {pickupActive.length} Di-pickup • {deliveryActive.length} Diantar
+          </p>
         </Card>
 
         <Card variant="white" className="border-slate-200">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500 uppercase">Selesai Diantar</span>
+            <span className="text-xs font-bold text-slate-500 uppercase">Tugas Selesai</span>
             <CheckCircle2 className="w-5 h-5 text-emerald-600" />
           </div>
           <p className="text-3xl font-black text-slate-900">{completedTasks.length}</p>
-          <p className="text-xs text-slate-400 font-medium mt-1">Telah diterima customer</p>
+          <p className="text-xs text-slate-400 font-medium mt-1">Riwayat penjemputan & pengantaran</p>
         </Card>
       </div>
 
-      {/* Tabs Filter */}
-      <div className="space-y-4">
+      {/* Main Tabs Navigation */}
+      <div className="space-y-6">
         <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
           <button
             onClick={() => setActiveTab('assigned')}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${
+            className={`px-5 py-2.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
               activeTab === 'assigned'
                 ? 'bg-amber-600 text-white shadow-md shadow-amber-600/20'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            Tugas Pickup ({assignedTasks.length})
+            <Clock className="w-4 h-4" />
+            [TUGAS] Penawaran & Penugasan ({offeredOrPendingTasks.length})
           </button>
           <button
             onClick={() => setActiveTab('active')}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${
+            className={`px-5 py-2.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
               activeTab === 'active'
                 ? 'bg-sky-600 text-white shadow-md shadow-sky-600/20'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            Dalam Penanganan ({activeTasks.length})
+            <Truck className="w-4 h-4" />
+            [DALAM PENANGANAN] ({activeHandlingTasks.length})
           </button>
           <button
             onClick={() => setActiveTab('completed')}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${
+            className={`px-5 py-2.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap flex items-center gap-2 ${
               activeTab === 'completed'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            Riwayat Selesai ({completedTasks.length})
+            <PackageCheck className="w-4 h-4" />
+            [SELESAI] ({completedTasks.length})
           </button>
         </div>
 
-        {/* Task Cards Grid */}
-        {displayedOrders.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayedOrders.map((o) => (
-              <TaskCard
-                key={o.id}
-                order={o}
-                onUpdateClick={(target) => setSelectedUpdateOrder(target)}
-                onAcceptClick={handleAcceptTask}
-                onArrivedClick={handleArrivedAtOutlet}
-                onPickupClick={handlePickupOrder}
-              />
-            ))}
+        {/* TAB CONTENT 1: [TUGAS] */}
+        {activeTab === 'assigned' && (
+          <div className="space-y-8">
+            {/* PICKUP TASKS SECTION */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <Badge variant="amber">PICKUP</Badge>
+                  <span>Tugas Penjemputan (Customer → Laundry Outlet)</span>
+                </h2>
+                <span className="text-xs font-semibold text-slate-400">{pickupTugas.length} tugas</span>
+              </div>
+              {pickupTugas.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {pickupTugas.map((o) => (
+                    <TaskCard
+                      key={o.id}
+                      order={o}
+                      onUpdateClick={(target) => setSelectedUpdateOrder(target)}
+                      onAcceptClick={handleAcceptTask}
+                      onArrivedClick={handleArrivedAtOutlet}
+                      onPickupClick={handlePickupOrder}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <Card variant="white" className="p-6 text-center text-slate-400 text-xs italic border-dashed">
+                  Belum ada penawaran atau tugas pickup saat ini.
+                </Card>
+              )}
+            </div>
+
+            {/* DELIVERY TASKS SECTION */}
+            <div className="space-y-4 pt-4 border-t border-slate-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <Badge variant="purple">DELIVERY</Badge>
+                  <span>Tugas Pengantaran (Laundry Outlet → Customer)</span>
+                </h2>
+                <span className="text-xs font-semibold text-slate-400">{deliveryTugas.length} tugas</span>
+              </div>
+              {deliveryTugas.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {deliveryTugas.map((o) => (
+                    <TaskCard
+                      key={o.id}
+                      order={o}
+                      onUpdateClick={(target) => setSelectedUpdateOrder(target)}
+                      onAcceptClick={handleAcceptTask}
+                      onArrivedClick={handleArrivedAtOutlet}
+                      onPickupClick={handlePickupOrder}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <Card variant="white" className="p-6 text-center text-slate-400 text-xs italic border-dashed">
+                  Belum ada penawaran atau tugas delivery saat ini.
+                </Card>
+              )}
+            </div>
           </div>
-        ) : (
-          <Card variant="white" className="p-8 text-center text-slate-400 italic">
-            Tidak ada daftar tugas pada kategori ini.
-          </Card>
+        )}
+
+        {/* TAB CONTENT 2: [DALAM PENANGANAN] */}
+        {activeTab === 'active' && (
+          <div className="space-y-8">
+            {/* ACTIVE PICKUP TASKS */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <Badge variant="emerald">PICKUP DALAM PROSES</Badge>
+                  <span>Proses Penjemputan & Antar ke Outlet</span>
+                </h2>
+                <span className="text-xs font-semibold text-slate-400">{pickupActive.length} tugas</span>
+              </div>
+              {pickupActive.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {pickupActive.map((o) => (
+                    <TaskCard
+                      key={o.id}
+                      order={o}
+                      onUpdateClick={(target) => setSelectedUpdateOrder(target)}
+                      onAcceptClick={handleAcceptTask}
+                      onArrivedClick={handleArrivedAtOutlet}
+                      onPickupClick={handlePickupOrder}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <Card variant="white" className="p-6 text-center text-slate-400 text-xs italic border-dashed">
+                  Tidak ada tugas pickup yang sedang aktif dalam perjalanan.
+                </Card>
+              )}
+            </div>
+
+            {/* ACTIVE DELIVERY TASKS */}
+            <div className="space-y-4 pt-4 border-t border-slate-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <Badge variant="purple">DELIVERY DALAM PROSES</Badge>
+                  <span>Proses Pengantaran ke Customer</span>
+                </h2>
+                <span className="text-xs font-semibold text-slate-400">{deliveryActive.length} tugas</span>
+              </div>
+              {deliveryActive.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {deliveryActive.map((o) => (
+                    <TaskCard
+                      key={o.id}
+                      order={o}
+                      onUpdateClick={(target) => setSelectedUpdateOrder(target)}
+                      onAcceptClick={handleAcceptTask}
+                      onArrivedClick={handleArrivedAtOutlet}
+                      onPickupClick={handlePickupOrder}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <Card variant="white" className="p-6 text-center text-slate-400 text-xs italic border-dashed">
+                  Tidak ada tugas pengantaran yang sedang aktif dalam perjalanan.
+                </Card>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB CONTENT 3: [SELESAI] */}
+        {activeTab === 'completed' && (
+          <div className="space-y-4">
+            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <Badge variant="emerald">RIWAYAT SELESAI</Badge>
+              <span>Riwayat Tugas Penjemputan & Pengantaran Selesai</span>
+            </h2>
+            {completedTasks.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {completedTasks.map((o) => (
+                  <TaskCard
+                    key={o.id}
+                    order={o}
+                    onUpdateClick={(target) => setSelectedUpdateOrder(target)}
+                    onAcceptClick={handleAcceptTask}
+                    onArrivedClick={handleArrivedAtOutlet}
+                    onPickupClick={handlePickupOrder}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Card variant="white" className="p-8 text-center text-slate-400 italic">
+                Belum ada riwayat tugas selesai.
+              </Card>
+            )}
+          </div>
         )}
       </div>
 

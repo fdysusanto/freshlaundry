@@ -373,8 +373,19 @@ export default function OrderDetailPage() {
               <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60">
                 <Truck className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>
-                  Kurir Penanggung Jawab:{' '}
-                  <strong className="text-amber-700">{order.courierName || 'Mencari Kurir...'}</strong>
+                  Kurir Pickup:{' '}
+                  <strong className="text-amber-700">
+                    {order.pickupCourier ? order.pickupCourier.name : 'Mencari Kurir Pickup...'}
+                  </strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60">
+                <Truck className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span>
+                  Kurir Delivery:{' '}
+                  <strong className={order.deliveryCourier ? 'text-indigo-700 font-bold' : 'text-slate-500 italic'}>
+                    {order.deliveryCourier ? order.deliveryCourier.name : 'Belum Ditugaskan'}
+                  </strong>
                 </span>
               </div>
             </div>

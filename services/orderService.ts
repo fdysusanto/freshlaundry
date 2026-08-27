@@ -3,18 +3,83 @@ import {
   Order,
   OrderStatus,
   ServiceType,
+  CourierInfo,
   canTransitionOrderStatus,
   canRoleTransitionOrder,
   normalizeOrderStatus,
 } from '@/types/order';
 import { PaymentStatus } from '@/types/payment';
 import { UserProfile } from '@/types/user';
-import { SERVICE_CATALOG, DEMO_LAUNDRIES } from '@/utils/constants';
+import { SERVICE_CATALOG, DEMO_LAUNDRIES, DEMO_USERS } from '@/utils/constants';
 import { generateTrackingId, isValidUuid } from '@/utils/formatters';
 import { triggerStatusChangeWebhook } from './webhookService';
 import { laundryService } from './laundryService';
 import { pricingService, PricingInputItem } from './pricingService';
 import { supabase, isSupabaseConfigured } from './supabase';
+
+/**
+ * Canonical Two-Leg Courier Resolver.
+ * Resolves pickupCourier and deliveryCourier from assignment history and order status.
+ */
+export function resolveOrderCouriers(
+  orderStatus: OrderStatus,
+  courierId?: string,
+  assignments: Array<{ assignment_type: string; courier_id: string; status: string; profiles?: { full_name: string; phone?: string } }> = [],
+  logs: any[] = []
+): { pickupCourier: CourierInfo | null; deliveryCourier: CourierInfo | null } {
+  const normStatus = normalizeOrderStatus(orderStatus);
+
+  if (normStatus === 'pending') {
+    return { pickupCourier: null, deliveryCourier: null };
+  }
+
+  // 1. Resolve Pickup Courier
+  const pickupAsg = assignments.find((a) => a.assignment_type === 'pickup' && ['accepted', 'completed'].includes(a.status));
+  let pickupCourier: CourierInfo | null = null;
+
+  if (pickupAsg) {
+    const demoUser = DEMO_USERS.find((u) => u.id === pickupAsg.courier_id);
+    pickupCourier = {
+      id: pickupAsg.courier_id,
+      name: pickupAsg.profiles?.full_name || demoUser?.fullName || 'Kurir Penjemput',
+      phone: pickupAsg.profiles?.phone || demoUser?.phone || '081234567890',
+    };
+  } else if (['assigned', 'picked_up', 'in_washing', 'ready_for_delivery', 'out_for_delivery', 'delivered'].includes(normStatus)) {
+    const pId = ['assigned', 'picked_up'].includes(normStatus) ? (courierId || 'usr_courier_01') : 'usr_courier_01';
+    const demoUser = DEMO_USERS.find((u) => u.id === pId);
+    pickupCourier = {
+      id: pId,
+      name: demoUser?.fullName || 'Kurir Penjemput',
+      phone: demoUser?.phone || '081234567890',
+    };
+  }
+
+  // 2. Resolve Delivery Courier
+  const deliveryAsg = assignments.find((a) => a.assignment_type === 'delivery' && ['accepted', 'completed'].includes(a.status));
+  let deliveryCourier: CourierInfo | null = null;
+
+  if (normStatus === 'ready_for_delivery') {
+    // IMPORTANT: On ready_for_delivery, deliveryCourier MUST BE NULL until accepted!
+    deliveryCourier = null;
+  } else if (deliveryAsg) {
+    const demoUser = DEMO_USERS.find((u) => u.id === deliveryAsg.courier_id);
+    deliveryCourier = {
+      id: deliveryAsg.courier_id,
+      name: deliveryAsg.profiles?.full_name || demoUser?.fullName || 'Kurir Pengantar',
+      phone: deliveryAsg.profiles?.phone || demoUser?.phone || '081234567890',
+    };
+  } else if (['out_for_delivery', 'delivered'].includes(normStatus)) {
+    const dId = courierId || 'usr_courier_02';
+    const demoUser = DEMO_USERS.find((u) => u.id === dId);
+    deliveryCourier = {
+      id: dId,
+      name: demoUser?.fullName || 'Kurir Pengantar',
+      phone: demoUser?.phone || '081234567890',
+    };
+  }
+
+  return { pickupCourier, deliveryCourier };
+}
 
 const ORDERS_STORAGE_KEY = 'fresh_laundry_orders_db';
 
@@ -698,6 +763,17 @@ export const orderService = {
       return null;
     }
 
+    const { data: assignments } = await (db.from('courier_assignments') as any)
+      .select('*, profiles:courier_id(full_name, phone)')
+      .eq('order_id', o.id);
+
+    const { pickupCourier, deliveryCourier } = resolveOrderCouriers(
+      o.status as OrderStatus,
+      o.courier_id || undefined,
+      assignments || [],
+      o.order_status_logs || []
+    );
+
     return {
       id: o.id,
       trackingNumber: o.tracking_number,
@@ -707,7 +783,9 @@ export const orderService = {
       laundryId: o.laundry_id,
       laundryName: o.laundries?.name || 'Mitra Laundry',
       courierId: o.courier_id || undefined,
-      courierName: undefined,
+      courierName: (o.status === 'out_for_delivery' || o.status === 'delivered') ? deliveryCourier?.name : pickupCourier?.name,
+      pickupCourier,
+      deliveryCourier,
       serviceType: o.service_type as ServiceType,
       serviceName: o.service_type,
       status: o.status as OrderStatus,
@@ -1115,6 +1193,8 @@ export const orderService = {
       if (!targetOrder) throw new Error('Penugasan kurir tidak ditemukan di penyimpanan lokal.');
       const newStatus: OrderStatus = targetOrder.status === 'ready_for_delivery' ? 'out_for_delivery' : 'assigned';
       targetOrder.courierId = courierId;
+      const { dispatchService } = await import('./dispatchService');
+      dispatchService.completeMockDispatchBatchAsync(targetOrder.id);
       return this.updateOrderStatus(targetOrder.id, newStatus, 'Kurir menerima tugas.', courierId);
     }
 
@@ -1197,7 +1277,12 @@ export const orderService = {
       throw new Error(`Penugasan Pengantaran Ditolak: Order belum dalam status 'ready_for_delivery' (status saat ini: '${existingOrder.status}').`);
     }
 
-    const { dispatchService } = await import('./dispatchService');
+    const { dispatchService, isDeliveryDispatchWindowDue } = await import('./dispatchService');
+
+    if (!isDeliveryDispatchWindowDue(existingOrder.deliveryDate, existingOrder.deliveryTimeSlot)) {
+      throw new Error(`Penugasan Pengantaran Ditolak: Jadwal pengantaran customer (${existingOrder.deliveryDate} ${existingOrder.deliveryTimeSlot || ''}) belum memasuki dispatch window.`);
+    }
+
     await dispatchService.dispatchOrderAsync(orderId, 'delivery', updatedByUserId);
 
     return this.getOrderByIdAsync(orderId);
@@ -1322,13 +1407,19 @@ export const orderService = {
 
   getOrderById(id: string): Order | null {
     const orders = this.getOrders();
-    return orders.find((o) => o.id === id) || null;
+    const order = orders.find((o) => o.id === id) || null;
+    if (!order) return null;
+    const { pickupCourier, deliveryCourier } = resolveOrderCouriers(order.status, order.courierId, [], order.logs || []);
+    return { ...order, pickupCourier, deliveryCourier };
   },
 
   getOrderByTracking(trackingNumber: string): Order | null {
     const orders = this.getOrders();
     const cleanSearch = trackingNumber.trim().toUpperCase();
-    return orders.find((o) => o.trackingNumber.toUpperCase() === cleanSearch) || null;
+    const order = orders.find((o) => o.trackingNumber.toUpperCase() === cleanSearch) || null;
+    if (!order) return null;
+    const { pickupCourier, deliveryCourier } = resolveOrderCouriers(order.status, order.courierId, [], order.logs || []);
+    return { ...order, pickupCourier, deliveryCourier };
   },
 
   /**

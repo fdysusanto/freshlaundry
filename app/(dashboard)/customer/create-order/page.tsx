@@ -7,6 +7,7 @@ import { orderService } from '@/services/orderService';
 import { laundryService } from '@/services/laundryService';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import { DEMO_LAUNDRIES, SERVICE_CATALOG, ServiceCatalogItem, TIME_SLOTS } from '@/utils/constants';
+import { isPickupSlotSelectable } from '@/services/dispatchService';
 import { formatIDR, isValidUuid } from '@/utils/formatters';
 import { ServiceType } from '@/types/order';
 import { Laundry } from '@/types/laundry';
@@ -53,6 +54,16 @@ function CreateOrderContent() {
   const [deliveryTimeSlot, setDeliveryTimeSlot] = useState(TIME_SLOTS[0]);
   const [estimatedWeightKg, setEstimatedWeightKg] = useState<number>(initialWeight);
   const [notes, setNotes] = useState('');
+
+  const availablePickupSlots = useMemo(() => {
+    return TIME_SLOTS.filter((slot) => isPickupSlotSelectable(pickupDate, slot));
+  }, [pickupDate]);
+
+  useEffect(() => {
+    if (availablePickupSlots.length > 0 && !availablePickupSlots.includes(pickupTimeSlot)) {
+      setPickupTimeSlot(availablePickupSlots[0]);
+    }
+  }, [availablePickupSlots, pickupTimeSlot]);
 
   // Fetch initial profile & laundries
   useEffect(() => {
@@ -457,14 +468,24 @@ function CreateOrderContent() {
                 <select
                   value={pickupTimeSlot}
                   onChange={(e) => setPickupTimeSlot(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-medium focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                  disabled={availablePickupSlots.length === 0}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-medium focus:outline-hidden focus:ring-2 focus:ring-teal-500 disabled:bg-slate-100 disabled:text-slate-400"
                 >
-                  {TIME_SLOTS.map((slot) => (
-                    <option key={slot} value={slot}>
-                      {slot}
-                    </option>
-                  ))}
+                  {availablePickupSlots.length > 0 ? (
+                    availablePickupSlots.map((slot) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">Tidak ada slot pickup tersedia hari ini</option>
+                  )}
                 </select>
+                {availablePickupSlots.length === 0 && (
+                  <p className="text-[11px] text-amber-700 font-medium mt-1">
+                    Tidak ada slot pickup yang tersedia untuk tanggal ini. Silakan pilih tanggal berikutnya.
+                  </p>
+                )}
               </div>
             </div>
 

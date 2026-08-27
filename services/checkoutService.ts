@@ -7,6 +7,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 
 import { TIME_SLOTS } from '@/utils/constants';
 import { AddressSnapshot } from '@/types/address';
+import { isPickupSlotSelectable } from './dispatchService';
 
 export interface CheckoutItemInput {
   serviceId: string;
@@ -96,7 +97,14 @@ export const checkoutService = {
       throw new Error('Validasi Checkout Gagal: idempotencyKey wajib disertakan oleh client.');
     }
 
-    // 1b. Delivery Scheduling Server Validation
+    // 1b. Pickup Scheduling Server Validation
+    if (input.pickupDate && input.pickupTimeSlot) {
+      if (!isPickupSlotSelectable(input.pickupDate, input.pickupTimeSlot)) {
+        throw new Error(`PICKUP_SLOT_NO_LONGER_AVAILABLE: Slot waktu pickup '${input.pickupDate} ${input.pickupTimeSlot}' sudah tidak tersedia atau telah dimulai.`);
+      }
+    }
+
+    // 1c. Delivery Scheduling Server Validation
     const hasExplicitDelivery = Boolean(input.deliveryDate || input.deliveryTimeSlot);
 
     if (hasExplicitDelivery) {

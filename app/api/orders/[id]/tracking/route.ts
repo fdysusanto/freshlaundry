@@ -26,6 +26,8 @@ export async function GET(
       pickupTimeSlot: order.pickupTimeSlot,
       deliveryDate: order.deliveryDate,
       deliveryTimeSlot: order.deliveryTimeSlot,
+      pickupCourier: order.pickupCourier || null,
+      deliveryCourier: order.deliveryCourier || null,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       logs: order.logs,

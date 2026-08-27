@@ -34,6 +34,12 @@ export interface StatusLog {
   timestamp: string;
 }
 
+export interface CourierInfo {
+  id: string;
+  name: string;
+  phone?: string;
+}
+
 export interface Order {
   id: string;
   trackingNumber: string;
@@ -44,6 +50,8 @@ export interface Order {
   laundryName?: string;
   courierId?: string;
   courierName?: string;
+  pickupCourier?: CourierInfo | null;
+  deliveryCourier?: CourierInfo | null;
   serviceType: ServiceType;
   serviceName: string;
   status: OrderStatus;
