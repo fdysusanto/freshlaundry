@@ -45,6 +45,12 @@ function CreateOrderContent() {
     return tomorrow.toISOString().split('T')[0];
   });
   const [pickupTimeSlot, setPickupTimeSlot] = useState(TIME_SLOTS[0]);
+  const [deliveryDate, setDeliveryDate] = useState(() => {
+    const dayAfterTomorrow = new Date();
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+    return dayAfterTomorrow.toISOString().split('T')[0];
+  });
+  const [deliveryTimeSlot, setDeliveryTimeSlot] = useState(TIME_SLOTS[0]);
   const [estimatedWeightKg, setEstimatedWeightKg] = useState<number>(initialWeight);
   const [notes, setNotes] = useState('');
 
@@ -149,9 +155,23 @@ function CreateOrderContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pickupAddress || !pickupDate || !pickupTimeSlot || !selectedLaundry || !activeCatalog) {
-      setErrorMessage('Harap lengkapi semua bidang isian secara valid.');
+    if (!pickupAddress || !pickupDate || !pickupTimeSlot || !deliveryDate || !deliveryTimeSlot || !selectedLaundry || !activeCatalog) {
+      setErrorMessage('Harap lengkapi tanggal dan slot waktu penjemputan (pickup) dan pengembalian (delivery).');
       return;
+    }
+
+    if (deliveryDate < pickupDate) {
+      setErrorMessage('Tanggal delivery tidak boleh lebih awal dari tanggal pickup.');
+      return;
+    }
+
+    if (deliveryDate === pickupDate) {
+      const pickupIdx = TIME_SLOTS.indexOf(pickupTimeSlot);
+      const deliveryIdx = TIME_SLOTS.indexOf(deliveryTimeSlot);
+      if (pickupIdx !== -1 && deliveryIdx !== -1 && deliveryIdx <= pickupIdx) {
+        setErrorMessage('Untuk pengantaran di hari yang sama, slot waktu delivery harus berada setelah slot waktu pickup.');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -174,6 +194,8 @@ function CreateOrderContent() {
             deliveryAddress,
             pickupDate,
             pickupTimeSlot,
+            deliveryDate,
+            deliveryTimeSlot,
             estimatedWeightKg,
             notes,
             items: [
@@ -199,6 +221,8 @@ function CreateOrderContent() {
             deliveryAddress,
             pickupDate,
             pickupTimeSlot,
+            deliveryDate,
+            deliveryTimeSlot,
             estimatedWeightKg,
             notes,
             items: [
@@ -403,13 +427,13 @@ function CreateOrderContent() {
             </div>
           </Card>
 
-          {/* Step 4: Schedule */}
+          {/* Step 4: Pickup Schedule */}
           <Card variant="white" className="space-y-4">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">
                 4
               </span>
-              Jadwal Penjemputan
+              Jadwal Penjemputan (Pickup)
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -455,6 +479,52 @@ function CreateOrderContent() {
                 placeholder="Misal: Harap gunakan pelembut lavender, atau hubungi sebelum tiba..."
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
               />
+            </div>
+          </Card>
+
+          {/* Step 5: Delivery Schedule */}
+          <Card variant="white" className="space-y-4 border-l-4 border-l-indigo-600">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">
+                  5
+                </span>
+                Jadwal Pengembalian (Delivery)
+              </h3>
+              <Badge variant="indigo" className="text-[10px]">Target Delivery</Badge>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-600" /> Tanggal Delivery:
+                </label>
+                <input
+                  type="date"
+                  required
+                  min={pickupDate}
+                  value={deliveryDate}
+                  onChange={(e) => setDeliveryDate(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-indigo-600" /> Slot Waktu Delivery:
+                </label>
+                <select
+                  value={deliveryTimeSlot}
+                  onChange={(e) => setDeliveryTimeSlot(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  {TIME_SLOTS.map((slot) => (
+                    <option key={slot} value={slot}>
+                      {slot}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </Card>
         </div>

@@ -5,6 +5,7 @@ import { paymentService } from './paymentService';
 import { pricingService, PricingCalculationResult } from './pricingService';
 import { supabase, isSupabaseConfigured } from './supabase';
 
+import { TIME_SLOTS } from '@/utils/constants';
 import { AddressSnapshot } from '@/types/address';
 
 export interface CheckoutItemInput {
@@ -22,6 +23,8 @@ export interface CreateCheckoutInput {
   deliveryAddressSnapshot?: AddressSnapshot;
   pickupDate: string;
   pickupTimeSlot: string;
+  deliveryDate?: string;
+  deliveryTimeSlot?: string;
   notes?: string;
   voucherCode?: string;
   idempotencyKey: string;
@@ -93,6 +96,45 @@ export const checkoutService = {
       throw new Error('Validasi Checkout Gagal: idempotencyKey wajib disertakan oleh client.');
     }
 
+    // 1b. Delivery Scheduling Server Validation
+    const hasExplicitDelivery = Boolean(input.deliveryDate || input.deliveryTimeSlot);
+
+    if (hasExplicitDelivery) {
+      if (!input.deliveryDate || !input.deliveryTimeSlot) {
+        throw new Error('Validasi Schedule Gagal: Tanggal delivery dan slot waktu delivery wajib diisi secara lengkap.');
+      }
+    }
+
+    let finalDeliveryDate = input.deliveryDate;
+    let finalDeliveryTimeSlot = input.deliveryTimeSlot;
+
+    if (!finalDeliveryDate || !finalDeliveryTimeSlot) {
+      const pDate = new Date(input.pickupDate || Date.now());
+      pDate.setDate(pDate.getDate() + 1);
+      finalDeliveryDate = pDate.toISOString().split('T')[0];
+      finalDeliveryTimeSlot = (input.pickupTimeSlot && TIME_SLOTS.includes(input.pickupTimeSlot))
+        ? input.pickupTimeSlot
+        : TIME_SLOTS[0];
+    }
+
+    if (hasExplicitDelivery) {
+      if (input.pickupDate && finalDeliveryDate < input.pickupDate) {
+        throw new Error('Validasi Schedule Gagal: Tanggal delivery tidak boleh lebih awal dari tanggal pickup.');
+      }
+
+      if (!TIME_SLOTS.includes(finalDeliveryTimeSlot)) {
+        throw new Error(`Validasi Schedule Gagal: Slot waktu delivery '${finalDeliveryTimeSlot}' tidak terdaftar.`);
+      }
+
+      if (input.pickupDate && finalDeliveryDate === input.pickupDate && input.pickupTimeSlot) {
+        const pickupIdx = TIME_SLOTS.indexOf(input.pickupTimeSlot);
+        const deliveryIdx = TIME_SLOTS.indexOf(finalDeliveryTimeSlot);
+        if (pickupIdx !== -1 && deliveryIdx !== -1 && deliveryIdx <= pickupIdx) {
+          throw new Error('Validasi Schedule Gagal: Untuk delivery di hari yang sama, slot waktu delivery harus setelah slot waktu pickup.');
+        }
+      }
+    }
+
     // 2. IDEMPOTENCY CHECK: Search for existing order with this idempotency_key
     const existingOrder = await this.getExistingOrderByIdempotencyKey(cleanIdempotencyKey, client);
     if (existingOrder) {
@@ -161,6 +203,8 @@ export const checkoutService = {
       deliveryAddressSnapshot: input.deliveryAddressSnapshot || input.pickupAddressSnapshot,
       pickupDate: input.pickupDate,
       pickupTimeSlot: input.pickupTimeSlot,
+      deliveryDate: finalDeliveryDate,
+      deliveryTimeSlot: finalDeliveryTimeSlot,
       estimatedWeightKg: input.estimatedWeightKg,
       notes: input.notes,
       voucherCode: input.voucherCode,

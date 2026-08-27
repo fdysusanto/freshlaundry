@@ -287,8 +287,8 @@ export default function OrderTrackingPage() {
             <div className="p-3.5 bg-slate-50 rounded-xl space-y-1.5">
               <p className="font-bold text-slate-700">Kurir & Penjemputan:</p>
               <p className="text-slate-600">Kurir: <strong>{order.courierName || 'Mencari kurir...'}</strong></p>
-              <p className="text-slate-600">Tanggal Pickup: <strong>{formatDateIndo(order.pickupDate)}</strong></p>
-              <p className="text-slate-600">Slot Jam: <strong>{order.pickupTimeSlot}</strong></p>
+              <p className="text-slate-600">Pickup: <strong>{formatDateIndo(order.pickupDate)} ({order.pickupTimeSlot})</strong></p>
+              <p className="text-slate-600">Delivery: <strong>{order.deliveryDate ? `${formatDateIndo(order.deliveryDate)} ${order.deliveryTimeSlot ? `(${order.deliveryTimeSlot})` : ''}` : '-'}</strong></p>
             </div>
           </div>
 

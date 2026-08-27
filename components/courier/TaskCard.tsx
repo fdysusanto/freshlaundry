@@ -82,7 +82,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </div>
           <div className="flex items-center gap-1 text-slate-600">
             <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span>{order.pickupTimeSlot}</span>
+            <span>
+              {order.assignmentType === 'delivery'
+                ? (order.deliveryTimeSlot ? `Delivery: ${order.deliveryTimeSlot}` : order.pickupTimeSlot)
+                : `Pickup: ${order.pickupTimeSlot}`}
+            </span>
           </div>
         </div>
 

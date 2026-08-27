@@ -106,6 +106,7 @@ export interface Database {
           pickup_date: string;
           pickup_time_slot: string;
           delivery_date: string | null;
+          delivery_time_slot: string | null;
           notes: string | null;
           subtotal: number;
           delivery_fee: number;

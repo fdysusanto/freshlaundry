@@ -57,6 +57,7 @@ export interface Order {
   pickupDate: string;
   pickupTimeSlot: string;
   deliveryDate?: string;
+  deliveryTimeSlot?: string;
   notes?: string;
   subtotal?: number;
   deliveryFee?: number;
@@ -83,6 +84,8 @@ export interface CreateOrderPayload {
   deliveryAddressSnapshot?: AddressSnapshot;
   pickupDate: string;
   pickupTimeSlot: string;
+  deliveryDate?: string;
+  deliveryTimeSlot?: string;
   estimatedWeightKg?: number;
   items?: Omit<OrderItem, 'id'>[];
   notes?: string;

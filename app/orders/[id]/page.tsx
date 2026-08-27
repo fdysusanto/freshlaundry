@@ -416,6 +416,12 @@ export default function OrderDetailPage() {
                   {formatDateIndo(order.pickupDate)} ({order.pickupTimeSlot})
                 </span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Jadwal Delivery:</span>
+                <span className="font-semibold text-indigo-700">
+                  {order.deliveryDate ? `${formatDateIndo(order.deliveryDate)} ${order.deliveryTimeSlot ? `(${order.deliveryTimeSlot})` : ''}` : '-'}
+                </span>
+              </div>
               {order.notes && (
                 <div className="flex items-start gap-1.5 pt-2 border-t border-slate-200 text-slate-600">
                   <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />

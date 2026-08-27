@@ -109,9 +109,9 @@ export const OrderTable: React.FC<OrderTableProps> = ({
                         <p className="text-[11px] text-slate-500">{o.customerPhone}</p>
                       </td>
                       <td className="p-4 font-medium">{o.serviceName}</td>
-                      <td className="p-4">
-                        <p className="font-medium">{formatDateIndo(o.pickupDate)}</p>
-                        <p className="text-[11px] text-slate-500">{o.pickupTimeSlot}</p>
+                      <td className="p-4 text-xs">
+                        <p className="font-medium text-slate-800">P: {formatDateIndo(o.pickupDate)} ({o.pickupTimeSlot})</p>
+                        <p className="text-[11px] font-semibold text-indigo-700">D: {o.deliveryDate ? `${formatDateIndo(o.deliveryDate)} (${o.deliveryTimeSlot || '-'})` : '-'}</p>
                       </td>
                       <td className="p-4">
                         {o.courierName ? (

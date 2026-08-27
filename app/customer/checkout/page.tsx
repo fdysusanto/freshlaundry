@@ -66,6 +66,12 @@ function CheckoutContent() {
     return tomorrow.toISOString().split('T')[0];
   });
   const [pickupTimeSlot, setPickupTimeSlot] = useState(TIME_SLOTS[0]);
+  const [deliveryDate, setDeliveryDate] = useState(() => {
+    const dayAfterTomorrow = new Date();
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+    return dayAfterTomorrow.toISOString().split('T')[0];
+  });
+  const [deliveryTimeSlot, setDeliveryTimeSlot] = useState(TIME_SLOTS[0]);
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
@@ -258,8 +264,14 @@ function CheckoutContent() {
     setErrorMessage('');
 
     try {
-      const { data: { session } } = await (supabase?.auth?.getSession() || Promise.resolve({ data: { session: null } }));
-      const sessionUserId = session?.user?.id;
+      let accessToken: string | undefined;
+      let sessionUserId: string | undefined;
+
+      if (isSupabaseConfigured && supabase) {
+        const { data } = await supabase.auth.getSession();
+        accessToken = data.session?.access_token;
+        sessionUserId = data.session?.user?.id;
+      }
 
       if (isSupabaseConfigured && (!sessionUserId || !isValidUuid(sessionUserId))) {
         setErrorMessage('Anda harus login terlebih dahulu dengan akun Supabase Auth sebelum membuat pesanan.');
@@ -267,24 +279,20 @@ function CheckoutContent() {
         return;
       }
 
-      // Prepare Address Snapshots
-      let pickupSnapshot: AddressSnapshot | undefined;
-      let deliverySnapshot: AddressSnapshot | undefined;
-
-      if (selectedPickupAddress) {
-        pickupSnapshot = customerAddressService.createSnapshotFromAddress(selectedPickupAddress);
-      }
-      if (selectedDeliveryAddress) {
-        deliverySnapshot = customerAddressService.createSnapshotFromAddress(selectedDeliveryAddress);
-      }
+      const pickupSnapshot = selectedPickupAddress
+        ? customerAddressService.createSnapshotFromAddress(selectedPickupAddress)
+        : undefined;
+      const deliverySnapshot = selectedDeliveryAddress
+        ? customerAddressService.createSnapshotFromAddress(selectedDeliveryAddress)
+        : undefined;
 
       const idempotencyKey = `IDEMP-FE-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
       }
 
       const res = await fetch('/api/checkout', {
@@ -305,6 +313,8 @@ function CheckoutContent() {
           deliveryAddressSnapshot: useSameAddress ? pickupSnapshot : deliverySnapshot,
           pickupDate,
           pickupTimeSlot,
+          deliveryDate,
+          deliveryTimeSlot,
           estimatedWeightKg: qtyParam,
           notes,
           idempotencyKey,
@@ -534,13 +544,13 @@ function CheckoutContent() {
             )}
           </Card>
 
-          {/* Form Step 2: Schedule & Notes */}
+          {/* Form Step 2: Pickup Schedule */}
           <Card variant="white" className="space-y-4">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">
                 2
               </span>
-              Jadwal Penjemputan Kurir
+              Jadwal Penjemputan (Pickup)
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -586,6 +596,55 @@ function CheckoutContent() {
                 placeholder="Misal: Harap gunakan pelembut lavender, atau hubungi sebelum tiba..."
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500"
               />
+            </div>
+          </Card>
+
+          {/* Form Step 3: Delivery Schedule */}
+          <Card variant="white" className="space-y-4 border-l-4 border-l-indigo-600">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">
+                  3
+                </span>
+                Jadwal Pengembalian (Delivery)
+              </h3>
+              <Badge variant="indigo" className="text-[10px]">Target Pengantaran</Badge>
+            </div>
+            <p className="text-xs text-slate-500">
+              Tentukan target tanggal &amp; slot waktu saat paket laundry Anda dikembalikan dalam kondisi bersih dan rapi.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-600" /> Tanggal Delivery:
+                </label>
+                <input
+                  type="date"
+                  required
+                  min={pickupDate}
+                  value={deliveryDate}
+                  onChange={(e) => setDeliveryDate(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-indigo-600" /> Slot Waktu Delivery:
+                </label>
+                <select
+                  value={deliveryTimeSlot}
+                  onChange={(e) => setDeliveryTimeSlot(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  {TIME_SLOTS.map((slot) => (
+                    <option key={slot} value={slot}>
+                      {slot}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </Card>
         </div>

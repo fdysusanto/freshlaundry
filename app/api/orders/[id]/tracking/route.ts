@@ -24,6 +24,8 @@ export async function GET(
       paymentStatus: order.paymentStatus,
       pickupDate: order.pickupDate,
       pickupTimeSlot: order.pickupTimeSlot,
+      deliveryDate: order.deliveryDate,
+      deliveryTimeSlot: order.deliveryTimeSlot,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       logs: order.logs,

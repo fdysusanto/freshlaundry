@@ -213,6 +213,12 @@ export default function CustomerDashboardPage() {
                       </span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-slate-500">Jadwal Delivery:</span>
+                      <span className="font-semibold text-indigo-700">
+                        {o.deliveryDate ? `${formatDateIndo(o.deliveryDate)} ${o.deliveryTimeSlot ? `(${o.deliveryTimeSlot})` : ''}` : '-'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-slate-500">Kurir Ditugaskan:</span>
                       <span className="font-semibold text-teal-700">
                         {o.courierName || 'Mencari Kurir Terdekat...'}
