@@ -1073,8 +1073,13 @@ export const orderService = {
     orderId: string,
     courierId?: string,
     courierName?: string,
-    updatedByUserId: string = 'usr_owner_01'
+    updatedByUserId: string = 'usr_owner_01',
+    actor?: { id: string; role: string }
   ): Promise<Order | null> {
+    if (actor && actor.role && actor.role !== 'platform_admin' && !['system_payment_webhook', 'system_cron', 'usr_system'].includes(updatedByUserId)) {
+      throw new Error('Akses Ditolak: Hanya Platform Admin yang dapat menugaskan kurir.');
+    }
+
     const existingOrder = await this.getOrderByIdAsync(orderId);
     if (!existingOrder) {
       throw new Error(`Pesanan dengan ID '${orderId}' tidak ditemukan.`);
@@ -1170,14 +1175,19 @@ export const orderService = {
   },
 
   /**
-   * Laundry Owner Triggers Dispatch Engine for Delivery when Order is Ready For Delivery.
+   * Triggers Dispatch Engine for Delivery when Order is Ready For Delivery (Platform Admin Only).
    */
   async createDeliveryAssignmentAsync(
     orderId: string,
     courierId?: string,
     courierName?: string,
-    updatedByUserId: string = 'usr_owner_01'
+    updatedByUserId: string = 'usr_owner_01',
+    actor?: { id: string; role: string }
   ): Promise<Order | null> {
+    if (actor && actor.role && actor.role !== 'platform_admin' && !['system_payment_webhook', 'system_cron', 'usr_system'].includes(updatedByUserId)) {
+      throw new Error('Akses Ditolak: Hanya Platform Admin yang dapat memicu penugasan pengantaran kurir.');
+    }
+
     const existingOrder = await this.getOrderByIdAsync(orderId);
     if (!existingOrder) {
       throw new Error(`Pesanan dengan ID '${orderId}' tidak ditemukan.`);
