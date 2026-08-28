@@ -1,16 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/process-scheduled-deliveries",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/process-scheduled-pickups",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/process-expired-batches",
-      "schedule": "*/1 * * * *"
-    }
-  ]
-}
+{}
