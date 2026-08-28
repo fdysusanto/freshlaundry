@@ -229,7 +229,7 @@ async function runOrderOperationsEndToEndTests() {
     );
   }, 'Test 19: Invalid transition (pending -> in_washing) rejected by State Machine');
 
-  // Step 21: Laundry Rejection & Automatic Refund Test
+  // Step 21: Laundry Rejection & Manual Refund Prep Test
   const rejectTestOrder = await checkoutService.processCheckoutAsync(
     {
       laundryId: 'lnd_001',
@@ -263,3 +263,4 @@ async function runOrderOperationsEndToEndTests() {
 }
 
 runOrderOperationsEndToEndTests();
+

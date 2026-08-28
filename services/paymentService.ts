@@ -40,6 +40,54 @@ export const paymentService = {
   },
 
   /**
+   * Gets a paid payment attempt for refund purposes.
+   */
+  async getPaidPaymentForRefundAsync(orderId: string, client?: any): Promise<PaymentAttempt | null> {
+    const db = client || supabase;
+    if (!isSupabaseConfigured || !db) {
+      const mockPayments = this.getMockPayments();
+      return mockPayments.find((p) => p.orderId === orderId && p.status === 'paid') || null;
+    }
+
+    if (!isValidUuid(orderId)) {
+      const { data } = await (db.from('orders') as any)
+        .select('id')
+        .eq('tracking_number', orderId.trim().toUpperCase())
+        .maybeSingle();
+      if (data) orderId = data.id;
+    }
+
+    if (!isValidUuid(orderId)) return null;
+
+    const { data } = await (db.from('payment_attempts') as any)
+      .select('*')
+      .eq('order_id', orderId)
+      .eq('status', 'paid')
+      .not('paid_at', 'is', null)
+      .maybeSingle();
+
+    if (!data) return null;
+
+    return {
+      id: data.id,
+      orderId: data.order_id,
+      customerId: data.customer_id,
+      provider: data.provider,
+      providerReference: data.provider_reference,
+      paymentMethod: data.payment_method,
+      amount: Number(data.amount),
+      currency: 'IDR',
+      status: 'paid',
+      idempotencyKey: data.idempotency_key,
+      expiresAt: data.expires_at,
+      paidAt: data.paid_at,
+      rawResponse: data.raw_response,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
+  },
+
+  /**
    * Gets an active (pending) payment attempt for an order, enforcing idempotency.
    */
   async getActivePaymentForOrderAsync(orderId: string, client?: any): Promise<PaymentAttempt | null> {
@@ -687,78 +735,160 @@ export const paymentService = {
   async expirePaymentAttemptAsync(paymentId: string, client?: any): Promise<PaymentAttempt> {
     return this.transitionPaymentStatusAsync(paymentId, 'expired', 'Waktu pembayaran telah kadaluwarsa.', client);
   },
-
   /**
-   * Refunds paid payment attempt (Admin or Authorized Laundry Partner on order rejection).
+   * Marks a payment attempt as refund_pending, e.g., when a laundry owner rejects an order.
    */
-  async refundPaymentAsync(
+  async markRefundPendingAsync(
     paymentId: string,
-    actor: { id: string; role: UserRole | string },
+    actor: { id: string; role: string },
     reason?: string,
     client?: any
-  ): Promise<PaymentAttempt> {
-    const cleanRole = (actor.role || '').trim().toLowerCase();
-    const allowedRoles = ['platform_admin', 'admin', 'laundry_owner', 'laundry_staff'];
-    if (!allowedRoles.includes(cleanRole)) {
-      throw new Error('Akses Ditolak: Hanya Admin atau Pengelola Mitra Laundry yang dapat memproses pengembalian dana (refund).');
-    }
+  ): Promise<boolean> {
+    const db = client || supabase;
+    if (!isSupabaseConfigured || !db) return true; // Mock
 
-    // 1. Fetch payment details from mock or db first
-    let providerRef = paymentId;
-    let amount = 0;
+    const { data: result, error } = await db.rpc("transition_payment_status_atomic", {
+      p_payment_id: paymentId,
+      p_target_status: "refund_pending",
+      p_notes: reason || "Pesanan dibatalkan, menunggu pengembalian dana."
+    });
 
-    if (!isSupabaseConfigured || !supabase) {
-      const mockPayments = this.getMockPayments();
-      const p = mockPayments.find((x) => x.id === paymentId || x.providerReference === paymentId);
-      if (p) {
-        if (p.status === 'refunded') return p;
-        providerRef = p.providerReference || p.id;
-        amount = p.amount;
-      }
-    } else {
-      const db = client || supabase;
-      const { data: p } = await (db.from('payment_attempts') as any)
-        .select('*')
-        .or(`id.eq.${isValidUuid(paymentId) ? paymentId : '00000000-0000-0000-0000-000000000000'},provider_reference.eq.${paymentId}`)
-        .maybeSingle();
-
-      if (p) {
-        if (p.status === 'refunded') {
-          return {
-            id: p.id,
-            orderId: p.order_id,
-            customerId: p.customer_id,
-            provider: p.provider,
-            providerReference: p.provider_reference,
-            paymentMethod: p.payment_method,
-            amount: Number(p.amount),
-            currency: 'IDR',
-            status: 'refunded',
-            idempotencyKey: p.idempotency_key,
-            expiresAt: p.expires_at,
-            paidAt: p.paid_at,
-            rawResponse: p.raw_response,
-            createdAt: p.created_at,
-            updatedAt: p.updated_at,
-          };
-        }
-        providerRef = p.provider_reference || p.id;
-        amount = Number(p.amount);
-      }
-    }
-
-    // 2. Trigger Gateway Refund FIRST to guarantee Xendit confirmation
-    if (providerRef) {
-      await getPaymentGateway().refundPayment(providerRef, amount);
-    }
-
-    // 3. Transition payment_status to 'refunded' ONLY after gateway success
-    return this.transitionPaymentStatusAsync(paymentId, 'refunded', reason || 'Refund diproses & dikonfirmasi provider.', client);
+    if (error) throw error;
+    if (result && !result.success) throw new Error("Gagal menandai refund_pending.");
+    return true;
   },
 
   /**
-   * Simulates Webhook Event Notification (Provider-independent webhook handler).
+   * Confirms a manual refund has been performed by Platform Admin.
    */
+  async confirmManualRefundAsync(
+    orderId: string,
+    paymentAttemptId: string,
+    amount: number,
+    destinationBank: string,
+    destinationAccount: string,
+    destinationName: string,
+    reference: string,
+    notes: string,
+    client?: any
+  ): Promise<boolean> {
+    const db = client || supabase;
+    if (!isSupabaseConfigured || !db) {
+      const mockPayments = this.getMockPayments();
+      const p = mockPayments.find((x) => x.id === paymentAttemptId);
+      if (p && p.status === "refund_pending") p.status = "refunded";
+      return true;
+    }
+
+    const { data: result, error } = await db.rpc("confirm_manual_refund_atomic", {
+      p_order_id: orderId,
+      p_payment_attempt_id: paymentAttemptId,
+      p_amount: amount,
+      p_destination_bank: destinationBank,
+      p_destination_account: destinationAccount,
+      p_destination_name: destinationName,
+      p_reference: reference,
+      p_notes: notes,
+    });
+
+    if (error) {
+      throw new Error(`Refund Confirmation Failed: ${error.message}`);
+    }
+
+    if (result && !result.success) {
+      throw new Error(`Refund Confirmation Rejected`);
+    }
+
+    return true;
+  },
+
+  /**
+   * Fetches all orders with payment_status = 'refund_pending' and their corresponding payment attempt details for Admin Refund Queue.
+   */
+  async getPendingRefundsAsync(client?: any): Promise<Array<{
+    orderId: string;
+    trackingNumber: string;
+    orderStatus: string;
+    paymentStatus: string;
+    createdAt: string;
+    pickupDate?: string;
+    pickupTimeSlot?: string;
+    customerName: string;
+    customerPhone?: string;
+    customerEmail?: string;
+    laundryName?: string;
+    paymentAttemptId: string;
+    paymentAmount: number;
+    paymentProvider?: string;
+  }>> {
+    const db = client || supabase;
+    if (!isSupabaseConfigured || !db) {
+      const mockPayments = this.getMockPayments();
+      const mockPending = mockPayments.filter((p) => p.status === 'refund_pending');
+      return mockPending.map((p) => ({
+        orderId: p.orderId,
+        trackingNumber: `ORD-${p.orderId.slice(0, 8)}`,
+        orderStatus: 'cancelled',
+        paymentStatus: 'refund_pending',
+        createdAt: p.createdAt,
+        customerName: 'Customer Test',
+        customerPhone: '08123456789',
+        customerEmail: 'customer@test.com',
+        laundryName: 'FreshLaundry Store',
+        paymentAttemptId: p.id,
+        paymentAmount: p.amount,
+        paymentProvider: p.provider,
+      }));
+    }
+
+    const { data: rows, error } = await (db.from('orders') as any)
+      .select(`
+        id,
+        tracking_number,
+        status,
+        payment_status,
+        created_at,
+        pickup_date,
+        pickup_time_slot,
+        customer_id,
+        laundry_id,
+        profiles:customer_id (full_name, phone, email),
+        laundries:laundry_id (name),
+        payment_attempts (id, amount, status, provider, created_at)
+      `)
+      .eq('payment_status', 'refund_pending')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[PAYMENT-SERVICE] Error fetching pending refunds:', error);
+      throw new Error(`Gagal mengambil data antrean refund: ${error.message}`);
+    }
+
+    return (rows || []).map((row: any) => {
+      const attempts = row.payment_attempts || [];
+      const pendingAttempt = attempts.find((a: any) => a.status === 'refund_pending') || attempts[0];
+      const customer = row.profiles || {};
+      const laundry = row.laundries || {};
+
+      return {
+        orderId: row.id,
+        trackingNumber: row.tracking_number || `ORD-${row.id.slice(0, 8)}`,
+        orderStatus: row.status,
+        paymentStatus: row.payment_status,
+        createdAt: row.created_at,
+        pickupDate: row.pickup_date || undefined,
+        pickupTimeSlot: row.pickup_time_slot || undefined,
+        customerName: customer.full_name || 'Pelanggan',
+        customerPhone: customer.phone || '',
+        customerEmail: customer.email || '',
+        laundryName: laundry.name || 'Laundry Store',
+        paymentAttemptId: pendingAttempt?.id || '',
+        paymentAmount: pendingAttempt?.amount || 0,
+        paymentProvider: pendingAttempt?.provider || 'qris',
+      };
+    });
+  },
+
   async simulateWebhookEventAsync(payload: {
     providerReference: string;
     event: 'PAYMENT_SUCCESS' | 'PAYMENT_FAILED' | 'PAYMENT_EXPIRED';
@@ -1035,3 +1165,4 @@ export const paymentService = {
     return { success: true, payment: updatedPayment };
   },
 };
+

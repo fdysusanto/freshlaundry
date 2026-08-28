@@ -131,7 +131,7 @@ async function runPaymentAtomicTransitionTests() {
 
   // TEST 7: valid backend payment transition -> EXPECTED: ALLOWED
   assert(canTransitionPaymentStatus('pending', 'paid'), 'TEST 7: State machine validates pending -> paid transition');
-  assert(canTransitionPaymentStatus('paid', 'refunded'), 'TEST 7: State machine validates paid -> refunded transition');
+  assert(canTransitionPaymentStatus('paid', 'refund_pending'), 'TEST 7: State machine validates paid -> refund_pending transition');
 
   // TEST 8: payment paid -> courier not yet assigned
   // EXPECTED: orders.payment_status = paid, orders.status = pending
@@ -171,3 +171,4 @@ async function runPaymentAtomicTransitionTests() {
 }
 
 runPaymentAtomicTransitionTests();
+

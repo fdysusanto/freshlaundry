@@ -76,10 +76,7 @@ export class MockPaymentGateway implements PaymentGateway {
   }
 
   async refundPayment(providerReference: string, amount: number): Promise<boolean> {
-    const rec = this.mockStore.get(providerReference);
-    if (!rec || rec.status !== 'paid') return false;
-    rec.status = 'refunded';
-    return true;
+    throw new Error('Metode refund API provider dinonaktifkan. Seluruh refund dilakukan secara manual oleh Platform Admin.');
   }
 }
 
@@ -260,21 +257,7 @@ export class MidtransPaymentGateway implements PaymentGateway {
   }
 
   async refundPayment(providerReference: string, amount: number): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.getCoreUrl()}/${providerReference}/refund`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({
-          refund_key: `REF-${providerReference}-${Date.now()}`,
-          amount: Math.round(amount),
-          reason: 'REQUESTED_BY_CUSTOMER',
-        }),
-      });
-
-      return response.ok;
-    } catch {
-      return false;
-    }
+    throw new Error('Metode refund API provider dinonaktifkan. Seluruh refund dilakukan secara manual oleh Platform Admin.');
   }
 }
 
@@ -390,21 +373,7 @@ export class XenditPaymentGateway implements PaymentGateway {
   }
 
   async refundPayment(providerReference: string, amount: number): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.baseUrl}/refunds`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({
-          invoice_id: providerReference,
-          amount: Math.round(amount),
-          reason: 'REQUESTED_BY_CUSTOMER',
-        }),
-      });
-
-      return response.ok;
-    } catch {
-      return false;
-    }
+    throw new Error('Metode refund API provider dinonaktifkan. Seluruh refund dilakukan secara manual oleh Platform Admin.');
   }
 }
 

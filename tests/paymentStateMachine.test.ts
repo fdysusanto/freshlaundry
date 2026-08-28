@@ -42,7 +42,8 @@ async function runPaymentStateMachineTests() {
   assert(canTransitionPaymentStatus('pending', 'paid'), 'Test 2: VALID pending -> paid');
   assert(canTransitionPaymentStatus('pending', 'failed'), 'Test 3: VALID pending -> failed');
   assert(canTransitionPaymentStatus('pending', 'expired'), 'Test 4: VALID pending -> expired');
-  assert(canTransitionPaymentStatus('paid', 'refunded'), 'Test 5: VALID paid -> refunded');
+  assert(canTransitionPaymentStatus('paid', 'refund_pending'), 'Test 5: VALID paid -> refund_pending');
+  assert(canTransitionPaymentStatus('refund_pending', 'refunded'), 'Test 5b: VALID refund_pending -> refunded');
 
   // 2. Invalid Payment Transitions
   assert(!canTransitionPaymentStatus('unpaid', 'paid'), 'Test 6: INVALID unpaid -> paid (Must pass through pending)');
@@ -126,3 +127,4 @@ async function runPaymentStateMachineTests() {
 }
 
 runPaymentStateMachineTests();
+

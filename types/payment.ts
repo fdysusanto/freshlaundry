@@ -1,4 +1,4 @@
-export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'failed' | 'expired' | 'refunded';
+export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'failed' | 'expired' | 'refund_pending' | 'refunded';
 
 export interface PaymentAttempt {
   id: string;
@@ -29,9 +29,10 @@ export interface PaymentAttempt {
 export const VALID_PAYMENT_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
   unpaid: ['pending'],
   pending: ['paid', 'failed', 'expired'],
-  paid: ['refunded'],
+  paid: ['refund_pending'],
   failed: [],
   expired: [],
+  refund_pending: ['refunded'],
   refunded: [],
 };
 
@@ -51,6 +52,8 @@ export function normalizePaymentStatus(rawStatus: string): PaymentStatus {
       return 'failed';
     case 'expired':
       return 'expired';
+    case 'refund_pending':
+      return 'refund_pending';
     case 'refunded':
       return 'refunded';
     default:
@@ -65,3 +68,4 @@ export function canTransitionPaymentStatus(currentStatus: PaymentStatus, targetS
   const allowed = VALID_PAYMENT_TRANSITIONS[currentStatus] || [];
   return allowed.includes(targetStatus);
 }
+

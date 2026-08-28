@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { UserProfile } from '@/types/user';
-import { Home, PlusCircle, User, Truck, ShieldCheck, Store, BarChart3, Users } from 'lucide-react';
+import { Home, PlusCircle, User, Truck, ShieldCheck, Store, BarChart3, Users, RotateCcw } from 'lucide-react';
 
 export const MobileNav: React.FC = () => {
   const pathname = usePathname();
@@ -47,6 +47,7 @@ export const MobileNav: React.FC = () => {
       { id: 'admin-home', label: 'Beranda', href: '/', icon: Home },
       { id: 'admin-monitoring', label: 'Monitoring', href: '/admin', icon: BarChart3 },
       { id: 'admin-laundry', label: 'Laundry', href: '/admin/partner-applications', icon: Store },
+      { id: 'admin-refunds', label: 'Refund', href: '/admin/refunds', icon: RotateCcw },
       { id: 'admin-staff', label: 'Staff', href: '/admin/staff', icon: Users, isCta: true },
       { id: 'admin-portal', label: 'Admin', href: '/admin', icon: ShieldCheck },
     ];

@@ -1212,7 +1212,7 @@ export const orderService = {
   },
 
   /**
-   * Laundry Owner Rejects Paid Order and Automatically Triggers Payment Refund.
+   * Laundry Owner Rejects Paid Order and Prepares Manual Refund.
    */
   async rejectOrderAsync(
     orderId: string,
@@ -1240,15 +1240,15 @@ export const orderService = {
       `Pesanan ditolak oleh Mitra Laundry: ${cleanReason}`
     );
 
-    // Trigger automatic refund via paymentService
+    // Trigger manual refund preparation (refund_pending)
     try {
       const { paymentService } = await import('./paymentService');
-      const activePayment = await paymentService.getActivePaymentForOrderAsync(orderId);
+      const activePayment = await paymentService.getPaidPaymentForRefundAsync(orderId);
       if (activePayment) {
-        await paymentService.refundPaymentAsync(activePayment.id, actor, `Refund otomatis akibat penolakan toko: ${cleanReason}`);
+        await paymentService.markRefundPendingAsync(activePayment.id, actor, `Menunggu refund manual akibat penolakan toko: ${cleanReason}`);
       }
     } catch (err: any) {
-      console.warn('[REJECT-REFUND-WARNING] Gagal memproses refund otomatis:', err.message);
+      console.warn('[REJECT-REFUND-WARNING] Gagal memproses persiapan refund:', err.message);
     }
 
     return cancelledOrder;
@@ -1860,3 +1860,5 @@ export const orderService = {
     return { order: updatedOrder, priceDelta, adjustmentPaymentAttempt: adjustmentAttempt };
   },
 };
+
+

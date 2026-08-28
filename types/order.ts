@@ -11,7 +11,7 @@ export type OrderStatus =
   | 'delivered'
   | 'cancelled';
 
-export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'failed' | 'expired' | 'refunded';
+export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'failed' | 'expired' | 'refund_pending' | 'refunded';
 
 export type ServiceType = 'kiloan' | 'express' | 'dry_clean' | 'satuan';
 
@@ -211,4 +211,5 @@ export function getAllowedNextStatuses(currentStatus: OrderStatus, role?: UserRo
   }
   return possibleNext.filter((next) => canRoleTransitionOrder(role, currentStatus, next));
 }
+
 

@@ -21,6 +21,7 @@ import {
   BarChart3,
   Store,
   Package,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -240,6 +241,15 @@ export const Navbar: React.FC = () => {
                 >
                   <Users className="w-4 h-4 text-purple-600" />
                   <span>Staff</span>
+                </Link>
+                <Link
+                  href="/admin/refunds"
+                  className={`hover:text-purple-600 transition-colors flex items-center gap-1.5 ${
+                    pathname.startsWith('/admin/refunds') ? 'text-purple-700 font-bold' : ''
+                  }`}
+                >
+                  <RotateCcw className="w-4 h-4 text-purple-600" />
+                  <span>Refund</span>
                 </Link>
                 <Link
                   href="/admin"

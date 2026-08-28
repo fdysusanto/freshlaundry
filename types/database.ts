@@ -113,7 +113,7 @@ export interface Database {
           platform_fee: number;
           discount: number;
           total_price: number;
-          payment_status: 'unpaid' | 'paid';
+          payment_status: 'unpaid' | 'pending' | 'paid' | 'failed' | 'expired' | 'refund_pending' | 'refunded';
           created_at: string;
           updated_at: string;
         };
@@ -216,3 +216,4 @@ export interface Database {
     };
   };
 }
+
