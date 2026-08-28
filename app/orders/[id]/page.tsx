@@ -332,12 +332,10 @@ export default function OrderDetailPage() {
   const isPickupEditable =
     order.status === 'pending' &&
     order.paymentStatus === 'paid' &&
-    !(order as any).batchId &&
     !order.courierId;
 
   const isDeliveryEditable =
-    !(order as any).deliveryBatchId &&
-    !['out_for_delivery', 'completed', 'cancelled'].includes(order.status);
+    !['out_for_delivery', 'delivered', 'cancelled'].includes(order.status);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">

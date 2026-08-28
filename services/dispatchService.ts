@@ -698,11 +698,13 @@ export const dispatchService = {
   /**
    * Retrieves active/latest dispatch status for an order.
    */
-  async getDispatchStatusAsync(orderId: string, client?: any): Promise<DispatchStatusResult> {
+  async getDispatchStatusAsync(orderId: string, client?: any, assignmentType?: 'pickup' | 'delivery'): Promise<DispatchStatusResult> {
     const db = getDbClient(client);
 
     if (!isSupabaseConfigured || !db) {
-      const activeMock = mockDispatchBatches.find((b) => b.orderId === orderId && b.status === 'active');
+      const activeMock = mockDispatchBatches.find(
+        (b) => b.orderId === orderId && b.status === 'active' && (!assignmentType || b.assignmentType === assignmentType)
+      );
       if (activeMock) {
         return {
           hasActiveDispatch: true,
@@ -725,9 +727,15 @@ export const dispatchService = {
       };
     }
 
-    const { data: latestBatch } = await (db.from('dispatch_batches') as any)
+    let query = (db.from('dispatch_batches') as any)
       .select('*, courier_assignments(*)')
-      .eq('order_id', orderId)
+      .eq('order_id', orderId);
+
+    if (assignmentType) {
+      query = query.eq('assignment_type', assignmentType);
+    }
+
+    const { data: latestBatch } = await query
       .order('batch_number', { ascending: false })
       .limit(1)
       .maybeSingle();

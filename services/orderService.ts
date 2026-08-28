@@ -1220,12 +1220,12 @@ export const orderService = {
       if (existingOrder.paymentStatus !== 'paid') {
         throw new Error('Jadwal penjemputan tidak dapat diubah untuk pesanan yang belum dibayar.');
       }
-      if ((existingOrder as any).batchId || existingOrder.courierId) {
+      if (existingOrder.courierId) {
         throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena proses penjemputan kurir sudah berjalan.');
       }
 
       const { dispatchService, isPickupSlotSelectable } = await import('./dispatchService');
-      const dispatchStatus = await dispatchService.getDispatchStatusAsync(orderId, db);
+      const dispatchStatus = await dispatchService.getDispatchStatusAsync(orderId, db, 'pickup');
       if (dispatchStatus.hasActiveDispatch) {
         throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena proses penjemputan kurir sudah berjalan.');
       }
@@ -1252,7 +1252,13 @@ export const orderService = {
       if (!['pending', 'in_washing', 'ready_for_delivery'].includes(existingOrder.status)) {
         throw new Error(`Jadwal pengantaran (delivery) tidak dapat diubah karena pesanan sudah dalam pengantaran atau selesai (status saat ini: '${existingOrder.status}').`);
       }
-      if ((existingOrder as any).deliveryBatchId || ['out_for_delivery', 'completed', 'cancelled'].includes(existingOrder.status)) {
+      if (['out_for_delivery', 'delivered', 'cancelled'].includes(existingOrder.status)) {
+        throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena proses pengantaran kurir sudah berjalan.');
+      }
+
+      const { dispatchService } = await import('./dispatchService');
+      const dispatchStatus = await dispatchService.getDispatchStatusAsync(orderId, db, 'delivery');
+      if (dispatchStatus.hasActiveDispatch) {
         throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena proses pengantaran kurir sudah berjalan.');
       }
 
@@ -1308,10 +1314,10 @@ export const orderService = {
         .eq('customer_id', customerId);
 
       if (hasPickupChange) {
-        query = query.eq('status', 'pending').is('batch_id', null).is('courier_id', null);
+        query = query.eq('status', 'pending').is('courier_id', null);
       }
       if (hasDeliveryChange) {
-        query = query.is('delivery_batch_id', null).neq('status', 'out_for_delivery');
+        query = query.neq('status', 'out_for_delivery').neq('status', 'delivered').neq('status', 'cancelled');
       }
 
       const { data: updatedRows, error: updateErr } = await query.select();
@@ -1329,10 +1335,10 @@ export const orderService = {
       const idx = orders.findIndex((o) => o.id === orderId);
       if (idx !== -1) {
         const target = orders[idx];
-        if (hasPickupChange && ((target as any).batchId || target.courierId || target.status !== 'pending')) {
+        if (hasPickupChange && (target.courierId || target.status !== 'pending')) {
           throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena proses penjemputan kurir sudah berjalan.');
         }
-        if (hasDeliveryChange && ((target as any).deliveryBatchId || target.status === 'out_for_delivery')) {
+        if (hasDeliveryChange && (['out_for_delivery', 'delivered', 'cancelled'].includes(target.status))) {
           throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena proses pengantaran kurir sudah berjalan.');
         }
         if (payload.pickupDate) target.pickupDate = payload.pickupDate;
@@ -1340,7 +1346,6 @@ export const orderService = {
         if (payload.deliveryDate) target.deliveryDate = payload.deliveryDate;
         if (payload.deliveryTimeSlot) target.deliveryTimeSlot = payload.deliveryTimeSlot;
         target.updatedAt = new Date().toISOString();
-        this.saveOrders(orders);
       }
     }
 

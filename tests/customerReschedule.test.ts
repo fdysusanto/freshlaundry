@@ -149,6 +149,74 @@ async function runCustomerRescheduleTests() {
     assert(false, `6. Integrity test failed: ${err.message}`);
   }
 
+  // 7. Leg Isolation: Active DELIVERY batch does NOT block PICKUP reschedule
+  try {
+    const ord7 = createTestOrder(customerA.id);
+    const storeOrders = orderService.getOrders();
+    const targetInStore = storeOrders.find((o) => o.id === ord7.id);
+    if (targetInStore) {
+      targetInStore.deliveryDate = '2026-08-28';
+      targetInStore.deliveryTimeSlot = '08:00 - 10:00 WIB';
+      targetInStore.status = 'ready_for_delivery';
+      orderService.saveOrders(storeOrders);
+    }
+
+    await dispatchService.updateCourierHeartbeatAsync('usr_courier_01', -6.2415, 106.7972, '327401', '3274011001', true);
+    await dispatchService.dispatchOrderAsync(ord7.id, 'delivery', 'system_cron');
+
+    // Attempt pickup reschedule (should NOT be blocked by delivery batch)
+    // Note: ord7 status is ready_for_delivery so pickup reschedule is blocked by status !== pending, but delivery batch isolation itself works
+    const legCheckResult = await dispatchService.getDispatchStatusAsync(ord7.id, undefined, 'pickup');
+    assert(legCheckResult.hasActiveDispatch === false, '7. Active DELIVERY batch does NOT flag active PICKUP dispatch');
+  } catch (err: any) {
+    assert(false, `7. Leg isolation test failed: ${err.message}`);
+  }
+
+  // 8. Order Status = delivered -> Delivery Reschedule REJECTED
+  try {
+    const ord8 = createTestOrder(customerA.id);
+    const storeOrders = orderService.getOrders();
+    const target = storeOrders.find((o) => o.id === ord8.id);
+    if (target) {
+      target.status = 'delivered';
+      orderService.saveOrders(storeOrders);
+    }
+    await orderService.rescheduleOrderScheduleAsync(ord8.id, customerA.id, { deliveryDate: '2026-09-05' });
+    assert(false, '8. Delivery reschedule on delivered order should be REJECTED');
+  } catch (err: any) {
+    assert(err.message.includes('sudah dalam pengantaran atau selesai') || err.message.includes('CONCURRENCY_LOCK'), '8. Delivered status delivery reschedule rejected');
+  }
+
+  // 9. Order Status = cancelled -> Delivery Reschedule REJECTED
+  try {
+    const ord9 = createTestOrder(customerA.id);
+    const storeOrders = orderService.getOrders();
+    const target = storeOrders.find((o) => o.id === ord9.id);
+    if (target) {
+      target.status = 'cancelled';
+      orderService.saveOrders(storeOrders);
+    }
+    await orderService.rescheduleOrderScheduleAsync(ord9.id, customerA.id, { deliveryDate: '2026-09-05' });
+    assert(false, '9. Delivery reschedule on cancelled order should be REJECTED');
+  } catch (err: any) {
+    assert(err.message.includes('sudah dalam pengantaran atau selesai') || err.message.includes('CONCURRENCY_LOCK'), '9. Cancelled status delivery reschedule rejected');
+  }
+
+  // 10. Order Status = out_for_delivery -> Delivery Reschedule REJECTED
+  try {
+    const ord10 = createTestOrder(customerA.id);
+    const storeOrders = orderService.getOrders();
+    const target = storeOrders.find((o) => o.id === ord10.id);
+    if (target) {
+      target.status = 'out_for_delivery';
+      orderService.saveOrders(storeOrders);
+    }
+    await orderService.rescheduleOrderScheduleAsync(ord10.id, customerA.id, { deliveryDate: '2026-09-05' });
+    assert(false, '10. Delivery reschedule on out_for_delivery order should be REJECTED');
+  } catch (err: any) {
+    assert(err.message.includes('sudah dalam pengantaran atau selesai') || err.message.includes('CONCURRENCY_LOCK'), '10. Out for delivery status delivery reschedule rejected');
+  }
+
   console.log(`\nCustomer Reschedule Tests Summary: ${passed} passed, ${failed} failed.\n`);
   if (failed > 0) process.exit(1);
 }
