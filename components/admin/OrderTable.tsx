@@ -7,25 +7,19 @@ import { formatIDR, formatDateIndo } from '@/utils/formatters';
 import { getStatusConfig } from '@/utils/helpers';
 import { DEMO_USERS } from '@/utils/constants';
 import { Badge } from '../ui/Badge';
-import { Button } from '../ui/Button';
-import { Modal } from '../ui/Modal';
-import { Search, UserPlus, Eye, Filter } from 'lucide-react';
+import { Search, Eye, Filter } from 'lucide-react';
 
 interface OrderTableProps {
   orders: Order[];
-  onAssignCourier: (orderId: string, courierId: string, courierName: string) => void;
   onUpdateStatus: (orderId: string, newStatus: OrderStatus, notes: string) => void;
 }
 
 export const OrderTable: React.FC<OrderTableProps> = ({
   orders,
-  onAssignCourier,
   onUpdateStatus,
 }) => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedAssignOrder, setSelectedAssignOrder] = useState<Order | null>(null);
-  const [selectedCourierId, setSelectedCourierId] = useState<string>('usr_courier_01');
 
   const filteredOrders = orders.filter((o) => {
     const matchesSearch =
@@ -34,18 +28,6 @@ export const OrderTable: React.FC<OrderTableProps> = ({
     const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-
-  const couriers = DEMO_USERS.filter((u) => u.role === 'courier');
-
-  const handleAssignSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedAssignOrder) return;
-    const courierObj = couriers.find((c) => c.id === selectedCourierId);
-    if (!courierObj) return;
-
-    onAssignCourier(selectedAssignOrder.id, courierObj.id, courierObj.fullName);
-    setSelectedAssignOrder(null);
-  };
 
   return (
     <div className="space-y-4">
@@ -129,13 +111,6 @@ export const OrderTable: React.FC<OrderTableProps> = ({
                       </td>
                       <td className="p-4 font-black text-teal-700">{formatIDR(o.totalPrice)}</td>
                       <td className="p-4 text-right space-x-2">
-                        <button
-                          onClick={() => setSelectedAssignOrder(o)}
-                          className="p-1.5 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-100 font-semibold transition-colors"
-                          title="Tugaskan Kurir"
-                        >
-                          <UserPlus className="w-4 h-4" />
-                        </button>
                         <Link
                           href={`/orders/${o.id}`}
                           className="inline-block p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold transition-colors"
@@ -158,58 +133,6 @@ export const OrderTable: React.FC<OrderTableProps> = ({
           </table>
         </div>
       </div>
-
-      {/* Modal Penugasan Kurir */}
-      <Modal
-        isOpen={Boolean(selectedAssignOrder)}
-        onClose={() => setSelectedAssignOrder(null)}
-        title={`Penugasan Kurir #${selectedAssignOrder?.trackingNumber}`}
-      >
-        <form onSubmit={handleAssignSubmit} className="space-y-4">
-          <div className="p-3 bg-slate-50 rounded-xl border text-xs space-y-1">
-            <p className="text-slate-600 font-medium">Customer: <strong>{selectedAssignOrder?.customerName}</strong></p>
-            <p className="text-slate-600 font-medium">Alamat: <strong>{selectedAssignOrder?.pickupAddress}</strong></p>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
-              Pilih Kurir Driver:
-            </label>
-            <div className="space-y-2">
-              {couriers.map((c) => {
-                const isSelected = selectedCourierId === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setSelectedCourierId(c.id)}
-                    className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
-                      isSelected
-                        ? 'border-teal-600 bg-teal-50/70 ring-2 ring-teal-500/20 font-bold text-teal-800'
-                        : 'border-slate-200 bg-white text-slate-700'
-                    }`}
-                  >
-                    <div>
-                      <p className="text-sm">{c.fullName}</p>
-                      <p className="text-xs text-slate-500 font-normal">Telepon: {c.phone}</p>
-                    </div>
-                    {isSelected && <span className="text-teal-600 font-bold">✓</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setSelectedAssignOrder(null)}>
-              Batal
-            </Button>
-            <Button type="submit" variant="primary" size="sm">
-              Simpan Penugasan Kurir
-            </Button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 };

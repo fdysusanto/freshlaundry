@@ -1,5 +1,6 @@
 import { checkoutService } from '../services/checkoutService';
 import { orderService } from '../services/orderService';
+import { dispatchService } from '../services/dispatchService';
 import { paymentService } from '../services/paymentService';
 import { DEMO_USERS } from '../utils/constants';
 import { UserProfile } from '../types/user';
@@ -95,8 +96,9 @@ async function runOrderOperationsEndToEndTests() {
   }, 'Test 7: Customer CANNOT accept order (Role authorization enforced)');
 
   // Laundry Owner confirms order and triggers dispatch engine (offered to couriers, order.status remains pending, courierId remains null)
-  const orderCourierOffered = await orderService.assignCourierAsync(orderId, courier.id, courier.fullName, laundryOwner.id);
-  assert(orderCourierOffered !== null && (!orderCourierOffered.courierId || orderCourierOffered.courierId === null), 'Test 6: Dispatch engine triggered by laundry owner (orders.courier_id remains NULL during offered state)');
+  const dispatchRes = await dispatchService.dispatchOrderAsync(orderId, 'pickup', laundryOwner.id);
+  const orderCourierOffered = orderService.getOrderById(orderId);
+  assert(dispatchRes !== null && dispatchRes.hasActiveDispatch === true, 'Test 6: Dispatch engine triggered by laundry owner (active dispatch batch created)');
   assert(orderCourierOffered?.status === 'pending', 'Test 6: Order status remains pending until courier accepts');
 
   // Step 8: Courier Accepts Assignment -> Order transitions to assigned & courier_id is set

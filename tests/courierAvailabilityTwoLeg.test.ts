@@ -63,7 +63,7 @@ async function runCourierAvailabilityTwoLegTests() {
 
   // TEST 1: Courier A + Order A (picked_up), Order B assignment -> REJECTED / BUSY
   let orderA = createPaidOrder('Order A');
-  await orderService.assignCourierAsync(orderA.id, courierA.id, courierA.fullName, adminUser.id, { id: adminUser.id, role: adminUser.role });
+  await dispatchService.dispatchOrderAsync(orderA.id, 'pickup', adminUser.id);
   await orderService.acceptCourierAssignmentAsync(orderA.id, courierA.id);
   orderService.updateOrderStatus(orderA.id, 'picked_up');
   orderA = refreshOrder(orderA.id) || orderA;
@@ -84,7 +84,7 @@ async function runCourierAvailabilityTwoLegTests() {
   assert(!isBusyTest2, 'TEST 2: Courier A is AVAILABLE when Order A is in_washing (pickup leg completed)');
 
   try {
-    const assignBRes = await orderService.assignCourierAsync(orderB.id, courierA.id, courierA.fullName, adminUser.id, { id: adminUser.id, role: adminUser.role });
+    const assignBRes = await dispatchService.dispatchOrderAsync(orderB.id, 'pickup', adminUser.id);
     assert(Boolean(assignBRes), 'TEST 2: Order B successfully assigned to Courier A while Order A is in_washing');
   } catch (err: any) {
     assert(false, `TEST 2: Assign failed: ${err.message}`);
@@ -104,7 +104,7 @@ async function runCourierAvailabilityTwoLegTests() {
 
   const orderC = createPaidOrder('Order C');
   try {
-    const assignCRes = await orderService.assignCourierAsync(orderC.id, courierA.id, courierA.fullName, adminUser.id, { id: adminUser.id, role: adminUser.role });
+    const assignCRes = await dispatchService.dispatchOrderAsync(orderC.id, 'pickup', adminUser.id);
     assert(Boolean(assignCRes), 'TEST 3: Order C successfully assigned to Courier A while Order A is ready_for_delivery');
   } catch (err: any) {
     assert(false, `TEST 3: Assign failed: ${err.message}`);
@@ -137,7 +137,7 @@ async function runCourierAvailabilityTwoLegTests() {
 
   const orderE = createPaidOrder('Order E');
   try {
-    await orderService.assignCourierAsync(orderE.id, courierA.id, courierA.fullName, adminUser.id, { id: adminUser.id, role: adminUser.role });
+    await dispatchService.dispatchOrderAsync(orderE.id, 'pickup', adminUser.id);
     await orderService.acceptCourierAssignmentAsync(orderE.id, courierA.id);
     const targetE = refreshOrder(orderE.id);
     assert(targetE?.status === 'assigned' && targetE?.courierId === courierA.id, 'TEST 5: Courier A accepts Order E pickup while Order A is in_washing/delivered');

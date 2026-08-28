@@ -82,8 +82,8 @@ export async function runDispatchEngineTests() {
     const origGetOrder = orderService.getOrderByIdAsync.bind(orderService);
     orderService.getOrderByIdAsync = async () => mockOrder as any;
 
-    const result = await orderService.assignCourierAsync('ord_dispatch_test_01', undefined, undefined, 'usr_owner_01');
-    assert(result !== null && result.courierId === null, '4. assignCourierAsync triggers dispatch while preserving orders.courier_id = NULL during offered state');
+    const result = await dispatchService.dispatchOrderAsync('ord_dispatch_test_01', 'pickup', 'usr_owner_01');
+    assert(result !== null && result.hasActiveDispatch === true, '4. dispatchOrderAsync triggers dispatch while preserving orders.courier_id = NULL during offered state');
 
     orderService.getOrderByIdAsync = origGetOrder;
   } catch (err: any) {

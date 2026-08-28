@@ -12,9 +12,11 @@ import { Stepper } from '@/components/ui/Stepper';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { TIME_SLOTS } from '@/utils/constants';
 import { paymentService } from '@/services/paymentService';
 import { PaymentAttempt } from '@/types/payment';
-import { Truck, MapPin, Calendar, Clock, ArrowLeft, Phone, User, FileText, Store, CreditCard, ShieldCheck, AlertCircle, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
+import { Truck, MapPin, Calendar, Clock, ArrowLeft, Phone, User, FileText, Store, CreditCard, ShieldCheck, AlertCircle, AlertTriangle, CheckCircle2, ExternalLink, Edit3 } from 'lucide-react';
 import { triggerPaymentFlow } from '@/utils/midtransSnap';
 
 export default function OrderDetailPage() {
@@ -25,6 +27,17 @@ export default function OrderDetailPage() {
   const [pendingAdjustment, setPendingAdjustment] = useState<PaymentAttempt | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [payError, setPayError] = useState('');
+
+  // Reschedule State & Handlers
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState<'pickup' | 'delivery' | 'both'>('pickup');
+  const [pickupDate, setPickupDate] = useState('');
+  const [pickupTimeSlot, setPickupTimeSlot] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [deliveryTimeSlot, setDeliveryTimeSlot] = useState('');
+  const [isSubmittingReschedule, setIsSubmittingReschedule] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState('');
+  const [rescheduleSuccessMsg, setRescheduleSuccessMsg] = useState('');
 
   const handlePayNow = async (actionType: 'create' | 'create_adjustment' = 'create') => {
     if (!order) return;
@@ -95,6 +108,132 @@ export default function OrderDetailPage() {
       setPayError(err.message || 'Gagal memproses pembayaran.');
     } finally {
       setIsPaying(false);
+    }
+  };
+
+  const openRescheduleModal = (target: 'pickup' | 'delivery' | 'both') => {
+    if (!order) return;
+    setRescheduleTarget(target);
+    setPickupDate(order.pickupDate || '');
+    setPickupTimeSlot(order.pickupTimeSlot || TIME_SLOTS[0]);
+    setDeliveryDate(order.deliveryDate || '');
+    setDeliveryTimeSlot(order.deliveryTimeSlot || TIME_SLOTS[0]);
+    setRescheduleError('');
+    setRescheduleSuccessMsg('');
+    setIsRescheduleModalOpen(true);
+  };
+
+  const handleSaveReschedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!order || isSubmittingReschedule) return;
+
+    setRescheduleError('');
+    setRescheduleSuccessMsg('');
+
+    const targetIsPickup = rescheduleTarget === 'pickup' || rescheduleTarget === 'both';
+    const targetIsDelivery = rescheduleTarget === 'delivery' || rescheduleTarget === 'both';
+
+    if (targetIsPickup) {
+      if (!pickupDate) {
+        setRescheduleError('Silakan pilih tanggal pickup.');
+        return;
+      }
+      if (!pickupTimeSlot) {
+        setRescheduleError('Silakan pilih slot waktu pickup.');
+        return;
+      }
+    }
+
+    if (targetIsDelivery) {
+      if (!deliveryDate) {
+        setRescheduleError('Silakan pilih tanggal delivery.');
+        return;
+      }
+      if (!deliveryTimeSlot) {
+        setRescheduleError('Silakan pilih slot waktu delivery.');
+        return;
+      }
+    }
+
+    const effPickupDate = targetIsPickup ? pickupDate : order.pickupDate;
+    const effPickupSlot = targetIsPickup ? pickupTimeSlot : order.pickupTimeSlot;
+    const effDeliveryDate = targetIsDelivery ? deliveryDate : order.deliveryDate;
+    const effDeliverySlot = targetIsDelivery ? deliveryTimeSlot : order.deliveryTimeSlot;
+
+    if (effPickupDate && effDeliveryDate) {
+      if (effDeliveryDate < effPickupDate) {
+        setRescheduleError('Jadwal pengantaran (delivery) harus sama atau setelah jadwal penjemputan (pickup).');
+        return;
+      }
+      if (effDeliveryDate === effPickupDate && effPickupSlot && effDeliverySlot) {
+        const pMatch = effPickupSlot.match(/(\d{1,2}):(\d{2})/);
+        const dMatch = effDeliverySlot.match(/(\d{1,2}):(\d{2})/);
+        if (pMatch && dMatch) {
+          const pHour = parseInt(pMatch[1], 10);
+          const dHour = parseInt(dMatch[1], 10);
+          if (dHour <= pHour) {
+            setRescheduleError('Jadwal pengantaran pada hari yang sama harus setelah slot penjemputan.');
+            return;
+          }
+        }
+      }
+    }
+
+    setIsSubmittingReschedule(true);
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (isSupabaseConfigured && supabase) {
+        const { data: { session } } = await (supabase?.auth?.getSession() || Promise.resolve({ data: { session: null } }));
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+      }
+
+      const payload: any = {};
+      if (targetIsPickup) {
+        payload.pickupDate = pickupDate;
+        payload.pickupTimeSlot = pickupTimeSlot;
+      }
+      if (targetIsDelivery) {
+        payload.deliveryDate = deliveryDate;
+        payload.deliveryTimeSlot = deliveryTimeSlot;
+      }
+
+      const res = await fetch(`/api/orders/${order.id}/reschedule`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        if (res.status === 409) {
+          throw new Error(data.message || 'Jadwal tidak dapat diubah karena proses dispatch sedang berjalan.');
+        } else if (res.status === 403) {
+          throw new Error(data.message || 'Anda tidak memiliki akses untuk mengubah pesanan ini.');
+        } else if (res.status === 401) {
+          throw new Error(data.message || 'Sesi Anda telah berakhir. Silakan login kembali.');
+        }
+        throw new Error(data.message || 'Gagal mengubah jadwal pesanan.');
+      }
+
+      setRescheduleSuccessMsg('Jadwal pesanan berhasil diperbarui.');
+
+      setTimeout(async () => {
+        setIsRescheduleModalOpen(false);
+        setRescheduleSuccessMsg('');
+        const updated = await orderService.getOrderByIdAsync(order.id);
+        if (updated) setOrder(updated);
+      }, 1200);
+    } catch (err: any) {
+      setRescheduleError(err.message || 'Terjadi kesalahan saat memperbarui jadwal.');
+    } finally {
+      setIsSubmittingReschedule(false);
     }
   };
 
@@ -189,6 +328,16 @@ export default function OrderDetailPage() {
   const platformFee = order.platformFee ?? 2000;
   const deliveryFee = order.deliveryFee ?? 0;
   const discount = order.discount ?? 0;
+
+  const isPickupEditable =
+    order.status === 'pending' &&
+    order.paymentStatus === 'paid' &&
+    !(order as any).batchId &&
+    !order.courierId;
+
+  const isDeliveryEditable =
+    !(order as any).deliveryBatchId &&
+    !['out_for_delivery', 'completed', 'cancelled'].includes(order.status);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
@@ -421,17 +570,48 @@ export default function OrderDetailPage() {
                   {order.finalWeightKg ? `${order.finalWeightKg} kg (Sudah Diverifikasi)` : 'Belum Ditimbang'}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Jadwal Pickup:</span>
-                <span className="font-semibold text-slate-800">
-                  {formatDateIndo(order.pickupDate)} ({order.pickupTimeSlot})
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Jadwal Delivery:</span>
-                <span className="font-semibold text-indigo-700">
-                  {order.deliveryDate ? `${formatDateIndo(order.deliveryDate)} ${order.deliveryTimeSlot ? `(${order.deliveryTimeSlot})` : ''}` : '-'}
-                </span>
+              <div className="pt-2 border-t border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200/60">
+                  <div>
+                    <span className="text-slate-500 block text-[11px] font-medium">Jadwal Penjemputan (Pickup):</span>
+                    <span className="font-bold text-slate-800">
+                      {formatDateIndo(order.pickupDate)} ({order.pickupTimeSlot})
+                    </span>
+                  </div>
+                  {isPickupEditable ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openRescheduleModal('pickup')}
+                      className="text-teal-700 border-teal-200 hover:bg-teal-50 shrink-0 font-bold cursor-pointer"
+                    >
+                      <Edit3 className="w-3 h-3 mr-1" /> Ubah Jadwal
+                    </Button>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 italic bg-slate-100 px-2 py-1 rounded-md">Jadwal Terkunci</span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200/60">
+                  <div>
+                    <span className="text-slate-500 block text-[11px] font-medium">Jadwal Pengantaran (Delivery):</span>
+                    <span className="font-bold text-indigo-700">
+                      {order.deliveryDate ? `${formatDateIndo(order.deliveryDate)} ${order.deliveryTimeSlot ? `(${order.deliveryTimeSlot})` : ''}` : '-'}
+                    </span>
+                  </div>
+                  {isDeliveryEditable ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openRescheduleModal('delivery')}
+                      className="text-indigo-700 border-indigo-200 hover:bg-indigo-50 shrink-0 font-bold cursor-pointer"
+                    >
+                      <Edit3 className="w-3 h-3 mr-1" /> Ubah Jadwal
+                    </Button>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 italic bg-slate-100 px-2 py-1 rounded-md">Jadwal Terkunci</span>
+                  )}
+                </div>
               </div>
               {order.notes && (
                 <div className="flex items-start gap-1.5 pt-2 border-t border-slate-200 text-slate-600">
@@ -486,6 +666,122 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </Card>
+
+      {/* Modal Reschedule Customer Order Schedule */}
+      <Modal
+        isOpen={isRescheduleModalOpen}
+        onClose={() => !isSubmittingReschedule && setIsRescheduleModalOpen(false)}
+        title={
+          rescheduleTarget === 'pickup'
+            ? 'Ubah Jadwal Penjemputan (Pickup)'
+            : rescheduleTarget === 'delivery'
+            ? 'Ubah Jadwal Pengantaran (Delivery)'
+            : 'Ubah Jadwal Pesanan'
+        }
+      >
+        <form onSubmit={handleSaveReschedule} className="space-y-4">
+          {(rescheduleTarget === 'pickup' || rescheduleTarget === 'both') && (
+            <div className="space-y-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-teal-600" /> Jadwal Penjemputan Baru
+              </h4>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Tanggal Pickup</label>
+                <input
+                  type="date"
+                  value={pickupDate}
+                  onChange={(e) => setPickupDate(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white font-medium"
+                  disabled={isSubmittingReschedule}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Slot Waktu Pickup</label>
+                <select
+                  value={pickupTimeSlot}
+                  onChange={(e) => setPickupTimeSlot(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white font-medium"
+                  disabled={isSubmittingReschedule}
+                >
+                  {TIME_SLOTS.map((slot) => (
+                    <option key={slot} value={slot}>
+                      {slot}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {(rescheduleTarget === 'delivery' || rescheduleTarget === 'both') && (
+            <div className="space-y-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-indigo-600" /> Jadwal Pengantaran Baru
+              </h4>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Tanggal Delivery</label>
+                <input
+                  type="date"
+                  value={deliveryDate}
+                  onChange={(e) => setDeliveryDate(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white font-medium"
+                  disabled={isSubmittingReschedule}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Slot Waktu Delivery</label>
+                <select
+                  value={deliveryTimeSlot}
+                  onChange={(e) => setDeliveryTimeSlot(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white font-medium"
+                  disabled={isSubmittingReschedule}
+                >
+                  {TIME_SLOTS.map((slot) => (
+                    <option key={slot} value={slot}>
+                      {slot}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {rescheduleError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+              <span>{rescheduleError}</span>
+            </div>
+          )}
+
+          {rescheduleSuccessMsg && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-medium flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span>{rescheduleSuccessMsg}</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isSubmittingReschedule}
+              onClick={() => setIsRescheduleModalOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={isSubmittingReschedule}
+              className="bg-teal-700 hover:bg-teal-600 text-white font-bold cursor-pointer"
+            >
+              {isSubmittingReschedule ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

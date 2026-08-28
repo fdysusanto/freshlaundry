@@ -52,45 +52,9 @@ async function runRoleAuthorizationSecurityTests() {
   testOrder = refreshOrder(testOrder.id) || testOrder;
   assert(testOrder.paymentStatus === 'paid', 'Test 2: Payment status updated to paid');
 
-  // 3. Customer cannot assign pickup courier
-  try {
-    await orderService.assignCourierAsync(testOrder.id, courierUser.id, courierUser.fullName, customerUser.id, { id: customerUser.id, role: customerUser.role });
-    assert(false, 'Test 3: Customer CANNOT assign pickup courier (Should have thrown)');
-  } catch (err: any) {
-    assert(err.message.includes('Akses Ditolak'), 'Test 3: Customer CANNOT assign pickup courier (Rejected as expected)');
-  }
-
-  // 4. Courier cannot assign pickup courier
-  try {
-    await orderService.assignCourierAsync(testOrder.id, courierUser.id, courierUser.fullName, courierUser.id, { id: courierUser.id, role: courierUser.role });
-    assert(false, 'Test 4: Courier CANNOT assign pickup courier (Should have thrown)');
-  } catch (err: any) {
-    assert(err.message.includes('Akses Ditolak'), 'Test 4: Courier CANNOT assign pickup courier (Rejected as expected)');
-  }
-
-  // 5. Laundry Owner cannot assign pickup courier
-  try {
-    await orderService.assignCourierAsync(testOrder.id, courierUser.id, courierUser.fullName, ownerUser.id, { id: ownerUser.id, role: ownerUser.role });
-    assert(false, 'Test 5: Laundry Owner CANNOT assign pickup courier (Should have thrown)');
-  } catch (err: any) {
-    assert(err.message.includes('Akses Ditolak'), 'Test 5: Laundry Owner CANNOT assign pickup courier (Rejected as expected)');
-  }
-
-  // 6. Laundry Staff cannot assign pickup courier
-  try {
-    await orderService.assignCourierAsync(testOrder.id, courierUser.id, courierUser.fullName, staffUser.id, { id: staffUser.id, role: staffUser.role });
-    assert(false, 'Test 6: Laundry Staff CANNOT assign pickup courier (Should have thrown)');
-  } catch (err: any) {
-    assert(err.message.includes('Akses Ditolak'), 'Test 6: Laundry Staff CANNOT assign pickup courier (Rejected as expected)');
-  }
-
-  // 7. Platform Admin CAN assign pickup courier
-  try {
-    const adminAssignRes = await orderService.assignCourierAsync(testOrder.id, courierUser.id, courierUser.fullName, adminUser.id, { id: adminUser.id, role: adminUser.role });
-    assert(Boolean(adminAssignRes), 'Test 7: Platform Admin CAN assign pickup courier (Allowed)');
-  } catch (err: any) {
-    assert(false, `Test 7: Platform Admin CAN assign pickup courier (Unexpected error: ${err.message})`);
-  }
+  // 3-7. Manual Courier Assignment is completely removed. Automated Dispatch Engine is triggered by background scheduler / system.
+  const adminAssignRes = await dispatchService.dispatchOrderAsync(testOrder.id, 'pickup', 'system_cron');
+  assert(Boolean(adminAssignRes), 'Test 3-7: Automated Dispatch Engine triggers pickup batch for paid order');
 
   // 8. Courier accepts pickup
   await orderService.acceptCourierAssignmentAsync(testOrder.id, courierUser.id);

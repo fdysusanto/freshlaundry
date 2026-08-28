@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { paymentService } from '../services/paymentService';
 import { orderService } from '../services/orderService';
+import { dispatchService } from '../services/dispatchService';
 import { DEMO_USERS } from '../utils/constants';
 
 const originalFetch = global.fetch;
@@ -78,7 +79,7 @@ async function runCourierFirstPhase2Tests() {
     });
 
     // Assign courier to transition status from pending -> assigned & record pickup
-    await orderService.assignCourierAsync(order.id, courier.id, 'Kurir Penanggung Jawab');
+    await dispatchService.dispatchOrderAsync(order.id, 'pickup', 'admin');
     orderService.updateOrderStatus(order.id, 'assigned', 'Kurir menerima tugas pickup', courier.id);
     await orderService.transitionOrderStatusAsync(order.id, 'picked_up', { id: courier.id, role: 'courier' });
     await orderService.markCourierArrivedAtLaundryAsync(order.id, courier.id);

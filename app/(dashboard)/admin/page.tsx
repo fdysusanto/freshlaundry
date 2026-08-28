@@ -69,16 +69,6 @@ export default function AdminDashboardPage() {
     loadData();
   }, [loadData]);
 
-  const handleAssignCourier = async (orderId: string, courierId: string, courierName: string) => {
-    if (!currentUser) return;
-    try {
-      await orderService.assignCourierAsync(orderId, courierId, courierName, currentUser.id);
-      await loadData();
-    } catch (err: any) {
-      alert(`Gagal menugaskan kurir: ${err.message}`);
-    }
-  };
-
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus, notes: string) => {
     if (!currentUser) return;
     try {
@@ -244,7 +234,6 @@ export default function AdminDashboardPage() {
         ) : (
           <OrderTable
             orders={orders}
-            onAssignCourier={handleAssignCourier}
             onUpdateStatus={handleUpdateStatus}
           />
         )}

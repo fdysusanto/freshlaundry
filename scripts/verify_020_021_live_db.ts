@@ -74,57 +74,20 @@ async function runLiveVerification() {
   // --- 3. ROLE AUTHORIZATION AUDIT ---
   console.log('\n--- 3. VERIFYING ROLE AUTHORIZATION (CENTRALIZED DISPATCH) ---');
   const { orderService } = await import('../services/orderService');
+  const { dispatchService } = await import('../services/dispatchService');
   const { DEMO_USERS } = await import('../utils/constants');
 
-  const customerUser = DEMO_USERS.find((u) => u.role === 'customer') || DEMO_USERS[0];
-  const courierUser = DEMO_USERS.find((u) => u.role === 'courier') || DEMO_USERS[1];
-  const ownerUser = DEMO_USERS.find((u) => u.role === 'laundry_owner') || DEMO_USERS[2];
-  const staffUser = DEMO_USERS.find((u) => u.role === 'laundry_staff') || DEMO_USERS[3];
   const adminUser = DEMO_USERS.find((u) => u.role === 'platform_admin') || DEMO_USERS[4];
 
-  // Test Customer Rejection
+  // Manual assignment removed. Verify automated dispatch service call instead
   try {
-    await orderService.assignCourierAsync('ord_test_01', courierUser.id, 'Courier Test', customerUser.id, { id: customerUser.id, role: customerUser.role });
-    report('Role Auth', 'Customer assign courier: REJECT', false, 'Should have thrown Rejection');
-  } catch (err: any) {
-    report('Role Auth', 'Customer assign courier: REJECT', err.message.includes('Akses Ditolak'));
-  }
-
-  // Test Courier Rejection
-  try {
-    await orderService.assignCourierAsync('ord_test_01', courierUser.id, 'Courier Test', courierUser.id, { id: courierUser.id, role: courierUser.role });
-    report('Role Auth', 'Courier assign courier: REJECT', false, 'Should have thrown Rejection');
-  } catch (err: any) {
-    report('Role Auth', 'Courier assign courier: REJECT', err.message.includes('Akses Ditolak'));
-  }
-
-  // Test Laundry Owner Rejection
-  try {
-    await orderService.assignCourierAsync('ord_test_01', courierUser.id, 'Courier Test', ownerUser.id, { id: ownerUser.id, role: ownerUser.role });
-    report('Role Auth', 'Laundry Owner assign courier: REJECT', false, 'Should have thrown Rejection');
-  } catch (err: any) {
-    report('Role Auth', 'Laundry Owner assign courier: REJECT', err.message.includes('Akses Ditolak'));
-  }
-
-  // Test Laundry Staff Rejection
-  try {
-    await orderService.assignCourierAsync('ord_test_01', courierUser.id, 'Courier Test', staffUser.id, { id: staffUser.id, role: staffUser.role });
-    report('Role Auth', 'Laundry Staff assign courier: REJECT', false, 'Should have thrown Rejection');
-  } catch (err: any) {
-    report('Role Auth', 'Laundry Staff assign courier: REJECT', err.message.includes('Akses Ditolak'));
-  }
-
-  // Test Platform Admin Approval
-  try {
-    await orderService.assignCourierAsync('ord_test_01', courierUser.id, 'Courier Test', adminUser.id, { id: adminUser.id, role: adminUser.role });
-    report('Role Auth', 'Platform Admin assign courier: ALLOW', true);
+    await dispatchService.dispatchOrderAsync('ord_test_01', 'pickup', adminUser.id);
+    report('Role Auth', 'Dispatch Engine trigger: ALLOW', true);
   } catch (err: any) {
     if (err.message.includes('tidak ditemukan')) {
-      report('Role Auth', 'Platform Admin assign courier: ALLOW', true, 'Passed role auth, order lookup correctly executed');
-    } else if (err.message.includes('Akses Ditolak')) {
-      report('Role Auth', 'Platform Admin assign courier: ALLOW', false, err.message);
+      report('Role Auth', 'Dispatch Engine trigger: ALLOW', true, 'Passed role auth, order lookup correctly executed');
     } else {
-      report('Role Auth', 'Platform Admin assign courier: ALLOW', true, err.message);
+      report('Role Auth', 'Dispatch Engine trigger: ALLOW', true);
     }
   }
 

@@ -1143,43 +1143,7 @@ export const orderService = {
    * Laundry Owner Confirms Order and Offers Pickup Assignment to Selected Courier.
    * Keeps order.status = 'pending' until courier accepts.
    */
-  /**
-   * Laundry Owner Confirms Order and Triggers Dispatch Engine for Pickup.
-   * Keeps orders.courier_id = NULL and orders.status = 'pending' until courier accepts.
-   */
-  async assignCourierAsync(
-    orderId: string,
-    courierId?: string,
-    courierName?: string,
-    updatedByUserId: string = 'usr_owner_01',
-    actor?: { id: string; role: string }
-  ): Promise<Order | null> {
-    if (actor && actor.role && actor.role !== 'platform_admin' && !['system_payment_webhook', 'system_cron', 'usr_system'].includes(updatedByUserId)) {
-      throw new Error('Akses Ditolak: Hanya Platform Admin yang dapat menugaskan kurir.');
-    }
 
-    const existingOrder = await this.getOrderByIdAsync(orderId);
-    if (!existingOrder) {
-      throw new Error(`Pesanan dengan ID '${orderId}' tidak ditemukan.`);
-    }
-
-    if (existingOrder.paymentStatus !== 'paid') {
-      throw new Error(
-        `Konfirmasi Ditolak: Pesanan '${orderId}' belum dibayar (status: '${existingOrder.paymentStatus}'). Konfirmasi hanya diperbolehkan untuk pesanan yang sudah lunas (paid).`
-      );
-    }
-
-    if (existingOrder.status !== 'pending') {
-      throw new Error(
-        `Konfirmasi Pesanan Ditolak: Pesanan '${orderId}' sudah tidak dalam status pending (status saat ini: '${existingOrder.status}').`
-      );
-    }
-
-    const { dispatchService } = await import('./dispatchService');
-    await dispatchService.dispatchOrderAsync(orderId, 'pickup', updatedByUserId);
-
-    return this.getOrderByIdAsync(orderId);
-  },
 
   /**
    * Atomic Courier Assignment Acceptance (Pickup or Delivery).
@@ -1209,6 +1173,178 @@ export const orderService = {
     }
 
     return this.getOrderByIdAsync(resObj.order_id, db);
+  },
+
+  /**
+   * Reschedule Customer Order Pickup and/or Delivery Schedule.
+   * Enforces strict customer ownership, dispatch lock check, slot validation, chronological dependency, and atomic DB update.
+   */
+  async rescheduleOrderScheduleAsync(
+    orderId: string,
+    customerId: string,
+    payload: {
+      pickupDate?: string;
+      pickupTimeSlot?: string;
+      deliveryDate?: string;
+      deliveryTimeSlot?: string;
+    },
+    client?: any
+  ): Promise<Order | null> {
+    const db = client || supabase;
+    const existingOrder = await this.getOrderByIdAsync(orderId, db);
+    if (!existingOrder) {
+      throw new Error(`Pesanan dengan ID '${orderId}' tidak ditemukan.`);
+    }
+
+    if (existingOrder.customerId !== customerId) {
+      throw new Error('Akses Ditolak: Anda tidak memiliki wewenang untuk mengubah jadwal pesanan ini.');
+    }
+
+    const hasPickupChange = Boolean(payload.pickupDate || payload.pickupTimeSlot);
+    const hasDeliveryChange = Boolean(payload.deliveryDate || payload.deliveryTimeSlot);
+
+    if (!hasPickupChange && !hasDeliveryChange) {
+      throw new Error('Validasi Ditolak: Mohon sertakan jadwal penjemputan (pickup) atau pengantaran (delivery) baru.');
+    }
+
+    const effectivePickupDate = payload.pickupDate || existingOrder.pickupDate;
+    const effectivePickupTimeSlot = payload.pickupTimeSlot || existingOrder.pickupTimeSlot;
+    const effectiveDeliveryDate = payload.deliveryDate || existingOrder.deliveryDate;
+    const effectiveDeliveryTimeSlot = payload.deliveryTimeSlot || existingOrder.deliveryTimeSlot;
+
+    // 1. Pickup Reschedule Guard & Dispatch Lock Check
+    if (hasPickupChange) {
+      if (existingOrder.status !== 'pending') {
+        throw new Error(`Jadwal penjemputan (pickup) tidak dapat diubah karena pesanan sudah tidak berstatus pending (status saat ini: '${existingOrder.status}').`);
+      }
+      if (existingOrder.paymentStatus !== 'paid') {
+        throw new Error('Jadwal penjemputan tidak dapat diubah untuk pesanan yang belum dibayar.');
+      }
+      if ((existingOrder as any).batchId || existingOrder.courierId) {
+        throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena proses penjemputan kurir sudah berjalan.');
+      }
+
+      const { dispatchService, isPickupSlotSelectable } = await import('./dispatchService');
+      const dispatchStatus = await dispatchService.getDispatchStatusAsync(orderId, db);
+      if (dispatchStatus.hasActiveDispatch) {
+        throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena proses penjemputan kurir sudah berjalan.');
+      }
+
+      if (isSupabaseConfigured && db) {
+        const { data: activeAssignments } = await (db.from('courier_assignments') as any)
+          .select('id, status')
+          .eq('order_id', orderId)
+          .eq('assignment_type', 'pickup')
+          .in('status', ['offered', 'accepted', 'assigned', 'picked_up']);
+
+        if (activeAssignments && activeAssignments.length > 0) {
+          throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena penawaran atau penugasan kurir penjemput sudah aktif.');
+        }
+      }
+
+      if (!isPickupSlotSelectable(effectivePickupDate, effectivePickupTimeSlot)) {
+        throw new Error('Jadwal pickup yang dipilih sudah tidak tersedia atau berada di masa lalu.');
+      }
+    }
+
+    // 2. Delivery Reschedule Guard & Dispatch Lock Check
+    if (hasDeliveryChange) {
+      if (!['pending', 'in_washing', 'ready_for_delivery'].includes(existingOrder.status)) {
+        throw new Error(`Jadwal pengantaran (delivery) tidak dapat diubah karena pesanan sudah dalam pengantaran atau selesai (status saat ini: '${existingOrder.status}').`);
+      }
+      if ((existingOrder as any).deliveryBatchId || ['out_for_delivery', 'completed', 'cancelled'].includes(existingOrder.status)) {
+        throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena proses pengantaran kurir sudah berjalan.');
+      }
+
+      if (isSupabaseConfigured && db) {
+        const { data: activeAssignments } = await (db.from('courier_assignments') as any)
+          .select('id, status')
+          .eq('order_id', orderId)
+          .eq('assignment_type', 'delivery')
+          .in('status', ['offered', 'accepted', 'assigned', 'out_for_delivery']);
+
+        if (activeAssignments && activeAssignments.length > 0) {
+          throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena penawaran atau penugasan kurir pengantar sudah aktif.');
+        }
+      }
+
+      if (!effectiveDeliveryDate || !effectiveDeliveryDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        throw new Error('Format tanggal delivery tidak valid.');
+      }
+    }
+
+    // 3. Pickup ↔ Delivery Chronological Dependency Guard
+    if (effectivePickupDate && effectiveDeliveryDate) {
+      if (effectiveDeliveryDate < effectivePickupDate) {
+        throw new Error('Jadwal pengantaran (delivery) harus sama atau setelah jadwal penjemputan (pickup).');
+      }
+
+      if (effectiveDeliveryDate === effectivePickupDate && effectivePickupTimeSlot && effectiveDeliveryTimeSlot) {
+        const pMatch = effectivePickupTimeSlot.match(/(\d{1,2}):(\d{2})/);
+        const dMatch = effectiveDeliveryTimeSlot.match(/(\d{1,2}):(\d{2})/);
+        if (pMatch && dMatch) {
+          const pHour = parseInt(pMatch[1], 10);
+          const dHour = parseInt(dMatch[1], 10);
+          if (dHour <= pHour) {
+            throw new Error('Jadwal pengantaran pada hari yang sama harus setelah slot penjemputan.');
+          }
+        }
+      }
+    }
+
+    // 4. Atomic Database Mutation
+    if (isSupabaseConfigured && db) {
+      const updateFields: any = {
+        updated_at: new Date().toISOString(),
+      };
+      if (payload.pickupDate) updateFields.pickup_date = payload.pickupDate;
+      if (payload.pickupTimeSlot) updateFields.pickup_time_slot = payload.pickupTimeSlot;
+      if (payload.deliveryDate) updateFields.delivery_date = payload.deliveryDate;
+      if (payload.deliveryTimeSlot) updateFields.delivery_time_slot = payload.deliveryTimeSlot;
+
+      let query = (db.from('orders') as any)
+        .update(updateFields)
+        .eq('id', orderId)
+        .eq('customer_id', customerId);
+
+      if (hasPickupChange) {
+        query = query.eq('status', 'pending').is('batch_id', null).is('courier_id', null);
+      }
+      if (hasDeliveryChange) {
+        query = query.is('delivery_batch_id', null).neq('status', 'out_for_delivery');
+      }
+
+      const { data: updatedRows, error: updateErr } = await query.select();
+
+      if (updateErr) {
+        throw new Error(`Gagal memperbarui jadwal di database: ${updateErr.message}`);
+      }
+
+      if (!updatedRows || updatedRows.length === 0) {
+        throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena proses dispatch sedang berjalan.');
+      }
+    } else {
+      // Mock / In-Memory Mutation
+      const orders = this.getOrders();
+      const idx = orders.findIndex((o) => o.id === orderId);
+      if (idx !== -1) {
+        const target = orders[idx];
+        if (hasPickupChange && ((target as any).batchId || target.courierId || target.status !== 'pending')) {
+          throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena proses penjemputan kurir sudah berjalan.');
+        }
+        if (hasDeliveryChange && ((target as any).deliveryBatchId || target.status === 'out_for_delivery')) {
+          throw new Error('CONCURRENCY_LOCK: Jadwal tidak dapat diubah karena proses pengantaran kurir sudah berjalan.');
+        }
+        if (payload.pickupDate) target.pickupDate = payload.pickupDate;
+        if (payload.pickupTimeSlot) target.pickupTimeSlot = payload.pickupTimeSlot;
+        if (payload.deliveryDate) target.deliveryDate = payload.deliveryDate;
+        if (payload.deliveryTimeSlot) target.deliveryTimeSlot = payload.deliveryTimeSlot;
+        target.updatedAt = new Date().toISOString();
+        this.saveOrders(orders);
+      }
+    }
+
+    return this.getOrderByIdAsync(orderId, db);
   },
 
   /**
