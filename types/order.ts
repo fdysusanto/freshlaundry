@@ -23,6 +23,7 @@ export interface OrderItem {
   unitPrice: number;
   unit: 'kg' | 'pcs';
   subtotal?: number;
+  estimatedHours?: number;
 }
 
 export interface StatusLog {

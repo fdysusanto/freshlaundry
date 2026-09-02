@@ -5,9 +5,9 @@ import { paymentService } from './paymentService';
 import { pricingService, PricingCalculationResult } from './pricingService';
 import { supabase, isSupabaseConfigured } from './supabase';
 
-import { TIME_SLOTS } from '@/utils/constants';
 import { AddressSnapshot } from '@/types/address';
 import { isPickupSlotSelectable } from './dispatchService';
+import { calculateEarliestDeliveryDateTime, validateDeliverySchedule, resolveOrderProcessingHours } from '@/utils/scheduleUtils';
 
 export interface CheckoutItemInput {
   serviceId: string;
@@ -104,43 +104,42 @@ export const checkoutService = {
       }
     }
 
-    // 1c. Delivery Scheduling Server Validation
-    const hasExplicitDelivery = Boolean(input.deliveryDate || input.deliveryTimeSlot);
+    // 1c. Authoritative Server-Side Pricing Engine & Multi-Tenant Validation
+    const pricingRes: PricingCalculationResult = await pricingService.calculateOrderPricingAsync({
+      laundryId: input.laundryId,
+      items: input.items.map((i) => ({ serviceId: i.serviceId, quantity: i.quantity })),
+      pickupAddress: input.pickupAddress,
+      deliveryAddress: input.deliveryAddress || input.pickupAddress,
+      discountCode: input.voucherCode,
+    });
 
-    if (hasExplicitDelivery) {
-      if (!input.deliveryDate || !input.deliveryTimeSlot) {
-        throw new Error('Validasi Schedule Gagal: Tanggal delivery dan slot waktu delivery wajib diisi secara lengkap.');
-      }
-    }
+    // 1d. Delivery Scheduling Server Validation & Service Processing Duration Enforcement
+    const maxEstimatedHours = resolveOrderProcessingHours({ items: pricingRes.items });
+
+    const earliest = calculateEarliestDeliveryDateTime(
+      input.pickupDate,
+      input.pickupTimeSlot,
+      maxEstimatedHours
+    );
 
     let finalDeliveryDate = input.deliveryDate;
     let finalDeliveryTimeSlot = input.deliveryTimeSlot;
 
     if (!finalDeliveryDate || !finalDeliveryTimeSlot) {
-      const pDate = new Date(input.pickupDate || Date.now());
-      pDate.setDate(pDate.getDate() + 1);
-      finalDeliveryDate = pDate.toISOString().split('T')[0];
-      finalDeliveryTimeSlot = (input.pickupTimeSlot && TIME_SLOTS.includes(input.pickupTimeSlot))
-        ? input.pickupTimeSlot
-        : TIME_SLOTS[0];
+      finalDeliveryDate = earliest.earliestDate;
+      finalDeliveryTimeSlot = earliest.earliestTimeSlot;
     }
 
-    if (hasExplicitDelivery) {
-      if (input.pickupDate && finalDeliveryDate < input.pickupDate) {
-        throw new Error('Validasi Schedule Gagal: Tanggal delivery tidak boleh lebih awal dari tanggal pickup.');
-      }
+    const valResult = validateDeliverySchedule(
+      input.pickupDate,
+      input.pickupTimeSlot,
+      finalDeliveryDate,
+      finalDeliveryTimeSlot,
+      maxEstimatedHours
+    );
 
-      if (!TIME_SLOTS.includes(finalDeliveryTimeSlot)) {
-        throw new Error(`Validasi Schedule Gagal: Slot waktu delivery '${finalDeliveryTimeSlot}' tidak terdaftar.`);
-      }
-
-      if (input.pickupDate && finalDeliveryDate === input.pickupDate && input.pickupTimeSlot) {
-        const pickupIdx = TIME_SLOTS.indexOf(input.pickupTimeSlot);
-        const deliveryIdx = TIME_SLOTS.indexOf(finalDeliveryTimeSlot);
-        if (pickupIdx !== -1 && deliveryIdx !== -1 && deliveryIdx <= pickupIdx) {
-          throw new Error('Validasi Schedule Gagal: Untuk delivery di hari yang sama, slot waktu delivery harus setelah slot waktu pickup.');
-        }
-      }
+    if (!valResult.isValid) {
+      throw new Error(`Validasi Schedule Gagal: ${valResult.errorMessage}`);
     }
 
     // 2. IDEMPOTENCY CHECK: Search for existing order with this idempotency_key
@@ -190,16 +189,6 @@ export const checkoutService = {
         },
       };
     }
-
-    // 3. AUTHORITATIVE PRICING ENGINE CALCULATION & MULTI-TENANT VALIDATION
-    // Ignores client unit prices completely!
-    const pricingRes: PricingCalculationResult = await pricingService.calculateOrderPricingAsync({
-      laundryId: input.laundryId,
-      items: input.items.map((i) => ({ serviceId: i.serviceId, quantity: i.quantity })),
-      pickupAddress: input.pickupAddress,
-      deliveryAddress: input.deliveryAddress || input.pickupAddress,
-      discountCode: input.voucherCode,
-    });
 
     // 4. ATOMIC ORDER CREATION & ITEM PRICE SNAPSHOTTING
     const createPayload = {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { orderService } from '@/services/orderService';
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { TIME_SLOTS } from '@/utils/constants';
+import { calculateEarliestDeliveryDateTime, validateDeliverySchedule, resolveOrderProcessingHours, filterAvailableDeliverySlots } from '@/utils/scheduleUtils';
 import { paymentService } from '@/services/paymentService';
 import { PaymentAttempt } from '@/types/payment';
 import { Truck, MapPin, Calendar, Clock, ArrowLeft, Phone, User, FileText, Store, CreditCard, ShieldCheck, AlertCircle, AlertTriangle, CheckCircle2, ExternalLink, Edit3 } from 'lucide-react';
@@ -38,6 +39,36 @@ export default function OrderDetailPage() {
   const [isSubmittingReschedule, setIsSubmittingReschedule] = useState(false);
   const [rescheduleError, setRescheduleError] = useState('');
   const [rescheduleSuccessMsg, setRescheduleSuccessMsg] = useState('');
+  const effectiveProcessingHours = useMemo(() => {
+    return order ? resolveOrderProcessingHours(order) : 48;
+  }, [order]);
+
+  const earliestRescheduleDelivery = useMemo(() => {
+    const pDate = pickupDate || order?.pickupDate || '';
+    const pSlot = pickupTimeSlot || order?.pickupTimeSlot || TIME_SLOTS[0];
+    return calculateEarliestDeliveryDateTime(pDate, pSlot, effectiveProcessingHours);
+  }, [pickupDate, pickupTimeSlot, order, effectiveProcessingHours]);
+
+  const availableRescheduleDeliverySlots = useMemo(() => {
+    return filterAvailableDeliverySlots(
+      deliveryDate,
+      earliestRescheduleDelivery.earliestDate,
+      earliestRescheduleDelivery.earliestTimeSlot
+    );
+  }, [deliveryDate, earliestRescheduleDelivery]);
+
+  useEffect(() => {
+    if (isRescheduleModalOpen) {
+      if (deliveryDate && deliveryDate < earliestRescheduleDelivery.earliestDate) {
+        setDeliveryDate(earliestRescheduleDelivery.earliestDate);
+        setDeliveryTimeSlot(earliestRescheduleDelivery.earliestTimeSlot);
+      } else if (deliveryDate && deliveryDate === earliestRescheduleDelivery.earliestDate) {
+        if (availableRescheduleDeliverySlots.length > 0 && !availableRescheduleDeliverySlots.includes(deliveryTimeSlot)) {
+          setDeliveryTimeSlot(availableRescheduleDeliverySlots[0]);
+        }
+      }
+    }
+  }, [isRescheduleModalOpen, earliestRescheduleDelivery, deliveryDate, availableRescheduleDeliverySlots, deliveryTimeSlot]);
 
   const handlePayNow = async (actionType: 'create' | 'create_adjustment' = 'create') => {
     if (!order) return;
@@ -155,28 +186,24 @@ export default function OrderDetailPage() {
       }
     }
 
-    const effPickupDate = targetIsPickup ? pickupDate : order.pickupDate;
-    const effPickupSlot = targetIsPickup ? pickupTimeSlot : order.pickupTimeSlot;
-    const effDeliveryDate = targetIsDelivery ? deliveryDate : order.deliveryDate;
-    const effDeliverySlot = targetIsDelivery ? deliveryTimeSlot : order.deliveryTimeSlot;
+    const effPickupDate = targetIsPickup ? pickupDate : (order.pickupDate || '');
+    const effPickupSlot = targetIsPickup ? pickupTimeSlot : (order.pickupTimeSlot || TIME_SLOTS[0]);
+    const effDeliveryDate = targetIsDelivery ? deliveryDate : (order.deliveryDate || '');
+    const effDeliverySlot = targetIsDelivery ? deliveryTimeSlot : (order.deliveryTimeSlot || TIME_SLOTS[0]);
 
-    if (effPickupDate && effDeliveryDate) {
-      if (effDeliveryDate < effPickupDate) {
-        setRescheduleError('Jadwal pengantaran (delivery) harus sama atau setelah jadwal penjemputan (pickup).');
-        return;
-      }
-      if (effDeliveryDate === effPickupDate && effPickupSlot && effDeliverySlot) {
-        const pMatch = effPickupSlot.match(/(\d{1,2}):(\d{2})/);
-        const dMatch = effDeliverySlot.match(/(\d{1,2}):(\d{2})/);
-        if (pMatch && dMatch) {
-          const pHour = parseInt(pMatch[1], 10);
-          const dHour = parseInt(dMatch[1], 10);
-          if (dHour <= pHour) {
-            setRescheduleError('Jadwal pengantaran pada hari yang sama harus setelah slot penjemputan.');
-            return;
-          }
-        }
-      }
+    const effectiveHours = resolveOrderProcessingHours(order);
+
+    const valResult = validateDeliverySchedule(
+      effPickupDate,
+      effPickupSlot,
+      effDeliveryDate,
+      effDeliverySlot,
+      effectiveHours
+    );
+
+    if (!valResult.isValid) {
+      setRescheduleError(valResult.errorMessage || 'Jadwal pengantaran tidak valid untuk durasi proses layanan.');
+      return;
     }
 
     setIsSubmittingReschedule(true);
@@ -716,10 +743,21 @@ export default function OrderDetailPage() {
               <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-indigo-600" /> Jadwal Pengantaran Baru
               </h4>
+              <div className="p-2.5 bg-indigo-50 border border-indigo-200/80 rounded-lg text-xs space-y-1 text-indigo-900 font-medium">
+                <div className="flex items-center justify-between font-bold">
+                  <span>Estimasi Proses: {effectiveProcessingHours} Jam</span>
+                  <span className="text-[10px] bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded-full font-bold">Tercepat</span>
+                </div>
+                <p className="text-[11px] text-indigo-700">
+                  Pengantaran paling cepat tersedia pada <strong>{earliestRescheduleDelivery.earliestDate}</strong> jam <strong>{earliestRescheduleDelivery.earliestTimeSlot}</strong>.
+                </p>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Tanggal Delivery</label>
                 <input
                   type="date"
+                  min={earliestRescheduleDelivery.earliestDate}
                   value={deliveryDate}
                   onChange={(e) => setDeliveryDate(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white font-medium"
@@ -731,15 +769,24 @@ export default function OrderDetailPage() {
                 <select
                   value={deliveryTimeSlot}
                   onChange={(e) => setDeliveryTimeSlot(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white font-medium"
-                  disabled={isSubmittingReschedule}
+                  disabled={isSubmittingReschedule || availableRescheduleDeliverySlots.length === 0}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white font-medium disabled:bg-slate-100 disabled:text-slate-400"
                 >
-                  {TIME_SLOTS.map((slot) => (
-                    <option key={slot} value={slot}>
-                      {slot}
-                    </option>
-                  ))}
+                  {availableRescheduleDeliverySlots.length > 0 ? (
+                    availableRescheduleDeliverySlots.map((slot: string) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">Tidak ada slot pengantaran tersedia</option>
+                  )}
                 </select>
+                {availableRescheduleDeliverySlots.length === 0 && (
+                  <p className="text-[11px] text-amber-700 font-medium mt-1">
+                    Tidak ada slot pengantaran yang memenuhi durasi {effectiveProcessingHours} jam pada tanggal ini. Silakan pilih tanggal berikutnya.
+                  </p>
+                )}
               </div>
             </div>
           )}

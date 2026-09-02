@@ -22,6 +22,7 @@ export interface PricingItemBreakdown {
   quantity: number;
   unit: 'kg' | 'pcs';
   subtotal: number;
+  estimatedHours?: number;
 }
 
 export interface PricingCalculationResult {
@@ -151,6 +152,7 @@ export const pricingService = {
         quantity: qty,
         unit: srv.unit,
         subtotal: itemSubtotal,
+        estimatedHours: srv.estimatedHours || 48,
       });
     }
 
@@ -222,6 +224,7 @@ export const pricingService = {
         quantity: qty,
         unit: srv.unit,
         subtotal: itemSubtotal,
+        estimatedHours: typeof srv.estimatedHours === 'number' && srv.estimatedHours > 0 ? srv.estimatedHours : 48,
       });
     }
 

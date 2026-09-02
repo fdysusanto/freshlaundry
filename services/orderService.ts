@@ -283,6 +283,48 @@ export const orderService = {
       });
     }
 
+    // 2b. Authoritative Server-Side Schedule Validation Protection
+    const { resolveOrderProcessingHours, validateDeliverySchedule, calculateEarliestDeliveryDateTime } = await import('@/utils/scheduleUtils');
+
+    const orderItemsSnapshot = pricing.items.map((i, idx) => ({
+      id: `itm_${idx}`,
+      serviceId: i.serviceId,
+      name: i.serviceName,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+      unit: i.unit,
+      subtotal: i.subtotal,
+      estimatedHours: i.estimatedHours || 48,
+    }));
+
+    const effectiveProcessingHours = resolveOrderProcessingHours({ items: orderItemsSnapshot });
+
+    const earliest = calculateEarliestDeliveryDateTime(
+      payload.pickupDate,
+      payload.pickupTimeSlot,
+      effectiveProcessingHours
+    );
+
+    let finalDeliveryDate = payload.deliveryDate;
+    let finalDeliveryTimeSlot = payload.deliveryTimeSlot;
+
+    if (!finalDeliveryDate || !finalDeliveryTimeSlot) {
+      finalDeliveryDate = earliest.earliestDate;
+      finalDeliveryTimeSlot = earliest.earliestTimeSlot;
+    }
+
+    const valResult = validateDeliverySchedule(
+      payload.pickupDate,
+      payload.pickupTimeSlot,
+      finalDeliveryDate,
+      finalDeliveryTimeSlot,
+      effectiveProcessingHours
+    );
+
+    if (!valResult.isValid) {
+      throw new Error(`Validasi Schedule Gagal: ${valResult.errorMessage}`);
+    }
+
     const dbPayload = {
       tracking_number: trackingNum,
       customer_id: authenticatedUserId,
@@ -296,8 +338,8 @@ export const orderService = {
       delivery_address_snapshot: payload.deliveryAddressSnapshot || null,
       pickup_date: payload.pickupDate,
       pickup_time_slot: payload.pickupTimeSlot,
-      delivery_date: payload.deliveryDate || null,
-      delivery_time_slot: payload.deliveryTimeSlot || null,
+      delivery_date: finalDeliveryDate,
+      delivery_time_slot: finalDeliveryTimeSlot,
       notes: payload.notes || null,
       subtotal: pricing.subtotal,
       delivery_fee: pricing.deliveryFee,
@@ -1279,23 +1321,64 @@ export const orderService = {
       }
     }
 
-    // 3. Pickup ↔ Delivery Chronological Dependency Guard
-    if (effectivePickupDate && effectiveDeliveryDate) {
-      if (effectiveDeliveryDate < effectivePickupDate) {
-        throw new Error('Jadwal pengantaran (delivery) harus sama atau setelah jadwal penjemputan (pickup).');
-      }
+    // 3. Service Processing Duration & Earliest Delivery Validation Guard
+    const { calculateEarliestDeliveryDateTime, validateDeliverySchedule, resolveOrderProcessingHours } = await import('@/utils/scheduleUtils');
+    const { laundryService } = await import('./laundryService');
 
-      if (effectiveDeliveryDate === effectivePickupDate && effectivePickupTimeSlot && effectiveDeliveryTimeSlot) {
-        const pMatch = effectivePickupTimeSlot.match(/(\d{1,2}):(\d{2})/);
-        const dMatch = effectiveDeliveryTimeSlot.match(/(\d{1,2}):(\d{2})/);
-        if (pMatch && dMatch) {
-          const pHour = parseInt(pMatch[1], 10);
-          const dHour = parseInt(dMatch[1], 10);
-          if (dHour <= pHour) {
-            throw new Error('Jadwal pengantaran pada hari yang sama harus setelah slot penjemputan.');
-          }
+    let catalogServices: any[] = [];
+    if (!existingOrder.items || existingOrder.items.some((i) => !i.estimatedHours)) {
+      if (existingOrder.laundryId) {
+        try {
+          catalogServices = await laundryService.getServicesByLaundryAsync(existingOrder.laundryId);
+        } catch {
+          // ignore
         }
       }
+    }
+
+    const maxEstimatedHours = resolveOrderProcessingHours(existingOrder, catalogServices);
+
+    const earliest = calculateEarliestDeliveryDateTime(
+      effectivePickupDate,
+      effectivePickupTimeSlot,
+      maxEstimatedHours
+    );
+
+    let finalDeliveryDate = effectiveDeliveryDate || earliest.earliestDate;
+    let finalDeliveryTimeSlot = effectiveDeliveryTimeSlot || earliest.earliestTimeSlot;
+
+    const hasExplicitDeliveryChange = Boolean(payload.deliveryDate || payload.deliveryTimeSlot);
+
+    if (hasExplicitDeliveryChange) {
+      const valResult = validateDeliverySchedule(
+        effectivePickupDate,
+        effectivePickupTimeSlot,
+        finalDeliveryDate,
+        finalDeliveryTimeSlot,
+        maxEstimatedHours
+      );
+      if (!valResult.isValid) {
+        throw new Error(valResult.errorMessage);
+      }
+    } else if (hasPickupChange) {
+      if (finalDeliveryDate < earliest.earliestDate) {
+        finalDeliveryDate = earliest.earliestDate;
+        finalDeliveryTimeSlot = earliest.earliestTimeSlot;
+        payload.deliveryDate = finalDeliveryDate;
+        payload.deliveryTimeSlot = finalDeliveryTimeSlot;
+      }
+    }
+
+    const valResult = validateDeliverySchedule(
+      effectivePickupDate,
+      effectivePickupTimeSlot,
+      finalDeliveryDate,
+      finalDeliveryTimeSlot,
+      maxEstimatedHours
+    );
+
+    if (!valResult.isValid) {
+      throw new Error(valResult.errorMessage);
     }
 
     // 4. Atomic Database Mutation
@@ -1472,6 +1555,37 @@ export const orderService = {
       deliveryAddress: payload.deliveryAddress,
     });
 
+    // 2b. Authoritative Schedule Validation Protection
+    const { resolveOrderProcessingHours, validateDeliverySchedule, calculateEarliestDeliveryDateTime } = require('@/utils/scheduleUtils');
+
+    const effectiveProcessingHours = resolveOrderProcessingHours({ items: pricing.items });
+
+    const earliest = calculateEarliestDeliveryDateTime(
+      payload.pickupDate,
+      payload.pickupTimeSlot,
+      effectiveProcessingHours
+    );
+
+    let finalDeliveryDate = payload.deliveryDate;
+    let finalDeliveryTimeSlot = payload.deliveryTimeSlot;
+
+    if (!finalDeliveryDate || !finalDeliveryTimeSlot) {
+      finalDeliveryDate = earliest.earliestDate;
+      finalDeliveryTimeSlot = earliest.earliestTimeSlot;
+    }
+
+    const valResult = validateDeliverySchedule(
+      payload.pickupDate,
+      payload.pickupTimeSlot,
+      finalDeliveryDate,
+      finalDeliveryTimeSlot,
+      effectiveProcessingHours
+    );
+
+    if (!valResult.isValid) {
+      throw new Error(`Validasi Schedule Gagal: ${valResult.errorMessage}`);
+    }
+
     const primaryItem = pricing.items[0];
 
     const newOrder: Order = {
@@ -1493,14 +1607,15 @@ export const orderService = {
         unitPrice: i.unitPrice,
         unit: i.unit,
         subtotal: i.subtotal,
+        estimatedHours: i.estimatedHours || 48,
       })),
       estimatedWeightKg: payload.estimatedWeightKg || (primaryItem?.unit === 'kg' ? primaryItem.quantity : undefined),
       pickupAddress: payload.pickupAddress || customer.address || 'Alamat Penjemputan',
       deliveryAddress: payload.deliveryAddress || payload.pickupAddress || customer.address || 'Alamat Pengantaran',
       pickupDate: payload.pickupDate,
       pickupTimeSlot: payload.pickupTimeSlot,
-      deliveryDate: payload.deliveryDate,
-      deliveryTimeSlot: payload.deliveryTimeSlot,
+      deliveryDate: finalDeliveryDate,
+      deliveryTimeSlot: finalDeliveryTimeSlot,
       notes: payload.notes,
       subtotal: pricing.subtotal,
       deliveryFee: pricing.deliveryFee,

@@ -7,6 +7,7 @@ import { orderService } from '@/services/orderService';
 import { customerAddressService } from '@/services/customerAddressService';
 import { DEMO_LAUNDRIES, SERVICE_CATALOG, ServiceCatalogItem, TIME_SLOTS } from '@/utils/constants';
 import { isPickupSlotSelectable } from '@/services/dispatchService';
+import { calculateEarliestDeliveryDateTime, filterAvailableDeliverySlots, validateDeliverySchedule } from '@/utils/scheduleUtils';
 import { ServiceType } from '@/types/order';
 import { CustomerAddress, AddressSnapshot } from '@/types/address';
 import { formatIDR, isValidUuid } from '@/utils/formatters';
@@ -83,6 +84,41 @@ function CheckoutContent() {
       setPickupTimeSlot(availablePickupSlots[0]);
     }
   }, [availablePickupSlots, pickupTimeSlot]);
+
+  const effectiveProcessingHours = useMemo(() => {
+    if (typeof selectedService?.estimatedHours === 'number' && selectedService.estimatedHours > 0) {
+      return selectedService.estimatedHours;
+    }
+    return 48;
+  }, [selectedService]);
+
+  const earliestDelivery = useMemo(() => {
+    return calculateEarliestDeliveryDateTime(pickupDate, pickupTimeSlot, effectiveProcessingHours);
+  }, [pickupDate, pickupTimeSlot, effectiveProcessingHours]);
+
+  const availableDeliverySlots = useMemo(() => {
+    return filterAvailableDeliverySlots(
+      deliveryDate,
+      earliestDelivery.earliestDate,
+      earliestDelivery.earliestTimeSlot
+    );
+  }, [deliveryDate, earliestDelivery]);
+
+  useEffect(() => {
+    if (deliveryDate < earliestDelivery.earliestDate) {
+      setDeliveryDate(earliestDelivery.earliestDate);
+      setDeliveryTimeSlot(earliestDelivery.earliestTimeSlot);
+    } else if (deliveryDate === earliestDelivery.earliestDate) {
+      if (availableDeliverySlots.length > 0) {
+        if (!availableDeliverySlots.includes(deliveryTimeSlot)) {
+          setDeliveryTimeSlot(availableDeliverySlots[0]);
+        }
+      } else {
+        setDeliveryDate(earliestDelivery.earliestDate);
+        setDeliveryTimeSlot(earliestDelivery.earliestTimeSlot);
+      }
+    }
+  }, [earliestDelivery, deliveryDate, availableDeliverySlots, deliveryTimeSlot]);
 
   useEffect(() => {
     let isMounted = true;
@@ -268,6 +304,19 @@ function CheckoutContent() {
         setErrorMessage('Gagal Checkout: ID Layanan bukan UUID Supabase yang valid.');
         return;
       }
+    }
+
+    const scheduleVal = validateDeliverySchedule(
+      pickupDate,
+      pickupTimeSlot,
+      deliveryDate,
+      deliveryTimeSlot,
+      effectiveProcessingHours
+    );
+
+    if (!scheduleVal.isValid) {
+      setErrorMessage(scheduleVal.errorMessage || 'Jadwal pengantaran tidak valid untuk durasi proses layanan ini.');
+      return;
     }
 
     setIsLoading(true);
@@ -630,9 +679,15 @@ function CheckoutContent() {
               </h3>
               <Badge variant="indigo" className="text-[10px]">Target Pengantaran</Badge>
             </div>
-            <p className="text-xs text-slate-500">
-              Tentukan target tanggal &amp; slot waktu saat paket laundry Anda dikembalikan dalam kondisi bersih dan rapi.
-            </p>
+            <div className="p-3 rounded-xl bg-indigo-50/80 border border-indigo-200/80 text-xs space-y-1">
+              <div className="flex items-center justify-between font-bold text-indigo-900">
+                <span>Estimasi Proses Pengerjaan: {effectiveProcessingHours} Jam</span>
+                <Badge variant="indigo" className="text-[10px]">Layanan {selectedService?.name || 'Laundry'}</Badge>
+              </div>
+              <p className="text-indigo-700 text-[11px]">
+                Pengantaran paling cepat tersedia pada <strong>{earliestDelivery.earliestDate}</strong> jam <strong>{earliestDelivery.earliestTimeSlot}</strong>.
+              </p>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
@@ -642,7 +697,7 @@ function CheckoutContent() {
                 <input
                   type="date"
                   required
-                  min={pickupDate}
+                  min={earliestDelivery.earliestDate}
                   value={deliveryDate}
                   onChange={(e) => setDeliveryDate(e.target.value)}
                   className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 font-semibold"
@@ -656,14 +711,24 @@ function CheckoutContent() {
                 <select
                   value={deliveryTimeSlot}
                   onChange={(e) => setDeliveryTimeSlot(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                  disabled={availableDeliverySlots.length === 0}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400"
                 >
-                  {TIME_SLOTS.map((slot) => (
-                    <option key={slot} value={slot}>
-                      {slot}
-                    </option>
-                  ))}
+                  {availableDeliverySlots.length > 0 ? (
+                    availableDeliverySlots.map((slot) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">Tidak ada slot pengantaran tersedia</option>
+                  )}
                 </select>
+                {availableDeliverySlots.length === 0 && (
+                  <p className="text-[11px] text-amber-700 font-medium mt-1">
+                    Tidak ada slot pengantaran yang memenuhi durasi {effectiveProcessingHours} jam pada tanggal ini. Silakan pilih tanggal berikutnya.
+                  </p>
+                )}
               </div>
             </div>
           </Card>

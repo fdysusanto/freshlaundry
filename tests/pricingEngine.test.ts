@@ -159,6 +159,13 @@ function runPricingEngineTests() {
     laundryService.saveServices(allServices);
   }
 
+  // Test 12: Synchronous calculateOrderPricing includes estimatedHours in item breakdowns (SLA-02 Fix)
+  const res12 = pricingService.calculateOrderPricing({
+    laundryId: 'lnd_001',
+    items: [{ serviceId: 'srv_001', quantity: 1 }],
+  });
+  assert(typeof res12.items[0].estimatedHours === 'number' && res12.items[0].estimatedHours > 0, 'Test 12: calculateOrderPricing includes estimatedHours in item breakdown');
+
   console.log('\n==================================================');
   console.log(`PRICING SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('==================================================');

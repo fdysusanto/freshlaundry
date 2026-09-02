@@ -547,10 +547,8 @@ export const SERVICE_CATALOG: ServiceCatalogItem[] = [
 
 export const TIME_SLOTS = [
   '08:00 - 10:00 WIB',
-  '10:00 - 12:00 WIB',
-  '13:00 - 15:00 WIB',
+  '11:00 - 14:00 WIB',
   '15:00 - 17:00 WIB',
-  '18:00 - 20:00 WIB',
 ];
 
 export const DEMO_USERS: UserProfile[] = [

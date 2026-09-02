@@ -1,7 +1,7 @@
 import { isSupabaseConfigured, supabase, createServiceRoleClient } from './supabase';
 import { notificationService } from './notificationService';
 import { UserProfile } from '@/types/user';
-import { DEMO_USERS } from '@/utils/constants';
+import { DEMO_USERS, TIME_SLOTS } from '@/utils/constants';
 
 // =============================================================================
 // CENTRALIZED DISPATCH ENGINE CONFIGURATION CONSTANTS
@@ -203,6 +203,8 @@ export function isPickupSlotSelectable(
   // Strict rule: slot.start MUST be strictly greater than current business time
   return windowStart.getTime() > now.getTime();
 }
+
+export { calculateEarliestDeliveryDateTime, validateDeliverySchedule, resolveOrderProcessingHours } from '@/utils/scheduleUtils';
 
 /**
  * Checks if current time in Asia/Jakarta (WIB) has reached or passed the scheduled pickup window.
