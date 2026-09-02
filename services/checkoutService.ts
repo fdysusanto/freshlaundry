@@ -100,7 +100,7 @@ export const checkoutService = {
     // 1b. Pickup Scheduling Server Validation
     if (input.pickupDate && input.pickupTimeSlot) {
       if (!isPickupSlotSelectable(input.pickupDate, input.pickupTimeSlot)) {
-        throw new Error(`PICKUP_SLOT_NO_LONGER_AVAILABLE: Slot waktu pickup '${input.pickupDate} ${input.pickupTimeSlot}' sudah tidak tersedia atau telah dimulai.`);
+        throw new Error('PICKUP_SLOT_NO_LONGER_AVAILABLE: Slot penjemputan yang dipilih sudah ditutup. Silakan pilih slot waktu berikutnya.');
       }
     }
 

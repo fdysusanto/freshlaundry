@@ -545,6 +545,10 @@ export const SERVICE_CATALOG: ServiceCatalogItem[] = [
   },
 ];
 
+export const COURIER_DISPATCH_MODE: 'slot_pool' | 'legacy' = 'slot_pool';
+
+export const PICKUP_SLOT_LOCK_MINUTES = 15;
+
 export const TIME_SLOTS = [
   '08:00 - 10:00 WIB',
   '11:00 - 14:00 WIB',

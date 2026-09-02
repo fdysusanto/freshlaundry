@@ -12,6 +12,7 @@ import { PaymentStatus } from '@/types/payment';
 import { UserProfile } from '@/types/user';
 import { SERVICE_CATALOG, DEMO_LAUNDRIES, DEMO_USERS } from '@/utils/constants';
 import { generateTrackingId, isValidUuid } from '@/utils/formatters';
+import { isPickupSlotBookable } from '@/utils/scheduleUtils';
 import { triggerStatusChangeWebhook } from './webhookService';
 import { laundryService } from './laundryService';
 import { pricingService, PricingInputItem } from './pricingService';
@@ -196,6 +197,128 @@ export const orderService = {
   },
 
   /**
+   * Claims a slot job batch of up to maxCapacity (5) orders for a courier on a specific date, job type, and time slot.
+   * Enforces 15-minute claim lock window before slot start, capacity isolation, and atomic FOR UPDATE SKIP LOCKED concurrency.
+   */
+  async claimSlotJobBatchAsync(
+    courierId: string,
+    jobDate: string,
+    jobType: 'pickup' | 'delivery',
+    timeSlot: string,
+    maxCapacity: number = 5,
+    nowInput: Date | string = new Date(),
+    client?: any
+  ): Promise<{ success: boolean; claimedCount: number; claimedOrderIds: string[]; message?: string }> {
+    const now = typeof nowInput === 'string' ? new Date(nowInput) : nowInput;
+    const db = client || supabase;
+
+    // 1. Authorization Guard: Role MUST be courier
+    const courierProfile = DEMO_USERS.find((u) => u.id === courierId) || { id: courierId, role: 'courier' };
+    if (courierProfile.role !== 'courier') {
+      throw new Error('Akses Ditolak: Hanya akun dengan peran Courier yang dapat melakukan claim slot job.');
+    }
+
+    // 2. Validate Job Type
+    if (!['pickup', 'delivery'].includes(jobType)) {
+      throw new Error(`Tipe pekerjaan '${jobType}' tidak valid. Harus pickup atau delivery.`);
+    }
+
+    // 3. Claim Window Validation (15 minutes before slot start)
+    const slotMatch = timeSlot ? timeSlot.match(/(\d{1,2}):(\d{2})/) : null;
+    if (!slotMatch) {
+      throw new Error(`Format slot waktu '${timeSlot}' tidak valid.`);
+    }
+    const startHour = parseInt(slotMatch[1], 10);
+    const startMinute = parseInt(slotMatch[2], 10);
+    const slotStartIso = `${jobDate}T${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000+07:00`;
+    const slotStartMs = new Date(slotStartIso).getTime();
+    if (isNaN(slotStartMs)) {
+      throw new Error(`Format tanggal '${jobDate}' atau slot waktu '${timeSlot}' tidak valid.`);
+    }
+
+    const claimLockTimeMs = slotStartMs - 15 * 60 * 1000;
+    if (now.getTime() < claimLockTimeMs) {
+      throw new Error(`SLOT_CLAIM_NOT_YET_OPEN: Waktu klaim untuk slot ${timeSlot} (${jobDate}) belum dibuka. Klaim baru dibuka pada 15 menit sebelum slot dimulai.`);
+    }
+
+    // 4. Try Supabase Atomic RPC
+    if (isSupabaseConfigured && db && typeof db.rpc === 'function') {
+      const { data, error } = await db.rpc('claim_slot_job_batch_atomic', {
+        p_courier_id: courierId,
+        p_job_date: jobDate,
+        p_job_type: jobType,
+        p_time_slot: timeSlot,
+        p_max_capacity: maxCapacity,
+        p_now_input: now.toISOString(),
+      });
+
+      if (!error && data && data.success) {
+        return {
+          success: true,
+          claimedCount: data.claimed_count || 0,
+          claimedOrderIds: data.claimed_order_ids || [],
+        };
+      }
+      if (error) {
+        throw new Error(error.message || 'Gagal melakukan claim slot job.');
+      }
+    }
+
+    // 5. In-Memory Mock Fallback Mode (for unit testing & local mock storage)
+    const mockOrders = this.getOrders();
+
+    // Calculate existing claimed orders for this courier on (jobDate + jobType + timeSlot)
+    const existingCount = mockOrders.filter((o) => {
+      if (o.courierId !== courierId) return false;
+      if (jobType === 'pickup') {
+        return o.pickupDate === jobDate && o.pickupTimeSlot === timeSlot && ['assigned', 'picked_up', 'in_washing', 'ready_for_delivery', 'out_for_delivery', 'delivered'].includes(o.status);
+      } else {
+        return (o.deliveryDate || o.pickupDate) === jobDate && (o.deliveryTimeSlot || o.pickupTimeSlot) === timeSlot && ['out_for_delivery', 'delivered'].includes(o.status);
+      }
+    }).length;
+
+    const quotaRemaining = maxCapacity - existingCount;
+    if (quotaRemaining <= 0) {
+      throw new Error(`MAX_CAPACITY_REACHED: Kurir telah mencapai batas maksimum ${maxCapacity} order untuk slot waktu ${timeSlot} (${jobDate}).`);
+    }
+
+    const eligibleCandidateOrders = mockOrders.filter((o) => {
+      if (o.courierId) return false; // Already assigned
+      if (o.paymentStatus !== 'paid') return false; // Unpaid
+      if (jobType === 'pickup') {
+        return o.pickupDate === jobDate && o.pickupTimeSlot === timeSlot && o.status === 'pending';
+      } else {
+        return (o.deliveryDate || o.pickupDate) === jobDate && (o.deliveryTimeSlot || o.pickupTimeSlot) === timeSlot && o.status === 'ready_for_delivery';
+      }
+    });
+
+    const ordersToClaim = eligibleCandidateOrders.slice(0, quotaRemaining);
+    const claimedOrderIds: string[] = [];
+
+    for (const ord of ordersToClaim) {
+      ord.courierId = courierId;
+      ord.status = jobType === 'pickup' ? 'assigned' : 'out_for_delivery';
+      ord.updatedAt = new Date().toISOString();
+      ord.logs = ord.logs || [];
+      ord.logs.push({
+        id: `log_${Date.now()}_${Math.random()}`,
+        orderId: ord.id,
+        status: ord.status,
+        notes: `Kurir melakukan claim slot ${jobType}.`,
+        updatedBy: courierId,
+        timestamp: new Date().toISOString(),
+      });
+      claimedOrderIds.push(ord.id);
+    }
+
+    return {
+      success: true,
+      claimedCount: claimedOrderIds.length,
+      claimedOrderIds,
+    };
+  },
+
+  /**
    * Real Supabase Live Order Creation.
    * Enforces customer_id from authenticated Supabase session.
    */
@@ -207,6 +330,12 @@ export const orderService = {
 
     if (!payload.laundryId) {
       throw new Error('Validasi Gagal: laundryId wajib dipilih.');
+    }
+
+    if (payload.pickupDate && payload.pickupTimeSlot) {
+      if (!isPickupSlotBookable(payload.pickupDate, payload.pickupTimeSlot)) {
+        throw new Error('PICKUP_SLOT_NO_LONGER_AVAILABLE: Slot penjemputan yang dipilih sudah ditutup. Silakan pilih slot waktu berikutnya.');
+      }
     }
 
     // Prioritaskan customer.id yang sudah divalidasi oleh API Route
@@ -1521,6 +1650,12 @@ export const orderService = {
       throw new Error('Validasi Gagal: laundryId wajib dipilih.');
     }
 
+    if (payload.pickupDate && payload.pickupTimeSlot) {
+      if (!isPickupSlotBookable(payload.pickupDate, payload.pickupTimeSlot)) {
+        throw new Error('PICKUP_SLOT_NO_LONGER_AVAILABLE: Slot penjemputan yang dipilih sudah ditutup. Silakan pilih slot waktu berikutnya.');
+      }
+    }
+
     const laundryObj = DEMO_LAUNDRIES.find((l) => l.id === payload.laundryId) || DEMO_LAUNDRIES[0];
 
     // 1. Prepare items array for Authoritative Pricing Engine
@@ -1653,7 +1788,7 @@ export const orderService = {
 
   getOrdersByCourier(courierId: string): Order[] {
     const orders = this.getOrders();
-    return orders.filter((o) => (o.courierId === courierId || (o.status === 'pending' && !o.courierId)) && o.paymentStatus === 'paid');
+    return orders.filter((o) => o.courierId === courierId && o.paymentStatus === 'paid');
   },
 
   getOrdersByLaundry(laundryId: string): Order[] {
@@ -1743,11 +1878,10 @@ export const orderService = {
       }
     }
 
-    // Courier Isolation Check
-    if (actorRole && actorRole.toLowerCase() === 'courier') {
-      if (actorId && targetOrder.courierId && actorId !== targetOrder.courierId) {
-        throw new Error(`Akses Ditolak: Kurir ini tidak berhak mengelola order yang ditugaskan kepada kurir lain.`);
-      }
+    // Courier Isolation Check (Applies strictly when actor is a courier)
+    const isCourierActor = actorRole ? actorRole.toLowerCase() === 'courier' : actorId?.includes('courier');
+    if (isCourierActor && actorId && targetOrder.courierId && actorId !== targetOrder.courierId) {
+      throw new Error(`Akses Ditolak: Kurir ini tidak berhak mengelola order yang ditugaskan kepada kurir lain.`);
     }
 
     // Courier Pickup Gate Enforcement (Assigned -> Picked Up)
@@ -1796,6 +1930,7 @@ export const orderService = {
     const updatedOrder: Order = {
       ...targetOrder,
       status: targetStatus,
+      courierId: targetStatus === 'ready_for_delivery' ? undefined : targetOrder.courierId,
       updatedAt: now,
       logs: [...(targetOrder.logs || []), newLog],
     };

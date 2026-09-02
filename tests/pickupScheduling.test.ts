@@ -84,9 +84,9 @@ async function runPickupSchedulingTests() {
 
   // --- UNIT TESTS: isPickupSlotSelectable ---
 
-  // 1. Today before slot start -> slot IS selectable
-  const slotSelectable1 = isPickupSlotSelectable(dateToday, '15:00 - 17:00 WIB', `${dateToday}T14:59:00+07:00`);
-  assert(slotSelectable1 === true, 'Test 1: Today before slot start -> slot IS selectable');
+  // 1. Today before cut-off -> slot IS selectable
+  const slotSelectable1 = isPickupSlotSelectable(dateToday, '15:00 - 17:00 WIB', `${dateToday}T14:40:00+07:00`);
+  assert(slotSelectable1 === true, 'Test 1: Today before cut-off -> slot IS selectable');
 
   // 2. Exact slot start -> slot NOT selectable (slot.start > current time)
   const slotSelectable2 = isPickupSlotSelectable(dateToday, '15:00 - 17:00 WIB', `${dateToday}T15:00:00+07:00`);

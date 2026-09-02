@@ -1,7 +1,7 @@
 import { isSupabaseConfigured, supabase, createServiceRoleClient } from './supabase';
 import { notificationService } from './notificationService';
 import { UserProfile } from '@/types/user';
-import { DEMO_USERS, TIME_SLOTS } from '@/utils/constants';
+import { DEMO_USERS, TIME_SLOTS, COURIER_DISPATCH_MODE } from '@/utils/constants';
 
 // =============================================================================
 // CENTRALIZED DISPATCH ENGINE CONFIGURATION CONSTANTS
@@ -171,40 +171,17 @@ export function isDeliveryDispatchWindowDue(
  * - Today pickup date: Selectable ONLY IF slot.start > current WIB time.
  * - Invalid date or time slot format: Unselectable (false).
  */
+import { isPickupSlotBookable } from '@/utils/scheduleUtils';
+
 export function isPickupSlotSelectable(
   pickupDateStr?: string,
   pickupTimeSlotStr?: string,
   nowInput: Date | string = new Date()
 ): boolean {
-  if (!pickupDateStr || !pickupTimeSlotStr) return false;
-
-  const now = typeof nowInput === 'string' ? new Date(nowInput) : nowInput;
-  if (isNaN(now.getTime())) return false;
-
-  const dateMatch = pickupDateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!dateMatch) return false;
-
-  const [, targetYear, targetMonth, targetDay] = dateMatch;
-  const month = parseInt(targetMonth, 10);
-  const day = parseInt(targetDay, 10);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
-
-  const slotMatch = pickupTimeSlotStr.match(/(\d{1,2}):(\d{2})/);
-  if (!slotMatch) return false;
-
-  const startHour = parseInt(slotMatch[1], 10);
-  const startMinute = parseInt(slotMatch[2], 10);
-  if (startHour < 0 || startHour > 23 || startMinute < 0 || startMinute > 59) return false;
-
-  const windowStartIso = `${targetYear}-${targetMonth}-${targetDay}T${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000+07:00`;
-  const windowStart = new Date(windowStartIso);
-  if (isNaN(windowStart.getTime())) return false;
-
-  // Strict rule: slot.start MUST be strictly greater than current business time
-  return windowStart.getTime() > now.getTime();
+  return isPickupSlotBookable(pickupDateStr, pickupTimeSlotStr, nowInput);
 }
 
-export { calculateEarliestDeliveryDateTime, validateDeliverySchedule, resolveOrderProcessingHours } from '@/utils/scheduleUtils';
+export { calculateEarliestDeliveryDateTime, validateDeliverySchedule, resolveOrderProcessingHours, isPickupSlotBookable } from '@/utils/scheduleUtils';
 
 /**
  * Checks if current time in Asia/Jakarta (WIB) has reached or passed the scheduled pickup window.
@@ -477,6 +454,20 @@ export const dispatchService = {
     actorUserId: string,
     client?: any
   ): Promise<DispatchStatusResult> {
+    if (COURIER_DISPATCH_MODE === 'slot_pool' && actorUserId !== 'force_legacy_dispatch') {
+      return {
+        hasActiveDispatch: false,
+        batchNumber: 0,
+        radiusKm: DISPATCH_CONFIG.INITIAL_RADIUS_KM,
+        offeredCount: 0,
+        acceptedCount: 0,
+        status: 'idle',
+        expiresAt: null,
+        isNewBatch: false,
+        message: 'SLOT_POOL_MODE_ACTIVE: Order remains available in Slot-Based Courier Job Pool.',
+      };
+    }
+
     const db = getDbClient(client);
 
     const { orderService } = await import('./orderService');

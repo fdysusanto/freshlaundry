@@ -290,6 +290,11 @@ function CheckoutContent() {
     e.preventDefault();
     if (!pickupAddress || !pickupDate || !pickupTimeSlot) return;
 
+    if (!isPickupSlotSelectable(pickupDate, pickupTimeSlot)) {
+      setErrorMessage('Slot penjemputan yang dipilih sudah ditutup. Silakan pilih slot waktu berikutnya.');
+      return;
+    }
+
     if (!selectedLaundry || !selectedService) {
       setErrorMessage('Layanan atau Laundry belum dipilih secara valid.');
       return;

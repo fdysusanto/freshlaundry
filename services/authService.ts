@@ -6,6 +6,8 @@ import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 
 const AUTH_STORAGE_KEY = 'fresh_laundry_auth_user';
 
+let _currentMockUser: UserProfile | null = null;
+
 export const authService = {
   /**
    * Mengambil profil pengguna terautentikasi secara asynchronous dari Supabase Auth & Database Profile.
@@ -81,9 +83,74 @@ export const authService = {
   },
 
   /**
+   * Real Supabase Auth User Resolution.
+   */
+  async getCurrentUserAsync(client?: any): Promise<UserProfile | null> {
+    const authClient = client || supabase;
+    if (isSupabaseConfigured && authClient && typeof authClient.auth?.getSession === 'function') {
+      try {
+        const { data: { session }, error: sessionError } = await authClient.auth.getSession();
+        if (sessionError || !session?.user) {
+          return null;
+        }
+
+        const userId = session.user.id;
+        const { data: profile, error: profileError } = await (supabase?.from('profiles') as any)
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        const activeRole = (profile?.role || session.user.user_metadata?.role || 'customer') as UserRole;
+
+        if (typeof window !== 'undefined') {
+          console.log('[ROLE-AUTH-DIAGNOSTIC]', {
+            sessionUserId: userId,
+            profileRole: activeRole,
+            source: 'supabase_auth',
+            isSupabaseAuth: true,
+            isMockUser: false,
+          });
+        }
+
+        if (profileError || !profile) {
+          const fallbackUser: UserProfile = {
+            id: userId,
+            email: session.user.email || '',
+            fullName: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+            phone: session.user.user_metadata?.phone || '',
+            role: activeRole,
+            createdAt: session.user.created_at || new Date().toISOString(),
+          };
+          this.setCurrentUserSync(fallbackUser);
+          return fallbackUser;
+        }
+
+        const activeUser: UserProfile = {
+          id: profile.id,
+          email: profile.email,
+          fullName: profile.full_name,
+          phone: profile.phone,
+          role: profile.role as UserRole,
+          avatarUrl: profile.avatar_url || undefined,
+          address: profile.address || undefined,
+          createdAt: profile.created_at,
+        };
+
+        this.setCurrentUserSync(activeUser);
+        return activeUser;
+      } catch {
+        if (isSupabaseConfigured) return null;
+        return this.getCurrentUserSync();
+      }
+    }
+    return this.getCurrentUserSync();
+  },
+
+  /**
    * Getter sinkronus untuk kompatibilitas antarmuka UI.
    */
   getCurrentUserSync(): UserProfile {
+    if (_currentMockUser) return _currentMockUser;
     if (typeof window === 'undefined') return DEMO_USERS[0];
     const saved = localStorage.getItem(AUTH_STORAGE_KEY);
     if (saved) {
@@ -115,13 +182,18 @@ export const authService = {
     return this.getCurrentUserSync();
   },
 
-  setCurrentUserSync(user: UserProfile): void {
+  setCurrentUserSync(user: UserProfile | null): void {
+    _currentMockUser = user;
     if (typeof window !== 'undefined') {
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+      if (user) {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+      } else {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
     }
   },
 
-  setCurrentUser(user: UserProfile): void {
+  setCurrentUser(user: UserProfile | null): void {
     this.setCurrentUserSync(user);
   },
 

@@ -1,4 +1,70 @@
-import { TIME_SLOTS } from '@/utils/constants';
+import { TIME_SLOTS, PICKUP_SLOT_LOCK_MINUTES } from '@/utils/constants';
+
+export { PICKUP_SLOT_LOCK_MINUTES };
+
+/**
+ * Checks if a customer is allowed to book a specific pickup date and pickup time slot.
+ * Business Rules:
+ * - A pickup slot is locked and no longer bookable 15 minutes before the slot start time.
+ * - Future pickup date (pickupDate > today in WIB): All valid operational slots are bookable.
+ * - Past pickup date (pickupDate < today in WIB): Not bookable (false).
+ * - Same-day pickup date (pickupDate === today in WIB): Bookable ONLY IF now < (slotStart - 15 minutes).
+ * - Timezone: Asia/Jakarta (WIB, UTC+7).
+ */
+export function isPickupSlotBookable(
+  pickupDateStr?: string,
+  pickupTimeSlotStr?: string,
+  nowInput: Date | string = new Date()
+): boolean {
+  if (!pickupDateStr || !pickupTimeSlotStr) return false;
+
+  const now = typeof nowInput === 'string' ? new Date(nowInput) : nowInput;
+  if (isNaN(now.getTime())) return false;
+
+  const dateMatch = pickupDateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!dateMatch) return false;
+
+  const [, targetYear, targetMonth, targetDay] = dateMatch;
+  const year = parseInt(targetYear, 10);
+  const month = parseInt(targetMonth, 10);
+  const day = parseInt(targetDay, 10);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+
+  const slotMatch = pickupTimeSlotStr.match(/(\d{1,2}):(\d{2})/);
+  if (!slotMatch) return false;
+
+  const startHour = parseInt(slotMatch[1], 10);
+  const startMinute = parseInt(slotMatch[2], 10);
+  if (startHour < 0 || startHour > 23 || startMinute < 0 || startMinute > 59) return false;
+
+  // Calculate WIB calendar components for current time (now)
+  const nowWibMs = now.getTime() + 7 * 3600 * 1000;
+  const nowWibDate = new Date(nowWibMs);
+  const todayYear = nowWibDate.getUTCFullYear();
+  const todayMonth = nowWibDate.getUTCMonth() + 1;
+  const todayDay = nowWibDate.getUTCDate();
+
+  const todayStr = `${todayYear}-${String(todayMonth).padStart(2, '0')}-${String(todayDay).padStart(2, '0')}`;
+
+  // Past date -> not bookable
+  if (pickupDateStr < todayStr) return false;
+
+  // Future date -> all valid operational slots are bookable
+  if (pickupDateStr > todayStr) {
+    return TIME_SLOTS.includes(pickupTimeSlotStr);
+  }
+
+  // Same-day pickup: Construct Slot Start Timestamp in Asia/Jakarta (+07:00)
+  const windowStartIso = `${targetYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00.000+07:00`;
+  const windowStartMs = new Date(windowStartIso).getTime();
+  if (isNaN(windowStartMs)) return false;
+
+  // Cut-off threshold: Slot Start - PICKUP_SLOT_LOCK_MINUTES (15 minutes)
+  const pickupSlotLockMs = windowStartMs - PICKUP_SLOT_LOCK_MINUTES * 60 * 1000;
+
+  // Bookable ONLY IF current time is strictly less than cut-off lock time
+  return now.getTime() < pickupSlotLockMs;
+}
 
 /**
  * Resolves the Operational SLA Start Timestamp in WIB (+07:00) based on Pickup Date and Pickup Time Slot.
