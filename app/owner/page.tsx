@@ -659,7 +659,12 @@ export default function OwnerDashboardPage() {
                           <td className="p-3 font-black text-slate-900">{formatIDR(order.totalPrice)}</td>
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              {!order.finalWeightKg && (order.status === 'pending' || order.status === 'assigned' || order.status === 'picked_up') && (
+                              {order.courierId && order.finalWeightKg && (
+                                <Badge variant="teal" className="font-bold py-1 px-2.5 flex items-center gap-1">
+                                  ⚖️ Berat Kurir: {order.finalWeightKg} kg
+                                </Badge>
+                              )}
+                              {!order.courierId && !order.finalWeightKg && (order.status === 'pending' || order.status === 'assigned' || order.status === 'picked_up') && (
                                 <Button
                                   variant="primary"
                                   size="sm"

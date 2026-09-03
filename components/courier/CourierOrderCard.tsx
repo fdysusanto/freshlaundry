@@ -14,6 +14,7 @@ interface CourierOrderCardProps {
   onUpdateClick: (order: Order) => void;
   onArrivedClick?: (order: Order) => void;
   onPickupClick?: (order: Order) => void;
+  onWeighClick?: (order: Order) => void;
 }
 
 export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
@@ -21,6 +22,7 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
   onUpdateClick,
   onArrivedClick,
   onPickupClick,
+  onWeighClick,
 }) => {
   const statusCfg = getStatusConfig(order.status);
   const isDelivery = order.assignmentType === 'delivery' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery';
@@ -136,6 +138,12 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
               </span>
             </div>
             <div className="flex justify-between items-center">
+              <span className="text-slate-600 font-medium">Berat Timbangan Digital:</span>
+              <span className="font-bold text-slate-900">
+                {order.finalWeightKg ? `${order.finalWeightKg} kg` : `Estimasi ${order.estimatedWeightKg || 5} kg`}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
               <span className="text-slate-600 font-medium">Status Antar ke Outlet:</span>
               <span className={hasArrivedAtLaundry ? 'font-bold text-emerald-700' : 'font-bold text-slate-600 italic'}>
                 {hasArrivedAtLaundry ? '📍 Sudah Tiba di Outlet' : isPickedUpFromCustomer ? '🚚 Dalam Perjalanan ke Outlet' : 'Belum'}
@@ -146,40 +154,53 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
       </div>
 
       {/* Action Buttons Footer */}
-      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
         <Link href={`/orders/${order.id}`} className="text-xs font-bold text-slate-600 hover:text-teal-600 flex items-center gap-1">
           Detail <ArrowRight className="w-3.5 h-3.5" />
         </Link>
 
-        {isPickupTask ? (
-          !isPickedUpFromCustomer ? (
+        <div className="flex items-center gap-1.5">
+          {isPickupTask && onWeighClick && (
             <Button
               size="sm"
-              variant="primary"
-              onClick={() => onPickupClick && onPickupClick(order)}
-              className="bg-teal-600 hover:bg-teal-500 font-bold"
+              variant="outline"
+              onClick={() => onWeighClick(order)}
+              className="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 font-bold"
             >
-              Pickup dari Customer
+              ⚖️ {order.finalWeightKg ? `${order.finalWeightKg} kg` : 'Input Berat'}
             </Button>
-          ) : !hasArrivedAtLaundry ? (
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={() => onArrivedClick && onArrivedClick(order)}
-              className="bg-emerald-600 hover:bg-emerald-500 font-bold"
-            >
-              Tiba di Outlet Laundry
-            </Button>
+          )}
+
+          {isPickupTask ? (
+            !isPickedUpFromCustomer ? (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => onPickupClick && onPickupClick(order)}
+                className="bg-teal-600 hover:bg-teal-500 font-bold"
+              >
+                Pickup dari Customer
+              </Button>
+            ) : !hasArrivedAtLaundry ? (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => onArrivedClick && onArrivedClick(order)}
+                className="bg-emerald-600 hover:bg-emerald-500 font-bold"
+              >
+                Tiba di Outlet Laundry
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" disabled className="text-slate-600 border-slate-300 font-bold opacity-80 cursor-not-allowed">
+                Menunggu Verifikasi Laundry
+              </Button>
+            )
           ) : (
-            <Button size="sm" variant="outline" disabled className="text-slate-600 border-slate-300 font-bold opacity-80 cursor-not-allowed">
-              Menunggu Verifikasi Laundry
+            <Button size="sm" variant="primary" onClick={() => onUpdateClick(order)} className="bg-purple-600 hover:bg-purple-500 font-bold">
+              Update Status Delivery
             </Button>
-          )
-        ) : (
-          <Button size="sm" variant="primary" onClick={() => onUpdateClick(order)} className="bg-purple-600 hover:bg-purple-500 font-bold">
-            Update Status Delivery
-          </Button>
-        )}
+          )}
+        </div>
       </div>
     </Card>
   );

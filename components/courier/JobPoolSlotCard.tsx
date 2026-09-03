@@ -19,6 +19,9 @@ export const JobPoolSlotCard: React.FC<JobPoolSlotCardProps> = ({
   isClaiming = false,
 }) => {
   const isPickup = slot.jobType === 'pickup';
+  const hasAvailableOrders = slot.availableOrders > 0;
+  const isFullCapacity =
+    (slot.remainingCapacity !== undefined && slot.remainingCapacity <= 0) || slot.claimStatus === 'full';
 
   // Format claimableAt time in WIB (HH:mm)
   const formatClaimableTime = (isoStr: string) => {
@@ -31,7 +34,7 @@ export const JobPoolSlotCard: React.FC<JobPoolSlotCardProps> = ({
         timeZone: 'Asia/Jakarta',
       });
     } catch {
-      return '15 menit sebelum slot';
+      return '15 mnt sebelum slot';
     }
   };
 
@@ -41,11 +44,11 @@ export const JobPoolSlotCard: React.FC<JobPoolSlotCardProps> = ({
     <Card
       variant="white"
       className={`border-slate-200 p-5 space-y-4 transition-all relative overflow-hidden ${
-        slot.claimStatus === 'open'
+        hasAvailableOrders
           ? isPickup
-            ? 'border-amber-300 ring-2 ring-amber-500/10 hover:shadow-lg'
-            : 'border-purple-300 ring-2 ring-purple-500/10 hover:shadow-lg'
-          : 'opacity-90 bg-slate-50/50'
+            ? 'border-amber-300 ring-1 ring-amber-500/10 shadow-xs'
+            : 'border-purple-300 ring-1 ring-purple-500/10 shadow-xs'
+          : 'bg-slate-50/60'
       }`}
     >
       {/* Header Badge & Slot Time */}
@@ -59,14 +62,26 @@ export const JobPoolSlotCard: React.FC<JobPoolSlotCardProps> = ({
         </div>
       </div>
 
-      {/* Available Orders & Capacity Info — STRICTLY NO PII */}
+      {/* Available Orders & Capacity Info — ALWAYS VISIBLE INDEPENDENT OF CLAIM STATUS */}
       <div className="space-y-2 py-1">
-        <div className="flex items-baseline justify-between">
+        <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-slate-500">Order Tersedia di Pool:</span>
-          <span className="text-2xl font-black text-slate-900 flex items-center gap-1">
-            <Package className={`w-5 h-5 ${isPickup ? 'text-amber-600' : 'text-purple-600'}`} />
-            {slot.availableOrders} <span className="text-xs font-normal text-slate-400">Order</span>
-          </span>
+          {hasAvailableOrders ? (
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black border ${
+                isPickup
+                  ? 'bg-amber-50 text-amber-900 border-amber-200'
+                  : 'bg-purple-50 text-purple-900 border-purple-200'
+              }`}
+            >
+              <Package className={`w-4 h-4 ${isPickup ? 'text-amber-600' : 'text-purple-600'}`} />
+              <span>{slot.availableOrders} ORDER TERSEDIA</span>
+            </span>
+          ) : (
+            <span className="text-xs font-semibold text-slate-400 italic">
+              Tidak ada order tersedia
+            </span>
+          )}
         </div>
 
         <div className="p-2.5 rounded-xl bg-slate-100/80 border border-slate-200/60 flex items-center justify-between text-xs text-slate-600">
@@ -75,25 +90,19 @@ export const JobPoolSlotCard: React.FC<JobPoolSlotCardProps> = ({
         </div>
       </div>
 
-      {/* Action Footer Button based on Status */}
+      {/* Claim Availability Action Footer */}
       <div className="pt-2 border-t border-slate-100">
-        {slot.claimStatus === 'open' && (
+        {isFullCapacity ? (
           <Button
             size="md"
-            variant="primary"
-            disabled={isClaiming}
-            onClick={() => onClaim(slot.jobType, slot.timeSlot)}
-            className={`w-full py-2.5 font-bold text-xs shadow-md transition-all ${
-              isPickup
-                ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/20'
-                : 'bg-purple-600 hover:bg-purple-500 shadow-purple-600/20'
-            }`}
+            variant="outline"
+            disabled
+            className="w-full py-2.5 font-bold text-xs bg-slate-100 text-slate-500 border-slate-300 cursor-not-allowed flex items-center justify-center gap-1.5 font-semibold"
           >
-            {isClaiming ? 'MENGAMBIL JOB...' : 'AMBIL JOB'}
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            KAPASITAS PENUH (MAKSIMAL 5 ORDER)
           </Button>
-        )}
-
-        {slot.claimStatus === 'locked' && (
+        ) : slot.claimStatus === 'locked' ? (
           <div className="space-y-1.5 text-center">
             <Button
               size="md"
@@ -109,9 +118,7 @@ export const JobPoolSlotCard: React.FC<JobPoolSlotCardProps> = ({
               Klaim dibuka pukul <strong className="text-slate-800">{claimableTimeStr} WIB</strong> (15 mnt sebelum slot)
             </p>
           </div>
-        )}
-
-        {slot.claimStatus === 'empty' && (
+        ) : !hasAvailableOrders || slot.claimStatus === 'empty' ? (
           <Button
             size="md"
             variant="outline"
@@ -121,17 +128,19 @@ export const JobPoolSlotCard: React.FC<JobPoolSlotCardProps> = ({
             <AlertCircle className="w-3.5 h-3.5 text-slate-400" />
             TIDAK ADA ORDER
           </Button>
-        )}
-
-        {slot.claimStatus === 'full' && (
+        ) : (
           <Button
             size="md"
-            variant="outline"
-            disabled
-            className="w-full py-2.5 font-bold text-xs bg-slate-100 text-slate-500 border-slate-300 cursor-not-allowed flex items-center justify-center gap-1.5 font-semibold"
+            variant="primary"
+            disabled={isClaiming}
+            onClick={() => onClaim(slot.jobType, slot.timeSlot)}
+            className={`w-full py-2.5 font-bold text-xs shadow-md transition-all cursor-pointer ${
+              isPickup
+                ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/20'
+                : 'bg-purple-600 hover:bg-purple-500 shadow-purple-600/20'
+            }`}
           >
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            KAPASITAS PENUH (5 ORDER)
+            {isClaiming ? 'MENGAMBIL JOB...' : 'AMBIL JOB'}
           </Button>
         )}
       </div>

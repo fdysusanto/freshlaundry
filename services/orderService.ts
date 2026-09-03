@@ -2143,7 +2143,7 @@ export const orderService = {
     client?: any
   ): Promise<{ order: Order; priceDelta: number; adjustmentPaymentAttempt?: any }> {
     const cleanRole = (actor.role || '').trim().toLowerCase();
-    const allowedRoles = ['laundry_owner', 'laundry_staff', 'platform_admin', 'admin'];
+    const allowedRoles = ['courier', 'laundry_owner', 'laundry_staff', 'platform_admin', 'admin'];
 
     if (!allowedRoles.includes(cleanRole)) {
       throw new Error('Akses Ditolak: Anda tidak memiliki wewenang untuk menimbang atau mengubah berat aktual.');
@@ -2153,21 +2153,48 @@ export const orderService = {
       throw new Error('Validasi Berat Gagal: Berat aktual harus berupa angka lebih besar dari 0 kg.');
     }
 
+    if (finalWeightKg > 50.0) {
+      throw new Error('Validasi Berat Gagal: Berat aktual maksimal adalah 50 kg per pesanan.');
+    }
+
     const order = await this.getOrderByIdAsync(orderId, client);
     if (!order) {
       throw new Error(`Pesanan dengan ID '${orderId}' tidak ditemukan.`);
     }
 
-    // Ownership Guard for Laundry Owner / Staff
+    const isAdmin = cleanRole === 'admin' || cleanRole === 'platform_admin';
+
+    // Primary Authority Guard: Laundry cannot overwrite Courier weight if order has assigned courier & weight already set
+    if (order.courierId && order.finalWeightKg && (cleanRole === 'laundry_owner' || cleanRole === 'laundry_staff') && !isAdmin) {
+      throw new Error('Akses Ditolak: Pihak Laundry tidak dapat mengubah berat aktual yang telah ditimbang oleh Kurir.');
+    }
+
+    // Ownership Guard for Laundry Owner / Staff (for fallback unassigned orders)
     if ((cleanRole === 'laundry_owner' || cleanRole === 'laundry_staff') && actor.laundryId) {
       if (order.laundryId && order.laundryId !== actor.laundryId) {
         throw new Error('Akses Ditolak: Anda hanya dapat menimbang pesanan dari outlet laundry milik Anda.');
       }
     }
 
+    // Assignment Guard for Courier
+    if (cleanRole === 'courier') {
+      if (order.courierId !== actor.id) {
+        throw new Error('Akses Ditolak: Anda hanya dapat menimbang pesanan yang ditugaskan kepada Anda.');
+      }
+    }
+
     // Order Status Guard: Weight verification allowed in 'pending', 'assigned', or 'picked_up'
     if (order.status !== 'pending' && order.status !== 'assigned' && order.status !== 'picked_up') {
       throw new Error(`Penimbangan Ditolak: Pesanan sudah dalam pencucian atau selesai (status: '${order.status}').`);
+    }
+
+    // Paid Adjustment Immutability Guard
+    if (!isAdmin) {
+      const { paymentService } = await import('./paymentService');
+      const adjStatus = await paymentService.getAdjustmentPaymentStatusAsync(orderId, client);
+      if (adjStatus.exists && adjStatus.status === 'paid') {
+        throw new Error('Penimbangan Ditolak: Berat aktual tidak dapat diubah karena penyesuaian pembayaran telah dibayar.');
+      }
     }
 
     const estimatedWeight = order.estimatedWeightKg || 5;

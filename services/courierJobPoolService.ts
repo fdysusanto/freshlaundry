@@ -9,6 +9,7 @@ export interface JobPoolSlotMetadata {
   claimStatus: 'locked' | 'open' | 'empty' | 'full';
   claimableAt: string;
   maxCapacityPerCourier: number;
+  remainingCapacity?: number;
 }
 
 export interface CourierJobPoolResponse {
@@ -219,6 +220,7 @@ export const courierJobPoolService = {
         claimStatus: pickupClaimStatus,
         claimableAt: claimableAtIso,
         maxCapacityPerCourier: 5,
+        remainingCapacity: Math.max(0, 5 - courierPickupClaimedCount),
       });
 
       deliverySlots.push({
@@ -228,6 +230,7 @@ export const courierJobPoolService = {
         claimStatus: deliveryClaimStatus,
         claimableAt: claimableAtIso,
         maxCapacityPerCourier: 5,
+        remainingCapacity: Math.max(0, 5 - courierDeliveryClaimedCount),
       });
     }
 

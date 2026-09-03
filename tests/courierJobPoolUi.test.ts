@@ -81,6 +81,16 @@ async function runCourierJobPoolUiTests() {
   const openCheck = isCourierSlotClaimable(dateToday, slot1, `${dateToday}T07:45:00+07:00`);
   assert(openCheck.isClaimable === true, 'TEST 4: Open Slot returns isClaimable = true at 07:45:00 WIB');
 
+  // TEST 4B (PHASE 7B) — availableOrders > 0 while claimStatus = locked (Order Visibility Independent of Claim Lock)
+  orderService.getOrders().length = 0;
+  buildCandidateOrder('ord_vis_locked_1', dateToday, slot1);
+  const lockedPoolVis = await courierJobPoolService.getCourierJobPoolAsync(dateToday, courierA.id, `${dateToday}T07:30:00+07:00`);
+  const lockedSlotVis = lockedPoolVis.pickupSlots.find((s) => s.timeSlot === slot1);
+  assert(
+    lockedSlotVis?.availableOrders === 1 && lockedSlotVis?.claimStatus === 'locked',
+    'TEST 4B (PHASE 7B): availableOrders = 1 is visible while claimStatus = locked (Order visibility independent of claim window)'
+  );
+
   // TEST 5 & 6 — Successful Claim populates My Active Jobs (Claim 5 orders)
   orderService.getOrders().length = 0;
   for (let i = 1; i <= 6; i++) {

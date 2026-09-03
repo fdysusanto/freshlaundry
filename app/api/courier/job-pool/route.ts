@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { courierJobPoolService } from '@/services/courierJobPoolService';
 import { authService } from '@/services/authService';
-import { supabase, createAuthenticatedClient, isSupabaseConfigured } from '@/services/supabase';
+import { supabase, createAuthenticatedClient, createServiceRoleClient, isSupabaseConfigured } from '@/services/supabase';
 import { UserProfile, UserRole } from '@/types/user';
 import { DEMO_USERS } from '@/utils/constants';
 
@@ -70,11 +70,13 @@ export async function GET(request: Request) {
       );
     }
 
+    // Use Service Role Client exclusively for server-side aggregate count query (Zero PII payload)
+    const aggregateQueryClient = isSupabaseConfigured ? createServiceRoleClient() : undefined;
     const jobPoolData = await courierJobPoolService.getCourierJobPoolAsync(
       dateParam,
       user.id,
       new Date(),
-      userClient || undefined
+      aggregateQueryClient
     );
 
     return NextResponse.json({

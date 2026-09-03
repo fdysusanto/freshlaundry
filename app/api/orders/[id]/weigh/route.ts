@@ -45,9 +45,9 @@ export async function POST(
         userRole = profile.role as UserRole;
       }
 
-      if (userRole !== 'laundry_owner' && userRole !== 'laundry_staff' && userRole !== 'admin') {
+      if (userRole !== 'laundry_owner' && userRole !== 'laundry_staff' && userRole !== 'admin' && userRole !== 'courier') {
         return NextResponse.json(
-          { success: false, message: 'Akses Ditolak: Hanya Mitra Laundry / Staff / Admin yang dapat menginput berat aktual.' },
+          { success: false, message: 'Akses Ditolak: Hanya Mitra Laundry / Staff / Courier / Admin yang dapat menginput berat aktual.' },
           { status: 403 }
         );
       }
@@ -63,15 +63,27 @@ export async function POST(
       );
     }
 
-    const parsedWeight = Math.round(rawWeight * 100) / 100;
+    if (rawWeight > 50.0) {
+      return NextResponse.json(
+        { success: false, message: 'Validasi Berat Gagal: Berat aktual maksimal adalah 50 kg per pesanan.' },
+        { status: 400 }
+      );
+    }
 
-    // Removed createServiceRoleClient to adhere to RLS policies and not bypass them
+    const parsedWeight = Math.round(rawWeight * 100) / 100;
 
     const order = await orderService.getOrderByIdAsync(orderId, authClient || undefined);
     if (!order) {
       return NextResponse.json(
         { success: false, message: `Pesanan dengan ID '${orderId}' tidak ditemukan.` },
         { status: 404 }
+      );
+    }
+
+    if (userRole === 'courier' && order.courierId !== userId) {
+      return NextResponse.json(
+        { success: false, message: 'Akses Ditolak: Anda hanya dapat menimbang pesanan yang ditugaskan kepada Anda.' },
+        { status: 403 }
       );
     }
 

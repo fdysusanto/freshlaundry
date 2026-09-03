@@ -11,6 +11,7 @@ import { CourierDateSelector } from '@/components/courier/CourierDateSelector';
 import { JobPoolSlotCard } from '@/components/courier/JobPoolSlotCard';
 import { CourierOrderCard } from '@/components/courier/CourierOrderCard';
 import { StatusUpdateModal } from '@/components/courier/StatusUpdateModal';
+import { CourierWeighModal } from '@/components/courier/CourierWeighModal';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Truck, CheckCircle2, Clock, RefreshCw, PackageCheck, Layers, AlertCircle } from 'lucide-react';
@@ -22,15 +23,38 @@ export default function CourierDashboardPage() {
   const [claimedOrders, setClaimedOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState<'job_pool' | 'my_jobs' | 'completed'>('job_pool');
   const [selectedUpdateOrder, setSelectedUpdateOrder] = useState<Order | null>(null);
+  const [selectedWeighOrder, setSelectedWeighOrder] = useState<Order | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isLoadingPool, setIsLoadingPool] = useState<boolean>(true);
   const [claimingSlotKey, setClaimingSlotKey] = useState<string | null>(null);
 
-  // Load Job Pool Aggregate Data (STRICT ZERO PII)
+  // Load Job Pool Aggregate Data via Authenticated Server API (STRICT ZERO PII)
   const loadJobPoolData = async (dateStr: string) => {
     setIsLoadingPool(true);
     try {
-      const data = await courierJobPoolService.getCourierJobPoolAsync(dateStr, currentUser?.id);
+      let data: CourierJobPoolResponse | null = null;
+
+      if (supabase && typeof window !== 'undefined') {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (token) {
+          const res = await fetch(`/api/courier/job-pool?date=${dateStr}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          const result = await res.json();
+          if (res.ok && result.success && result.data) {
+            data = result.data;
+          }
+        }
+      }
+
+      if (!data) {
+        data = await courierJobPoolService.getCourierJobPoolAsync(dateStr, currentUser?.id);
+      }
+
       setJobPool(data);
     } catch (err) {
       console.warn('[COURIER-JOB-POOL-LOAD-ERR]', err);
@@ -420,6 +444,7 @@ export default function CourierDashboardPage() {
                       onUpdateClick={(target) => setSelectedUpdateOrder(target)}
                       onArrivedClick={handleArrivedAtOutlet}
                       onPickupClick={handlePickupOrder}
+                      onWeighClick={(target) => setSelectedWeighOrder(target)}
                     />
                   ))}
                 </div>
@@ -495,6 +520,18 @@ export default function CourierDashboardPage() {
         order={selectedUpdateOrder}
         onUpdateStatus={handleUpdateStatus}
       />
+
+      {/* Driver Digital Weighing Modal */}
+      {selectedWeighOrder && (
+        <CourierWeighModal
+          order={selectedWeighOrder}
+          onClose={() => setSelectedWeighOrder(null)}
+          onSuccess={() => {
+            setSelectedWeighOrder(null);
+            loadMyClaimedJobs();
+          }}
+        />
+      )}
     </div>
   );
 }
