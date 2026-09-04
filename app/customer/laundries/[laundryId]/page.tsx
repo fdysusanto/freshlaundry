@@ -32,7 +32,9 @@ import {
   AlertCircle,
   MessageSquare,
   ChevronRight,
+  ChevronLeft,
   ImageIcon,
+  Timer,
 } from 'lucide-react';
 
 const FALLBACK_STOREFRONT =
@@ -48,11 +50,13 @@ export default function CustomerLaundryDetailPage() {
   const [laundry, setLaundry] = useState<Laundry | null>(null);
   const [laundryServices, setLaundryServices] = useState<ServiceCatalogItem[]>([]);
   const [photos, setPhotos] = useState<LaundryPhoto[]>([]);
-  const [activePhotoUrl, setActivePhotoUrl] = useState<string>(FALLBACK_STOREFRONT);
+  const [activePhotoIndex, setActivePhotoIndex] = useState<number>(0);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [activeCategoryTab, setActiveCategoryTab] = useState<string>('all');
 
   const isFav = laundry ? isFavorite(laundry.id) : false;
 
@@ -94,29 +98,21 @@ export default function CustomerLaundryDetailPage() {
             setLaundry(liveLaundry);
             
             // Fetch 5-photo profile gallery
-            const { photos: fetchedPhotos, primaryPhoto } = await laundryPhotoService.getPhotosByLaundryAsync(liveLaundry.id);
+            const { photos: fetchedPhotos } = await laundryPhotoService.getPhotosByLaundryAsync(liveLaundry.id);
             setPhotos(fetchedPhotos);
-
-            const initialPhoto = primaryPhoto?.public_url || liveLaundry.logoUrl || FALLBACK_STOREFRONT;
-            setActivePhotoUrl(initialPhoto);
 
             const liveServices = await laundryService.getServicesByLaundryAsync(liveLaundry.id);
             const activeServices = liveServices.filter((s) => s.isActive);
             setLaundryServices(activeServices);
-            if (activeServices.length > 0) {
-              setSelectedServiceId(activeServices[0].id);
-            }
+            // NO AUTO-SELECTION OF SERVICE OR DEFAULT QUANTITY (INITIAL STATE IS 0 / UNSELECTED)
           }
         } else {
           const mockLnd = DEMO_LAUNDRIES.find((l) => l.id === laundryId) || null;
           if (mockLnd && isMounted) {
             setLaundry(mockLnd);
-            setActivePhotoUrl(mockLnd.logoUrl || FALLBACK_STOREFRONT);
             const mockSrvs = laundryService.getServicesByLaundry(mockLnd.id).filter((s) => s.isActive);
             setLaundryServices(mockSrvs);
-            if (mockSrvs.length > 0) {
-              setSelectedServiceId(mockSrvs[0].id);
-            }
+            // NO AUTO-SELECTION OF SERVICE OR DEFAULT QUANTITY (INITIAL STATE IS 0 / UNSELECTED)
           }
         }
 
@@ -166,6 +162,59 @@ export default function CustomerLaundryDetailPage() {
     return calculateHaversineDistance(userLat, userLng, laundry.latitude, laundry.longitude);
   }, [laundry, locationState.user]);
 
+  // Derive photo array for gallery slider
+  const photoUrls = useMemo(() => {
+    if (photos.length > 0) {
+      return photos.map((p) => p.public_url);
+    }
+    if (laundry?.logoUrl) {
+      return [laundry.logoUrl];
+    }
+    return [FALLBACK_STOREFRONT];
+  }, [photos, laundry?.logoUrl]);
+
+  // Handle Photo Swipe gestures
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX - touchEndX;
+    if (Math.abs(diff) > 30) {
+      if (diff > 0) {
+        setActivePhotoIndex((prev) => (prev + 1) % photoUrls.length);
+      } else {
+        setActivePhotoIndex((prev) => (prev - 1 + photoUrls.length) % photoUrls.length);
+      }
+    }
+    setTouchStartX(null);
+  };
+
+  // Filter services by category tab
+  const categories = useMemo(() => {
+    const setCat = new Set<string>();
+    laundryServices.forEach((s) => {
+      if (s.unit === 'kg') setCat.add('kiloan');
+      else setCat.add('satuan');
+      if (s.name.toLowerCase().includes('express') || s.estimatedHours <= 12) {
+        setCat.add('express');
+      }
+    });
+    return Array.from(setCat);
+  }, [laundryServices]);
+
+  const filteredServices = useMemo(() => {
+    if (activeCategoryTab === 'all') return laundryServices;
+    if (activeCategoryTab === 'kiloan') return laundryServices.filter((s) => s.unit === 'kg');
+    if (activeCategoryTab === 'satuan') return laundryServices.filter((s) => s.unit === 'pcs');
+    if (activeCategoryTab === 'express') {
+      return laundryServices.filter((s) => s.name.toLowerCase().includes('express') || s.estimatedHours <= 12);
+    }
+    return laundryServices;
+  }, [laundryServices, activeCategoryTab]);
+
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center space-y-4">
@@ -188,31 +237,53 @@ export default function CustomerLaundryDetailPage() {
     );
   }
 
-  const activeService = laundryServices.find((s) => s.id === selectedServiceId) || laundryServices[0];
-  const currentQuantity = quantities[selectedServiceId] || (activeService?.unit === 'kg' ? 5 : 1);
-  const subtotal = activeService ? activeService.price * currentQuantity : 0;
+  const activeService = laundryServices.find((s) => s.id === selectedServiceId);
+  const currentQuantity = selectedServiceId ? quantities[selectedServiceId] || 0 : 0;
+  const minQuantityThreshold = activeService ? Math.max(1, activeService.minimumQuantity ?? activeService.minWeight ?? 1) : 1;
+  const billableQuantity = activeService && currentQuantity > 0 ? Math.max(currentQuantity, minQuantityThreshold) : 0;
+  const subtotal = activeService && currentQuantity > 0 ? activeService.price * billableQuantity : 0;
+
+  const handleServiceSelect = (serviceId: string) => {
+    setSelectedServiceId(serviceId);
+    if (quantities[serviceId] === undefined) {
+      setQuantities((prev) => ({ ...prev, [serviceId]: 0 }));
+    }
+  };
 
   const handleQuantityChange = (serviceId: string, newQty: number) => {
-    setQuantities((prev) => ({ ...prev, [serviceId]: newQty }));
+    if (newQty <= 0) {
+      const updated = { ...quantities };
+      delete updated[serviceId];
+      setQuantities(updated);
+      if (selectedServiceId === serviceId) {
+        setSelectedServiceId('');
+      }
+    } else {
+      setQuantities((prev) => ({ ...prev, [serviceId]: newQty }));
+      setSelectedServiceId(serviceId);
+    }
   };
 
   const handleProceedToCheckout = () => {
-    if (!activeService) return;
+    // STRICT CHECKOUT PROTECTION: Block if quantity <= 0 or no active service selected
+    if (!activeService || currentQuantity <= 0) return;
     router.push(
       `/customer/checkout?laundryId=${laundry.id}&serviceId=${activeService.id}&qty=${currentQuantity}`
     );
   };
 
+  const activePhoto = photoUrls[activePhotoIndex] || FALLBACK_STOREFRONT;
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 pb-24 md:pb-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 pb-32 lg:pb-12">
       
-      {/* Top Navigation */}
+      {/* Top Navigation Bar */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => router.back()}
           className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 transition-colors cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" /> Kembali ke Marketplace
+          <ArrowLeft className="w-4 h-4" /> Kembali
         </button>
 
         <button
@@ -225,72 +296,101 @@ export default function CustomerLaundryDetailPage() {
         </button>
       </div>
 
-      {/* STOREFRONT 5-PHOTO GALLERY HERO SECTION */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-lg overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-0">
+      {/* STOREFRONT FULL-WIDTH PHOTO GALLERY HERO SECTION */}
+      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-md overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-0">
         {/* Active Hero Image & Gallery Thumbnails */}
-        <div className="lg:col-span-6 p-4 bg-slate-50 space-y-3">
-          <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-200 border border-slate-200 shadow-sm">
+        <div className="lg:col-span-6 p-3 sm:p-4 bg-slate-50 space-y-3">
+          <div
+            className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-slate-200 border border-slate-200 shadow-xs touch-pan-y select-none"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
             <img
-              src={activePhotoUrl}
+              src={activePhoto}
               alt={`Foto Outlet ${laundry.name}`}
-              onError={() => setActivePhotoUrl(FALLBACK_STOREFRONT)}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = FALLBACK_STOREFRONT;
+              }}
               className="w-full h-full object-cover transition-all duration-300"
             />
-            <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full border border-white/20 flex items-center gap-1">
+            <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-black px-2.5 py-1 rounded-full border border-white/20 flex items-center gap-1">
               <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span>Verified Storefront</span>
+              <span>Outlet Terverifikasi</span>
             </div>
+
+            {/* Gallery Prev/Next Overlay Arrows */}
+            {photoUrls.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActivePhotoIndex((prev) => (prev - 1 + photoUrls.length) % photoUrls.length)}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900/60 text-white flex items-center justify-center hover:bg-slate-900 z-20 cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivePhotoIndex((prev) => (prev + 1) % photoUrls.length)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900/60 text-white flex items-center justify-center hover:bg-slate-900 z-20 cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+
+                {/* Dot Indicators */}
+                <div className="absolute bottom-2.5 inset-x-0 flex justify-center gap-1.5 z-20">
+                  {photoUrls.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setActivePhotoIndex(idx)}
+                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                        idx === activePhotoIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/50'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
-          {/* 5-Photo Gallery Thumbnail Row (Mobile Swipe Friendly) */}
-          {photos.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
-                <ImageIcon className="w-3.5 h-3.5 text-teal-600" />
-                <span>Galeri Foto Storefront ({photos.length} Foto)</span>
-              </p>
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {photos.map((p, idx) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setActivePhotoUrl(p.public_url)}
-                    className={`relative w-20 aspect-[4/3] rounded-xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
-                      activePhotoUrl === p.public_url
-                        ? 'border-teal-600 ring-2 ring-teal-500/30'
-                        : 'border-slate-200 hover:border-teal-400'
-                    }`}
-                  >
-                    <img src={p.public_url} alt={`Thumb ${idx + 1}`} className="w-full h-full object-cover" />
-                    {p.is_primary && (
-                      <span className="absolute bottom-0 inset-x-0 bg-teal-800/90 text-white text-[9px] font-black text-center py-0.5">
-                        Utama
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
+          {/* Gallery Thumbnail Strip */}
+          {photoUrls.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {photoUrls.map((url, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActivePhotoIndex(idx)}
+                  className={`relative w-16 aspect-[4/3] rounded-xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
+                    activePhotoIndex === idx
+                      ? 'border-teal-600 ring-2 ring-teal-500/30'
+                      : 'border-slate-200 opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  <img src={url} alt={`Thumb ${idx + 1}`} className="w-full h-full object-cover" />
+                </button>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Laundry Meta Information */}
-        <div className="lg:col-span-6 p-6 sm:p-8 flex flex-col justify-between space-y-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
+        {/* Laundry Info Header */}
+        <div className="lg:col-span-6 p-5 sm:p-8 flex flex-col justify-between space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{laundry.name}</h1>
+                <h1 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight">{laundry.name}</h1>
                 {laundry.verificationStatus === 'verified' && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
                     <ShieldCheck className="w-3.5 h-3.5 text-teal-600" /> Terverifikasi
                   </span>
                 )}
               </div>
 
-              <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                 laundry.isOpen ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
               }`}>
-                {laundry.isOpen ? '• Buka Menerima Pesanan' : '• Tutup Sementara'}
+                {laundry.isOpen ? '• Buka' : '• Tutup'}
               </span>
             </div>
 
@@ -299,22 +399,22 @@ export default function CustomerLaundryDetailPage() {
               <span>{laundry.address}</span>
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 pt-1">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 pt-1">
               <span className="flex items-center gap-1 text-amber-600 font-bold bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200">
-                <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                 <span>{laundry.rating.toFixed(1)}</span>
                 <span className="text-slate-500 font-normal">({laundry.totalReviews} ulasan)</span>
               </span>
 
               {distanceKm !== undefined && (
                 <span className="font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-xl border border-teal-200">
-                  📍 {distanceKm} km dari lokasi Anda
+                  📍 {distanceKm} km dari Anda
                 </span>
               )}
 
               <span className="flex items-center gap-1 text-slate-600 font-medium">
-                <Clock className="w-4 h-4 text-teal-600" />
-                <span>Jam Buka: {laundry.openingTime || '08:00'} - {laundry.closingTime || '20:00'}</span>
+                <Clock className="w-3.5 h-3.5 text-teal-600" />
+                <span>Buka: {laundry.openingTime || '08:00'} - {laundry.closingTime || '20:00'}</span>
               </span>
             </div>
 
@@ -327,158 +427,291 @@ export default function CustomerLaundryDetailPage() {
         </div>
       </div>
 
-      {/* CATALOG SERVICES & ORDER SELECTION */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <div className="lg:col-span-8 space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-teal-600" />
-              <span>Katalog Layanan Laundry Aktif</span>
-            </h2>
-            <span className="text-xs text-slate-500 font-bold">{laundryServices.length} jenis layanan</span>
-          </div>
+      {/* SERVICE CATEGORY TABS */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+          <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-teal-600" />
+            <span>Katalog Layanan Laundry</span>
+          </h2>
+          <span className="text-xs text-slate-500 font-bold">{filteredServices.length} jenis layanan</span>
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {laundryServices.map((service) => {
-              const isSelected = selectedServiceId === service.id;
-              const qty = quantities[service.id] || (service.unit === 'kg' ? 5 : 1);
+        {/* Category Tabs Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setActiveCategoryTab('all')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
+              activeCategoryTab === 'all'
+                ? 'bg-teal-700 text-white shadow-xs'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Semua Layanan
+          </button>
+          {categories.includes('kiloan') && (
+            <button
+              type="button"
+              onClick={() => setActiveCategoryTab('kiloan')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
+                activeCategoryTab === 'kiloan'
+                  ? 'bg-teal-700 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Cuci Kiloan
+            </button>
+          )}
+          {categories.includes('satuan') && (
+            <button
+              type="button"
+              onClick={() => setActiveCategoryTab('satuan')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
+                activeCategoryTab === 'satuan'
+                  ? 'bg-teal-700 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Cuci Satuan
+            </button>
+          )}
+          {categories.includes('express') && (
+            <button
+              type="button"
+              onClick={() => setActiveCategoryTab('express')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
+                activeCategoryTab === 'express'
+                  ? 'bg-teal-700 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              ⚡ Express
+            </button>
+          )}
+        </div>
 
-              return (
-                <div
-                  key={service.id}
-                  onClick={() => setSelectedServiceId(service.id)}
-                  className={`p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-4 bg-white ${
-                    isSelected
-                      ? 'border-teal-500 ring-2 ring-teal-500/20 shadow-sm'
-                      : 'border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
-                        <span>{service.name}</span>
-                        {isSelected && <CheckCircle2 className="w-4 h-4 text-teal-600" />}
-                      </h3>
+        {/* CATALOG SERVICES LIST */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="lg:col-span-8 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              {filteredServices.map((service) => {
+                const isSelected = selectedServiceId === service.id;
+                const qty = quantities[service.id];
+                const hasQuantity = qty !== undefined;
+                const estDays = Math.max(1, Math.round((service.estimatedHours || 24) / 24));
+                const srvMinQty = Math.max(1, service.minimumQuantity ?? service.minWeight ?? 1);
+
+                return (
+                  <div
+                    key={service.id}
+                    onClick={() => handleServiceSelect(service.id)}
+                    className={`p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 bg-white ${
+                      isSelected && hasQuantity && qty > 0
+                        ? 'border-teal-600 ring-2 ring-teal-500/20 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                          <span>{service.name}</span>
+                          {isSelected && hasQuantity && qty > 0 && <CheckCircle2 className="w-4 h-4 text-teal-600" />}
+                        </h3>
+                        {srvMinQty > 1 && (
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 shrink-0">
+                            Min. charge {srvMinQty} {service.unit}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-500 line-clamp-2">{service.description}</p>
                     </div>
-                  </div>
 
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                    <div>
-                      <span className="text-xs text-slate-400 block font-medium">Tarif Layanan</span>
-                      <span className="text-base font-black text-teal-700">
-                        {formatIDR(service.price)}
-                        <span className="text-xs text-slate-500 font-normal"> / {service.unit}</span>
+                    {/* Processing time estimate info */}
+                    <div className="flex items-center justify-between gap-1 text-[11px] font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-150">
+                      <span className="flex items-center gap-1">
+                        <Timer className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                        <span>
+                          Estimasi pengerjaan: {service.estimatedHours <= 12 ? `${service.estimatedHours} jam` : `1–${estDays} hari`}
+                        </span>
                       </span>
                     </div>
 
-                    {/* Quantity Stepper */}
-                    {isSelected && (
-                      <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(service.id, Math.max(1, qty - 1))}
-                          className="w-7 h-7 rounded-lg bg-white shadow-xs text-slate-700 font-bold flex items-center justify-center hover:bg-slate-200 cursor-pointer"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="text-xs font-black text-slate-800 w-6 text-center">
-                          {qty} {service.unit}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(service.id, qty + 1)}
-                          className="w-7 h-7 rounded-lg bg-teal-600 text-white font-bold flex items-center justify-center hover:bg-teal-500 cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
+                    {/* Disclosure when selected quantity is below minimum charge */}
+                    {isSelected && hasQuantity && qty > 0 && qty < srvMinQty && (
+                      <div className="text-[11px] text-slate-600 bg-amber-50/70 p-2 rounded-xl border border-amber-200/60 font-medium">
+                        ⓘ Minimum charge berlaku untuk {srvMinQty} {service.unit} ({formatIDR(service.price * srvMinQty)})
                       </div>
                     )}
+
+                    {/* Price & Stepper */}
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-tight">Tarif</span>
+                        <span className="text-sm sm:text-base font-black text-teal-800">
+                          {formatIDR(service.price)}
+                          <span className="text-xs text-slate-500 font-normal"> / {service.unit}</span>
+                        </span>
+                      </div>
+
+                      {/* Stepper Controls */}
+                      <div onClick={(e) => e.stopPropagation()}>
+                        {!hasQuantity ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleServiceSelect(service.id);
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 font-bold text-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4 text-teal-600" />
+                            <span>Pilih</span>
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                            <button
+                              type="button"
+                              onClick={() => handleQuantityChange(service.id, qty - 1)}
+                              className="w-7 h-7 rounded-lg bg-white shadow-xs text-slate-700 font-bold flex items-center justify-center hover:bg-slate-200 cursor-pointer active:scale-90"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="text-xs font-black text-slate-900 min-w-[3.5rem] text-center">
+                              {qty} {service.unit}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleQuantityChange(service.id, qty + 1)}
+                              className="w-7 h-7 rounded-lg bg-teal-600 text-white font-bold flex items-center justify-center hover:bg-teal-500 cursor-pointer active:scale-90"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+
+            {/* CUSTOMER REVIEWS SECTION */}
+            <div className="pt-6 border-t border-slate-200 space-y-4">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-teal-600" />
+                <span>Ulasan & Ratings Customer ({reviews.length})</span>
+              </h3>
+
+              <div className="space-y-3">
+                {reviews.map((rev) => (
+                  <div key={rev.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-800">{rev.customerName}</span>
+                      <span className="flex items-center gap-0.5 text-amber-500 text-xs font-bold">
+                        <Star className="w-3.5 h-3.5 fill-amber-400" /> {rev.rating}.0
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 italic">"{rev.comment}"</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* CUSTOMER REVIEWS SECTION */}
-          <div className="pt-6 border-t border-slate-200 space-y-4">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-teal-600" />
-              <span>Ulasan & Ratings Customer ({reviews.length})</span>
-            </h3>
+          {/* DESKTOP STICKY CHECKOUT SUMMARY CARD (Hidden on Mobile) */}
+          <div className="hidden lg:block lg:col-span-4 sticky top-24">
+            <Card variant="white" className="p-6 space-y-6 shadow-xl border-teal-100">
+              <div className="border-b border-slate-100 pb-3">
+                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <ShoppingBag className="w-5 h-5 text-teal-600" />
+                  <span>Ringkasan Pesanan</span>
+                </h3>
+              </div>
 
-            <div className="space-y-3">
-              {reviews.map((rev) => (
-                <div key={rev.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-slate-800">{rev.customerName}</span>
-                    <span className="flex items-center gap-0.5 text-amber-500 text-xs font-bold">
-                      <Star className="w-3.5 h-3.5 fill-amber-400" /> {rev.rating}.0
+              {activeService && currentQuantity > 0 ? (
+                <div className="space-y-4 text-xs">
+                  <div className="flex justify-between items-center text-slate-700">
+                    <span>Layanan Dipilih</span>
+                    <span className="font-bold text-slate-900">{activeService.name}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-slate-700">
+                    <span>Jumlah Estimasian</span>
+                    <span className="font-bold text-slate-900">
+                      {currentQuantity} {activeService.unit}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 italic">"{rev.comment}"</p>
+
+                  {currentQuantity < minQuantityThreshold && (
+                    <div className="flex justify-between items-center text-amber-800 text-[11px] font-semibold bg-amber-50 p-2.5 rounded-xl border border-amber-200/80">
+                      <span>Min. Charge ({minQuantityThreshold} {activeService.unit})</span>
+                      <span className="font-bold">{formatIDR(subtotal)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center text-slate-700">
+                    <span>Harga per {activeService.unit}</span>
+                    <span className="font-bold text-slate-900">{formatIDR(activeService.price)}</span>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
+                    <span className="font-bold text-slate-800 text-sm">Subtotal Estimasian</span>
+                    <span className="font-black text-teal-800 text-lg">{formatIDR(subtotal)}</span>
+                  </div>
+
+                  <Button
+                    variant="primary"
+                    size="md"
+                    disabled={!laundry.isOpen || currentQuantity <= 0}
+                    onClick={handleProceedToCheckout}
+                    rightIcon={<ChevronRight className="w-4 h-4" />}
+                    className="w-full mt-4 bg-teal-600 hover:bg-teal-500 font-bold py-3 text-sm"
+                  >
+                    {laundry.isOpen ? 'Lanjut Pilih Alamat Pickup' : 'Toko Sedang Tutup'}
+                  </Button>
                 </div>
-              ))}
-            </div>
+              ) : (
+                <p className="text-xs text-slate-400 text-center py-4">
+                  Pilih salah satu layanan di atas untuk membuat pesanan.
+                </p>
+              )}
+            </Card>
           </div>
         </div>
+      </div>
 
-        {/* STICKY CHECKOUT SUMMARY CARD */}
-        <div className="lg:col-span-4 sticky top-24">
-          <Card variant="white" className="p-6 space-y-6 shadow-xl border-teal-100">
-            <div className="border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5 text-teal-600" />
-                <span>Ringkasan Pesanan</span>
-              </h3>
-            </div>
-
-            {activeService ? (
-              <div className="space-y-4 text-xs">
-                <div className="flex justify-between items-center text-slate-700">
-                  <span>Layanan Dipilih</span>
-                  <span className="font-bold text-slate-900">{activeService.name}</span>
-                </div>
-
-                <div className="flex justify-between items-center text-slate-700">
-                  <span>Jumlah Estimasian</span>
-                  <span className="font-bold text-slate-900">
-                    {currentQuantity} {activeService.unit}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center text-slate-700">
-                  <span>Harga per {activeService.unit}</span>
-                  <span className="font-bold text-slate-900">{formatIDR(activeService.price)}</span>
-                </div>
-
-                <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
-                  <span className="font-bold text-slate-800 text-sm">Subtotal Estimasian</span>
-                  <span className="font-black text-teal-700 text-lg">{formatIDR(subtotal)}</span>
-                </div>
-
-                <Button
-                  variant="primary"
-                  size="md"
-                  disabled={!laundry.isOpen}
-                  onClick={handleProceedToCheckout}
-                  rightIcon={<ChevronRight className="w-4 h-4" />}
-                  className="w-full mt-4 bg-teal-600 hover:bg-teal-500 font-bold py-3 text-sm"
-                >
-                  {laundry.isOpen ? 'Lanjut Pilih Alamat Pickup' : 'Toko Sedang Tutup'}
-                </Button>
-
-                {!laundry.isOpen && (
-                  <p className="text-[11px] text-rose-500 text-center font-medium">
-                    Mitra laundry sedang tutup. Silakan pilih mitra laundry lain yang buka.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 text-center">Pilih salah satu layanan untuk melanjutkan.</p>
-            )}
-          </Card>
+      {/* APPROVED STICKY BOTTOM ORDER BAR (MOBILE ONLY) */}
+      <div className="lg:hidden fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom))] inset-x-0 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 p-3.5 shadow-2xl z-30 flex items-center justify-between gap-3">
+        <div>
+          {activeService && currentQuantity > 0 ? (
+            <>
+              <p className="text-xs font-black text-slate-900">
+                1 Layanan ({currentQuantity} {activeService.unit})
+              </p>
+              <p className="text-[10px] font-bold text-slate-500">
+                {currentQuantity < minQuantityThreshold
+                  ? `Min. charge ${minQuantityThreshold} ${activeService.unit} berlaku (${formatIDR(subtotal)})`
+                  : 'Harga final setelah penimbangan'}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-bold text-slate-500">Pilih layanan</p>
+              <p className="text-[10px] text-slate-400">Tambahkan minimal 1 layanan</p>
+            </>
+          )}
         </div>
+
+        <Button
+          variant="primary"
+          size="md"
+          disabled={!laundry.isOpen || !activeService || currentQuantity <= 0}
+          onClick={handleProceedToCheckout}
+          rightIcon={<ChevronRight className="w-4 h-4" />}
+          className="bg-teal-600 hover:bg-teal-500 font-bold text-xs px-5 py-2.5 shrink-0 disabled:opacity-50"
+        >
+          {laundry.isOpen ? 'Lanjut' : 'Tutup'}
+        </Button>
       </div>
     </div>
   );

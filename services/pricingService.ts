@@ -21,6 +21,8 @@ export interface PricingItemBreakdown {
   unitPrice: number;
   quantity: number;
   unit: 'kg' | 'pcs';
+  minimumQuantity?: number;
+  minWeight?: number;
   subtotal: number;
   estimatedHours?: number;
 }
@@ -140,9 +142,11 @@ export const pricingService = {
         throw new Error(`Validasi Harga Gagal: Layanan '${srv.name}' saat ini sedang tidak aktif.`);
       }
 
-      // Authoritative Unit Price (Integer IDR)
+      // Authoritative Unit Price (Integer IDR) & Minimum Charge Calculation
       const authoritativeUnitPrice = Math.round(Number(srv.price));
-      const itemSubtotal = Math.round(authoritativeUnitPrice * qty);
+      const minQty = Math.max(1, Number(srv.minWeight ?? srv.minimumQuantity ?? 1));
+      const billableQty = Math.max(qty, minQty);
+      const itemSubtotal = Math.round(authoritativeUnitPrice * billableQty);
       subtotal += itemSubtotal;
 
       itemBreakdowns.push({
@@ -151,6 +155,8 @@ export const pricingService = {
         unitPrice: authoritativeUnitPrice,
         quantity: qty,
         unit: srv.unit,
+        minimumQuantity: minQty,
+        minWeight: minQty,
         subtotal: itemSubtotal,
         estimatedHours: srv.estimatedHours || 48,
       });
@@ -214,7 +220,9 @@ export const pricingService = {
       }
 
       const authoritativeUnitPrice = Math.round(Number(srv.price));
-      const itemSubtotal = Math.round(authoritativeUnitPrice * qty);
+      const minQty = Math.max(1, Number(srv.minWeight ?? srv.minimumQuantity ?? 1));
+      const billableQty = Math.max(qty, minQty);
+      const itemSubtotal = Math.round(authoritativeUnitPrice * billableQty);
       subtotal += itemSubtotal;
 
       itemBreakdowns.push({
@@ -223,6 +231,8 @@ export const pricingService = {
         unitPrice: authoritativeUnitPrice,
         quantity: qty,
         unit: srv.unit,
+        minimumQuantity: minQty,
+        minWeight: minQty,
         subtotal: itemSubtotal,
         estimatedHours: typeof srv.estimatedHours === 'number' && srv.estimatedHours > 0 ? srv.estimatedHours : 48,
       });

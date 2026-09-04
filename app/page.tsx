@@ -271,10 +271,12 @@ export default function LandingMarketplacePage() {
         </div>
       </div>
 
-      {/* Trust & Process Features */}
-      <Features />
-      <HowItWorks />
-      <CTA />
+      {/* Trust & Process Features (Desktop) */}
+      <div className="hidden md:block">
+        <Features />
+        <HowItWorks />
+        <CTA />
+      </div>
     </div>
   );
 }

@@ -277,7 +277,10 @@ function CheckoutContent() {
 
   // Fee Calculation
   const unitPrice = selectedService?.price || 0;
-  const subtotal = unitPrice * qtyParam;
+  const minQtyThreshold = Math.max(1, selectedService?.minimumQuantity ?? selectedService?.minWeight ?? 1);
+  const selectedQty = qtyParam;
+  const billableQty = Math.max(selectedQty, minQtyThreshold);
+  const subtotal = unitPrice * billableQty;
   const pickupFee = 0; // Promo Gratis
   const deliveryFee = 0; // Promo Gratis
   const platformFee = 2000;
@@ -446,7 +449,7 @@ function CheckoutContent() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 pb-24 md:pb-12">
       {/* Back nav & Header */}
       <div className="space-y-3">
         <button
@@ -763,11 +766,17 @@ function CheckoutContent() {
                 <span className="font-semibold text-white">{formatIDR(selectedService?.price || 0)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Jumlah Estimasi:</span>
+                <span className="text-slate-400">Estimasi Pelanggan:</span>
                 <span className="font-bold text-teal-300">
-                  {qtyParam} {selectedService?.unit}
+                  {selectedQty} {selectedService?.unit}
                 </span>
               </div>
+              {selectedQty < minQtyThreshold && (
+                <div className="flex justify-between text-amber-300 font-semibold bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                  <span>Minimum Charge:</span>
+                  <span>{minQtyThreshold} {selectedService?.unit}</span>
+                </div>
+              )}
 
               <div className="pt-3 border-t border-slate-800 space-y-2">
                 <div className="flex justify-between">
@@ -795,8 +804,8 @@ function CheckoutContent() {
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>Pembersihan Higienis Garansi 100%</span>
               </div>
-              <p className="text-slate-400">
-                Penimbangan berat sebenarnya akan dikonfirmasi ulang oleh kurir/laundry saat proses penjemputan.
+              <p className="text-slate-400 leading-relaxed">
+                Penimbangan berat sebenarnya akan dikonfirmasi ulang oleh kurir/laundry saat penjemputan. Jika estimasi di bawah minimum charge ({minQtyThreshold} {selectedService?.unit}), biaya minimum berlaku.
               </p>
             </div>
 

@@ -151,7 +151,7 @@ function CustomerLaundriesContent() {
   const hasLocationAvailable = Boolean(locationState.displayLocation && locationState.searchLocation);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 pb-24 md:pb-10">
       {/* Location Picker Header */}
       <LocationPickerHeader
         onTagClick={(tag) => setSearchQuery(tag)}
@@ -219,14 +219,14 @@ function CustomerLaundriesContent() {
 
         {/* LOADING SKELETON GRID */}
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <LaundryCardSkeleton key={i} />
             ))}
           </div>
         ) : filteredItems.length > 0 ? (
-          /* RESPONSIVE VERTICAL GRID (1 col mobile, 2 tablet, 3 lg, 4 xl) */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          /* RESPONSIVE VERTICAL GRID (2 col mobile, 2 tablet, 3 lg, 4 xl) */
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
             {filteredItems.map((item) => (
               <LaundryPartnerCard key={item.laundry.id} item={item} />
             ))}

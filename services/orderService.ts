@@ -551,17 +551,22 @@ export const orderService = {
       throw new Error(`Persistensi Database Gagal: Order dengan ID ${insertedOrder.id} tidak ditemukan saat read-back!`);
     }
 
-    // Insert order_items using authoritative price snapshots from Pricing Engine
+    // Insert order_items using authoritative price and minimum charge snapshots from Pricing Engine
     if (insertedOrder && pricing.items.length > 0) {
-      const orderItemsRows = pricing.items.map((item) => ({
-        order_id: insertedOrder.id,
-        service_id: isValidUuid(item.serviceId) ? item.serviceId : null,
-        service_name_snapshot: item.serviceName,
-        price_snapshot: item.unitPrice,
-        estimated_weight: item.unit === 'kg' ? item.quantity : null,
-        quantity: item.quantity,
-        subtotal: item.subtotal,
-      }));
+      const orderItemsRows = pricing.items.map((item) => {
+        // Fetch minimum charge from service layer or item property
+        const minQty = Math.max(1, item.minimumQuantity ?? item.minWeight ?? 1);
+        return {
+          order_id: insertedOrder.id,
+          service_id: isValidUuid(item.serviceId) ? item.serviceId : null,
+          service_name_snapshot: item.serviceName,
+          price_snapshot: item.unitPrice,
+          min_weight_snapshot: minQty,
+          estimated_weight: item.unit === 'kg' ? item.quantity : null,
+          quantity: item.quantity,
+          subtotal: item.subtotal,
+        };
+      });
 
       const { error: itemsError } = await (db.from('order_items') as any).insert(orderItemsRows);
       if (itemsError) {
@@ -671,6 +676,7 @@ export const orderService = {
         name: i.service_name_snapshot,
         quantity: Number(i.quantity),
         unitPrice: Number(i.price_snapshot),
+        minWeightSnapshot: Number(i.min_weight_snapshot || 1),
         unit: 'kg',
         subtotal: Number(i.subtotal),
       })),
@@ -745,6 +751,7 @@ export const orderService = {
         name: i.service_name_snapshot,
         quantity: Number(i.quantity),
         unitPrice: Number(i.price_snapshot),
+        minWeightSnapshot: Number(i.min_weight_snapshot || 1),
         unit: 'kg',
         subtotal: Number(i.subtotal),
       })),
@@ -2197,11 +2204,23 @@ export const orderService = {
       }
     }
 
+    const itemMinSnapshot = order.items[0]?.minWeightSnapshot;
+    const serviceId = order.items[0]?.serviceId;
+    let minWeightThreshold = itemMinSnapshot && itemMinSnapshot >= 1 ? itemMinSnapshot : 1;
+    if (!itemMinSnapshot && serviceId) {
+      const srv = laundryService.getServiceById(serviceId);
+      if (srv) {
+        minWeightThreshold = Math.max(1, srv.minimumQuantity ?? srv.minWeight ?? 1);
+      }
+    }
+    const billableWeight = Math.max(finalWeightKg, minWeightThreshold);
+
     const estimatedWeight = order.estimatedWeightKg || 5;
     const unitPrice = order.items[0]?.unitPrice || 8000;
-    const estimatedTotal = Math.round((estimatedWeight * unitPrice) + (order.deliveryFee || 0) + (order.platformFee || 2000) - (order.discount || 0));
+    const initialBillableEst = Math.max(estimatedWeight, minWeightThreshold);
+    const estimatedTotal = Math.round((initialBillableEst * unitPrice) + (order.deliveryFee || 0) + (order.platformFee || 2000) - (order.discount || 0));
 
-    const actualItemSubtotal = Math.round(finalWeightKg * unitPrice);
+    const actualItemSubtotal = Math.round(billableWeight * unitPrice);
 
     const deliveryFee = Number(order.deliveryFee || 0);
     const platformFee = Number(order.platformFee || 2000);

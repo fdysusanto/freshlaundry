@@ -70,6 +70,10 @@ export default function CreateOwnerServicePage() {
       setErrorMsg('Tarif harga layanan harus lebih dari Rp 0.');
       return;
     }
+    if (!minWeight || minWeight < 1) {
+      setErrorMsg(unit === 'kg' ? 'Minimum charge (kg) harus minimal 1 kg.' : 'Minimum quantity (pcs) harus minimal 1 pcs.');
+      return;
+    }
     if (!estimatedHours || estimatedHours <= 0) {
       setErrorMsg('Estimasi pengerjaan harus lebih dari 0 jam.');
       return;
@@ -87,6 +91,7 @@ export default function CreateOwnerServicePage() {
           price_per_unit: price,
           unit,
           minWeight,
+          minimumQuantity: minWeight,
           estimatedHours,
           estimatedTime: estimatedTime.trim() || `${estimatedHours} Jam`,
           badge: badge.trim() || undefined,
@@ -234,16 +239,21 @@ export default function CreateOwnerServicePage() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                Minimal Order ({unit}):
+                {unit === 'kg' ? 'Minimum Charge (kg)' : 'Minimum Quantity (pcs)'} <span className="text-rose-500">*</span>:
               </label>
               <input
                 type="number"
                 required
                 min={1}
                 value={minWeight}
-                onChange={(e) => setMinWeight(Number(e.target.value))}
+                onChange={(e) => setMinWeight(Math.max(1, Number(e.target.value)))}
                 className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
               />
+              <p className="text-[10px] text-slate-500 mt-1 font-medium leading-tight">
+                {unit === 'kg'
+                  ? 'Minimum berat yang dikenakan biaya. Customer dapat memilih estimasi lebih rendah, biaya minimum tetap berlaku.'
+                  : 'Minimum jumlah item yang dikenakan biaya.'}
+              </p>
             </div>
 
             <div>

@@ -22,6 +22,7 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   unit: 'kg' | 'pcs';
+  minWeightSnapshot?: number;
   subtotal?: number;
   estimatedHours?: number;
 }

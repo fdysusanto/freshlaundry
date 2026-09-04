@@ -127,6 +127,7 @@ export interface Database {
           service_id: string | null;
           service_name_snapshot: string;
           price_snapshot: number;
+          min_weight_snapshot: number | null;
           estimated_weight: number | null;
           actual_weight: number | null;
           quantity: number;

@@ -72,6 +72,7 @@ export interface LaundryService {
   price_per_unit?: number;
   unit: 'kg' | 'pcs';
   minWeight?: number;
+  minimumQuantity?: number;
   estimatedHours: number;
   iconName: string;
   isActive: boolean;

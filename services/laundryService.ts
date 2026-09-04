@@ -193,7 +193,8 @@ export const laundryService = {
       price: Number(s.price_per_unit),
       price_per_unit: Number(s.price_per_unit),
       unit: s.unit as 'kg' | 'pcs',
-      minWeight: 1,
+      minWeight: Number(s.min_weight || 1),
+      minimumQuantity: Number(s.min_weight || 1),
       estimatedHours: s.estimated_hours || 24,
       estimatedTime: `${s.estimated_hours || 24} Jam`,
       iconName: s.icon_name || 'Sparkles',
@@ -255,7 +256,8 @@ export const laundryService = {
       price: Number(s.price_per_unit),
       price_per_unit: Number(s.price_per_unit),
       unit: s.unit as 'kg' | 'pcs',
-      minWeight: 1,
+      minWeight: Number(s.min_weight || 1),
+      minimumQuantity: Number(s.min_weight || 1),
       estimatedHours: s.estimated_hours || 24,
       estimatedTime: `${s.estimated_hours || 24} Jam`,
       iconName: s.icon_name || 'Sparkles',
@@ -286,6 +288,8 @@ export const laundryService = {
       throw new Error('Validasi Gagal: Tarif layanan harus lebih besar dari Rp 0.');
     }
 
+    const minQty = Math.max(1, payload.minimumQuantity ?? payload.minWeight ?? 1);
+
     const { data: inserted, error } = await (supabase.from('services') as any)
       .insert({
         laundry_id: targetLaundryId,
@@ -294,6 +298,7 @@ export const laundryService = {
         code: payload.code || 'kiloan',
         price_per_unit: payload.price,
         unit: payload.unit || 'kg',
+        min_weight: minQty,
         estimated_hours: payload.estimatedHours || 24,
         is_active: payload.isActive ?? true,
         icon_name: payload.iconName || 'Sparkles',
@@ -315,7 +320,8 @@ export const laundryService = {
       price: Number(inserted.price_per_unit),
       price_per_unit: Number(inserted.price_per_unit),
       unit: inserted.unit as 'kg' | 'pcs',
-      minWeight: 1,
+      minWeight: Number(inserted.min_weight || minQty),
+      minimumQuantity: Number(inserted.min_weight || minQty),
       estimatedHours: inserted.estimated_hours || 24,
       estimatedTime: `${inserted.estimated_hours || 24} Jam`,
       iconName: inserted.icon_name || 'Sparkles',
@@ -341,6 +347,9 @@ export const laundryService = {
     if (updates.description !== undefined) dbUpdates.description = updates.description;
     if (updates.price !== undefined) dbUpdates.price_per_unit = updates.price;
     if (updates.unit !== undefined) dbUpdates.unit = updates.unit;
+    if (updates.minimumQuantity !== undefined || updates.minWeight !== undefined) {
+      dbUpdates.min_weight = Math.max(1, updates.minimumQuantity ?? updates.minWeight ?? 1);
+    }
     if (updates.estimatedHours !== undefined) dbUpdates.estimated_hours = updates.estimatedHours;
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
 
@@ -364,7 +373,8 @@ export const laundryService = {
       price: Number(updatedRow.price_per_unit),
       price_per_unit: Number(updatedRow.price_per_unit),
       unit: updatedRow.unit as 'kg' | 'pcs',
-      minWeight: 1,
+      minWeight: Number(updatedRow.min_weight || 1),
+      minimumQuantity: Number(updatedRow.min_weight || 1),
       estimatedHours: updatedRow.estimated_hours || 24,
       estimatedTime: `${updatedRow.estimated_hours || 24} Jam`,
       iconName: updatedRow.icon_name || 'Sparkles',
