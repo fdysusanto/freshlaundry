@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { UserProfile } from '@/types/user';
-import { Home, Search, Package, User, Truck, Store, BarChart3, Users, RotateCcw } from 'lucide-react';
+import { Home, Search, Package, User, Truck, Store, BarChart3, Users, RotateCcw, Layers } from 'lucide-react';
 
 export const MobileNav: React.FC = () => {
   const pathname = usePathname();
@@ -34,8 +34,10 @@ export const MobileNav: React.FC = () => {
 
   if (role === 'courier') {
     navItems = [
-      { id: 'home', label: 'Beranda', href: '/', icon: Home },
-      { id: 'courier-portal', label: 'Kurir Portal', href: '/courier', icon: Truck, isCta: true },
+      { id: 'courier-home', label: 'Home', href: '/courier', icon: Home },
+      { id: 'courier-job-pool', label: 'Job Pool', href: '/courier/job-pool', icon: Layers },
+      { id: 'courier-active-tasks', label: 'Tugas', href: '/courier/active-tasks', icon: Truck },
+      { id: 'courier-account', label: 'Akun', href: '/courier/account', icon: User },
     ];
   } else if (role === 'laundry_owner' || role === 'laundry_staff') {
     navItems = [
@@ -61,6 +63,18 @@ export const MobileNav: React.FC = () => {
   }
 
   const checkIsActive = (itemId: string, href: string) => {
+    if (itemId === 'courier-home') {
+      return pathname === '/courier';
+    }
+    if (itemId === 'courier-job-pool') {
+      return pathname.startsWith('/courier/job-pool');
+    }
+    if (itemId === 'courier-active-tasks') {
+      return pathname.startsWith('/courier/active-tasks');
+    }
+    if (itemId === 'courier-account') {
+      return pathname.startsWith('/courier/account');
+    }
     if (itemId === 'home') {
       return pathname === '/customer' || pathname === '/';
     }
