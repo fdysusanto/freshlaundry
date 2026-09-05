@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { UserProfile } from '@/types/user';
-import { Home, PlusCircle, User, Truck, ShieldCheck, Store, BarChart3, Users, RotateCcw, Search } from 'lucide-react';
+import { Home, Search, Package, User, Truck, Store, BarChart3, Users, RotateCcw } from 'lucide-react';
 
 export const MobileNav: React.FC = () => {
   const pathname = usePathname();
@@ -51,20 +51,41 @@ export const MobileNav: React.FC = () => {
       { id: 'admin-staff', label: 'Staff', href: '/admin/staff', icon: Users, isCta: true },
     ];
   } else {
-    // Guest or Customer
+    // Customer (or Guest) Target Bottom Navigation: Home | Cari | Pesanan | Akun
     navItems = [
-      { id: 'home', label: 'Beranda', href: '/', icon: Home },
-      { id: 'search-laundries', label: 'Cari', href: '/customer/laundries', icon: Search },
-      { id: 'order-laundry', label: 'Pesan', href: '/customer/laundries', icon: PlusCircle, isCta: true },
-      { id: 'customer-dashboard', label: 'Akun Saya', href: '/customer', icon: User },
+      { id: 'home', label: 'Home', href: '/customer', icon: Home },
+      { id: 'search', label: 'Cari', href: '/customer/laundries', icon: Search },
+      { id: 'orders', label: 'Pesanan', href: '/customer/orders', icon: Package },
+      { id: 'account', label: 'Akun', href: '/customer/account', icon: User },
     ];
   }
+
+  const checkIsActive = (itemId: string, href: string) => {
+    if (itemId === 'home') {
+      return pathname === '/customer' || pathname === '/';
+    }
+    if (itemId === 'search') {
+      return pathname.startsWith('/customer/laundries');
+    }
+    if (itemId === 'orders') {
+      return pathname === '/customer/orders';
+    }
+    if (itemId === 'account') {
+      return (
+        pathname.startsWith('/customer/account') ||
+        pathname.startsWith('/customer/addresses') ||
+        pathname.startsWith('/customer/favorites') ||
+        pathname.startsWith('/customer/orders/history')
+      );
+    }
+    return pathname === href || (href !== '/' && pathname.startsWith(href));
+  };
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex items-center justify-around shadow-2xl">
       {navItems.map((item) => {
         const Icon = item.icon;
-        const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+        const isActive = checkIsActive(item.id, item.href);
 
         if (item.isCta) {
           return (

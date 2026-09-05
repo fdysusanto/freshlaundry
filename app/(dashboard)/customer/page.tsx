@@ -7,25 +7,27 @@ import { authService } from '@/services/authService';
 import { orderService } from '@/services/orderService';
 import { partnerApplicationService, PartnerApplicationRecord } from '@/services/partnerApplicationService';
 import { isSupabaseConfigured } from '@/services/supabase';
-import { Order } from '@/types/order';
+import { Order, normalizeOrderStatus } from '@/types/order';
 import { UserProfile } from '@/types/user';
 import { formatIDR, formatDateIndo } from '@/utils/formatters';
 import { getStatusConfig } from '@/utils/helpers';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { PlusCircle, ShoppingBag, Truck, MapPin, Clock, ArrowRight, Eye } from 'lucide-react';
+import { PlusCircle, ShoppingBag, Truck, MapPin, Clock, ArrowRight, Eye, Search, History } from 'lucide-react';
 
 export default function CustomerDashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [partnerApp, setPartnerApp] = useState<PartnerApplicationRecord | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadDashboard = async () => {
+      setIsLoading(true);
       if (isSupabaseConfigured) {
         const liveProfile = await authService.fetchCurrentProfile();
         if (!liveProfile) {
@@ -52,6 +54,8 @@ export default function CustomerDashboardPage() {
         } catch (err) {
           console.warn('Live dashboard load warning:', err);
           if (isMounted) setOrders([]);
+        } finally {
+          if (isMounted) setIsLoading(false);
         }
       } else {
         const currentUser = authService.getCurrentUser();
@@ -67,6 +71,7 @@ export default function CustomerDashboardPage() {
         if (isMounted) {
           setUser(currentUser);
           setOrders(currentUser ? orderService.getOrdersByCustomer(currentUser.id) : []);
+          setIsLoading(false);
         }
       }
     };
@@ -77,8 +82,25 @@ export default function CustomerDashboardPage() {
     };
   }, [router]);
 
-  const activeOrders = orders.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled');
-  const pastOrders = orders.filter((o) => o.status === 'delivered' || o.status === 'cancelled');
+  // Order Status Source of Truth: Active vs History
+  const activeOrders = orders.filter((o) => {
+    const norm = normalizeOrderStatus(o.status);
+    return norm !== 'delivered' && norm !== 'cancelled';
+  });
+
+  const pastOrders = orders.filter((o) => {
+    const norm = normalizeOrderStatus(o.status);
+    return norm === 'delivered' || norm === 'cancelled';
+  });
+
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-16 text-center space-y-4">
+        <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto" />
+        <p className="text-xs font-semibold text-slate-600">Memuat Customer Dashboard...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 pb-24 md:pb-12">
@@ -87,7 +109,7 @@ export default function CustomerDashboardPage() {
         <div className="space-y-2 relative z-10">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-bold">
             <ShoppingBag className="w-3.5 h-3.5" />
-            <span>Portal Customer Laundry</span>
+            <span>Customer Overview Dashboard</span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-black tracking-tight">
             Halo, {user?.fullName || 'Pelanggan Setia'}! 👋
@@ -101,10 +123,10 @@ export default function CustomerDashboardPage() {
           variant="primary"
           size="lg"
           onClick={() => router.push('/customer/laundries')}
-          leftIcon={<PlusCircle className="w-5 h-5" />}
+          leftIcon={<Search className="w-5 h-5" />}
           className="bg-white hover:bg-teal-50 text-teal-900 shadow-xl shrink-0 font-bold"
         >
-          Buat Pesanan Pickup Baru
+          Cari Laundry &amp; Pesan Baru
         </Button>
       </div>
 
@@ -169,21 +191,21 @@ export default function CustomerDashboardPage() {
         </Card>
       )}
 
-      {/* Active Orders Section */}
+      {/* Active Orders Section (Quick Overview) */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Pesanan Aktif Berjalan</h2>
-            <p className="text-xs text-slate-500">Pesanan yang sedang diproses atau ditugaskan kurir</p>
+            <h2 className="text-lg font-bold text-slate-900">📦 Pesanan Aktif Berjalan</h2>
+            <p className="text-xs text-slate-500">Ringkasan pesanan yang sedang diproses atau ditugaskan kurir</p>
           </div>
-          <span className="text-xs font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-200">
-            {activeOrders.length} Pesanan Aktif
-          </span>
+          <Link href="/customer/orders" className="text-xs font-bold text-teal-700 hover:underline flex items-center gap-1">
+            Lihat Semua Pesanan ({activeOrders.length}) →
+          </Link>
         </div>
 
         {activeOrders.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {activeOrders.map((o) => {
+            {activeOrders.slice(0, 2).map((o) => {
               const cfg = getStatusConfig(o.status);
               return (
                 <Card key={o.id} variant="white" className="hover:border-teal-300 transition-all space-y-4">
@@ -213,12 +235,6 @@ export default function CustomerDashboardPage() {
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Jadwal Delivery:</span>
-                      <span className="font-semibold text-indigo-700">
-                        {o.deliveryDate ? `${formatDateIndo(o.deliveryDate)} ${o.deliveryTimeSlot ? `(${o.deliveryTimeSlot})` : ''}` : '-'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
                       <span className="text-slate-500">Kurir Ditugaskan:</span>
                       <span className="font-semibold text-teal-700">
                         {o.courierName || 'Mencari Kurir Terdekat...'}
@@ -228,23 +244,14 @@ export default function CustomerDashboardPage() {
                       <span className="text-slate-500 font-bold">Total Biaya:</span>
                       <span className="font-black text-teal-700 text-sm">{formatIDR(o.totalPrice)}</span>
                     </div>
-
-                    {o.finalWeightKg && o.estimatedWeightKg && o.finalWeightKg > o.estimatedWeightKg && (
-                      <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-xs flex items-center justify-between text-amber-900 font-bold">
-                        <span>⚠️ Perlu Pelunasan Selisih Berat ({o.finalWeightKg} kg)</span>
-                        <Link href={`/orders/${o.id}`}>
-                          <span className="text-amber-700 underline text-[11px] cursor-pointer">Bayar →</span>
-                        </Link>
-                      </div>
-                    )}
                   </div>
 
-                  <div className="pt-2 flex items-center justify-between gap-3">
+                  <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100">
                     <Link
                       href={`/orders/track/${o.trackingNumber}`}
                       className="text-xs font-bold text-teal-700 hover:underline flex items-center gap-1"
                     >
-                      <Truck className="w-4 h-4" /> Live Tracking Status
+                      <Truck className="w-4 h-4" /> Live Tracking
                     </Link>
                     <Button
                       variant="outline"
@@ -264,7 +271,7 @@ export default function CustomerDashboardPage() {
             <ShoppingBag className="w-12 h-12 text-slate-300 mx-auto" />
             <p className="text-sm font-bold text-slate-700">Belum Ada Pesanan Aktif</p>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Anda tidak memiliki pesanan laundry yang sedang berjalan. Buat pesanan baru sekarang!
+              Anda tidak memiliki pesanan laundry yang sedang berjalan. Jelajahi marketplace dan buat pesanan baru!
             </p>
             <Button
               variant="primary"
@@ -272,19 +279,63 @@ export default function CustomerDashboardPage() {
               onClick={() => router.push('/customer/laundries')}
               className="mt-2"
             >
-              Buat Order Baru
+              Cari Laundry Terdekat
             </Button>
           </Card>
         )}
       </div>
 
-      {/* Past Orders History */}
+      {/* Quick Navigation Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+        <Card variant="white" className="p-4 flex items-center justify-between hover:border-teal-300 transition-all">
+          <div className="space-y-0.5">
+            <h3 className="font-bold text-slate-900 text-sm">🔍 Cari Laundry</h3>
+            <p className="text-xs text-slate-500">Jelajahi mitra laundry terdekat</p>
+          </div>
+          <Link href="/customer/laundries">
+            <Button variant="outline" size="sm" className="font-bold border-teal-200 text-teal-700">
+              Jelajahi →
+            </Button>
+          </Link>
+        </Card>
+
+        <Card variant="white" className="p-4 flex items-center justify-between hover:border-teal-300 transition-all">
+          <div className="space-y-0.5">
+            <h3 className="font-bold text-slate-900 text-sm">📜 Riwayat Pesanan</h3>
+            <p className="text-xs text-slate-500">Arsip pesanan laundry selesai</p>
+          </div>
+          <Link href="/customer/orders/history">
+            <Button variant="outline" size="sm" className="font-bold border-slate-200">
+              Buka →
+            </Button>
+          </Link>
+        </Card>
+
+        <Card variant="white" className="p-4 flex items-center justify-between hover:border-teal-300 transition-all">
+          <div className="space-y-0.5">
+            <h3 className="font-bold text-slate-900 text-sm">📍 Alamat Saya</h3>
+            <p className="text-xs text-slate-500">Atur lokasi penjemputan &amp; pengantaran</p>
+          </div>
+          <Link href="/customer/addresses">
+            <Button variant="outline" size="sm" className="font-bold border-slate-200">
+              Atur →
+            </Button>
+          </Link>
+        </Card>
+      </div>
+
+      {/* Past Orders History Summary */}
       {pastOrders.length > 0 && (
         <div className="space-y-4 pt-4 border-t border-slate-200">
-          <h2 className="text-lg font-bold text-slate-900">Riwayat Pesanan Selesai</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-slate-900">Riwayat Pesanan Selesai</h2>
+            <Link href="/customer/orders/history" className="text-xs font-bold text-teal-700 hover:underline">
+              Lihat Semua Riwayat ({pastOrders.length}) →
+            </Link>
+          </div>
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="divide-y divide-slate-100">
-              {pastOrders.map((o) => (
+              {pastOrders.slice(0, 3).map((o) => (
                 <div key={o.id} className="p-4 flex items-center justify-between gap-4 text-xs">
                   <div>
                     <p className="font-bold text-slate-900">{o.trackingNumber}</p>
@@ -292,8 +343,8 @@ export default function CustomerDashboardPage() {
                   </div>
                   <div className="text-right">
                     <p className="font-black text-teal-700">{formatIDR(o.totalPrice)}</p>
-                    <Badge variant="emerald" size="sm">
-                      Selesai
+                    <Badge variant={normalizeOrderStatus(o.status) === 'delivered' ? 'emerald' : 'rose'} size="sm">
+                      {normalizeOrderStatus(o.status) === 'delivered' ? 'Selesai' : 'Dibatalkan'}
                     </Badge>
                   </div>
                 </div>

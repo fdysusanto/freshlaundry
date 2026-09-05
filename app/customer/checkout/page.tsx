@@ -30,12 +30,18 @@ import {
   User,
   Phone,
   AlertCircle,
+  Package,
+  Truck,
+  ShoppingBag,
+  CreditCard,
 } from 'lucide-react';
 
 import { laundryService } from '@/services/laundryService';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { Laundry } from '@/types/laundry';
 import { triggerPaymentFlow } from '@/utils/midtransSnap';
+
+type LogisticsTab = 'pickup' | 'delivery';
 
 function CheckoutContent() {
   const router = useRouter();
@@ -51,9 +57,14 @@ function CheckoutContent() {
   const [selectedService, setSelectedService] = useState<ServiceCatalogItem | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Active Logistics Tab State
+  const [activeLogisticsTab, setActiveLogisticsTab] = useState<LogisticsTab>('pickup');
+
   // Customer Saved Addresses State
   const [selectedPickupAddress, setSelectedPickupAddress] = useState<CustomerAddress | null>(null);
   const [selectedDeliveryAddress, setSelectedDeliveryAddress] = useState<CustomerAddress | null>(null);
+  const [savedCustomDeliveryAddress, setSavedCustomDeliveryAddress] = useState<CustomerAddress | null>(null);
+  const [savedCustomDeliveryText, setSavedCustomDeliveryText] = useState<string>('');
   const [useSameAddress, setUseSameAddress] = useState(true);
 
   const [isPickupSelectorOpen, setIsPickupSelectorOpen] = useState(false);
@@ -74,7 +85,9 @@ function CheckoutContent() {
     return dayAfterTomorrow.toISOString().split('T')[0];
   });
   const [deliveryTimeSlot, setDeliveryTimeSlot] = useState(TIME_SLOTS[0]);
-  const [notes, setNotes] = useState('');
+  const [pickupNotes, setPickupNotes] = useState('');
+  const [deliveryNotes, setDeliveryNotes] = useState('');
+
   const availablePickupSlots = useMemo(() => {
     return TIME_SLOTS.filter((slot) => isPickupSlotSelectable(pickupDate, slot));
   }, [pickupDate]);
@@ -119,6 +132,11 @@ function CheckoutContent() {
       }
     }
   }, [earliestDelivery, deliveryDate, availableDeliverySlots, deliveryTimeSlot]);
+
+  // Validation helper for Pickup Tab indicator
+  const isPickupValid = useMemo(() => {
+    return Boolean(pickupAddress && pickupDate && pickupTimeSlot && isPickupSlotSelectable(pickupDate, pickupTimeSlot));
+  }, [pickupAddress, pickupDate, pickupTimeSlot]);
 
   useEffect(() => {
     let isMounted = true;
@@ -250,28 +268,45 @@ function CheckoutContent() {
   const handleSelectPickupAddress = (addr: CustomerAddress) => {
     setSelectedPickupAddress(addr);
     const snapshot = customerAddressService.createSnapshotFromAddress(addr);
-    setPickupAddress(snapshot.formatted_address || addr.addressDetail);
+    const formatted = snapshot.formatted_address || addr.addressDetail;
+    setPickupAddress(formatted);
 
     if (useSameAddress) {
       setSelectedDeliveryAddress(addr);
-      setDeliveryAddress(snapshot.formatted_address || addr.addressDetail);
+      setDeliveryAddress(formatted);
     }
   };
 
   // Handle Delivery Address selection from modal
   const handleSelectDeliveryAddress = (addr: CustomerAddress) => {
     setSelectedDeliveryAddress(addr);
+    setSavedCustomDeliveryAddress(addr);
     const snapshot = customerAddressService.createSnapshotFromAddress(addr);
-    setDeliveryAddress(snapshot.formatted_address || addr.addressDetail);
+    const formatted = snapshot.formatted_address || addr.addressDetail;
+    setDeliveryAddress(formatted);
+    setSavedCustomDeliveryText(formatted);
   };
 
   // Toggle same address
   const handleToggleSameAddress = (checked: boolean) => {
     setUseSameAddress(checked);
-    if (checked && selectedPickupAddress) {
-      setSelectedDeliveryAddress(selectedPickupAddress);
-      const snapshot = customerAddressService.createSnapshotFromAddress(selectedPickupAddress);
-      setDeliveryAddress(snapshot.formatted_address || selectedPickupAddress.addressDetail);
+    if (checked) {
+      if (selectedPickupAddress) {
+        setSelectedDeliveryAddress(selectedPickupAddress);
+        const snapshot = customerAddressService.createSnapshotFromAddress(selectedPickupAddress);
+        setDeliveryAddress(snapshot.formatted_address || selectedPickupAddress.addressDetail);
+      } else {
+        setDeliveryAddress(pickupAddress);
+      }
+    } else {
+      if (savedCustomDeliveryAddress) {
+        setSelectedDeliveryAddress(savedCustomDeliveryAddress);
+        const snapshot = customerAddressService.createSnapshotFromAddress(savedCustomDeliveryAddress);
+        setDeliveryAddress(snapshot.formatted_address || savedCustomDeliveryAddress.addressDetail);
+      } else if (savedCustomDeliveryText) {
+        setSelectedDeliveryAddress(null);
+        setDeliveryAddress(savedCustomDeliveryText);
+      }
     }
   };
 
@@ -291,9 +326,25 @@ function CheckoutContent() {
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pickupAddress || !pickupDate || !pickupTimeSlot) return;
 
+    // 1. Pickup Validation with Auto-Tab Switch
+    if (!pickupAddress) {
+      setActiveLogisticsTab('pickup');
+      setErrorMessage('Alamat penjemputan (Pickup Address) wajib diisi.');
+      return;
+    }
+    if (!pickupDate) {
+      setActiveLogisticsTab('pickup');
+      setErrorMessage('Tanggal penjemputan wajib dipilih.');
+      return;
+    }
+    if (!pickupTimeSlot) {
+      setActiveLogisticsTab('pickup');
+      setErrorMessage('Slot waktu penjemputan wajib dipilih.');
+      return;
+    }
     if (!isPickupSlotSelectable(pickupDate, pickupTimeSlot)) {
+      setActiveLogisticsTab('pickup');
       setErrorMessage('Slot penjemputan yang dipilih sudah ditutup. Silakan pilih slot waktu berikutnya.');
       return;
     }
@@ -314,6 +365,13 @@ function CheckoutContent() {
       }
     }
 
+    // 2. Delivery Validation with Auto-Tab Switch
+    if (!useSameAddress && !deliveryAddress) {
+      setActiveLogisticsTab('delivery');
+      setErrorMessage('Alamat pengantaran (Delivery Address) wajib diisi.');
+      return;
+    }
+
     const scheduleVal = validateDeliverySchedule(
       pickupDate,
       pickupTimeSlot,
@@ -323,6 +381,7 @@ function CheckoutContent() {
     );
 
     if (!scheduleVal.isValid) {
+      setActiveLogisticsTab('delivery');
       setErrorMessage(scheduleVal.errorMessage || 'Jadwal pengantaran tidak valid untuk durasi proses layanan ini.');
       return;
     }
@@ -362,6 +421,11 @@ function CheckoutContent() {
         headers['Authorization'] = `Bearer ${accessToken}`;
       }
 
+      const combinedNotes = [
+        pickupNotes ? `[Pickup] ${pickupNotes}` : '',
+        deliveryNotes ? `[Delivery] ${deliveryNotes}` : '',
+      ].filter(Boolean).join(' | ');
+
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers,
@@ -383,7 +447,7 @@ function CheckoutContent() {
           deliveryDate,
           deliveryTimeSlot,
           estimatedWeightKg: qtyParam,
-          notes,
+          notes: combinedNotes,
           idempotencyKey,
         }),
       });
@@ -466,289 +530,398 @@ function CheckoutContent() {
           Ringkasan &amp; Konfirmasi Order
         </h1>
         <p className="text-xs sm:text-sm text-slate-500">
-          Periksa rincian mitra laundry, alamat penjemputan, dan kalkulasi biaya sebelum membuat pesanan.
+          Periksa rincian mitra laundry, penjemputan, dan pengantaran sebelum membuat pesanan.
         </p>
       </div>
 
       <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Laundry Locked & Address Schedule */}
+        {/* Left Column: Order Details & Logistics Tabs */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Locked Selected Laundry Card */}
-          <Card variant="white" className="space-y-3 border-teal-200 bg-teal-50/30">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-teal-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Store className="w-4 h-4 text-teal-600" />
-                <span>Mitra Laundry Terpilih:</span>
-              </span>
+
+          {/* SECTION 1: ORDER DETAILS */}
+          <Card variant="white" className="space-y-4 border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-teal-600" />
+                Order Details
+              </h2>
               <Badge variant="teal" size="sm">
-                Terkunci
+                Layanan Terpilih
               </Badge>
             </div>
 
-            <div className="flex items-center gap-3 pt-1">
-              <div className="w-12 h-12 rounded-2xl bg-teal-700 text-white font-black text-lg flex items-center justify-center shrink-0">
-                {selectedLaundry?.name?.charAt(0) || 'L'}
+            {/* Laundry & Service Info Grid */}
+            <div className="space-y-3 text-xs">
+              <div className="p-3.5 rounded-2xl bg-teal-50/50 border border-teal-100 space-y-2">
+                <span className="text-[10px] font-bold text-teal-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Store className="w-3.5 h-3.5 text-teal-600" />
+                  Mitra Laundry Terpilih
+                </span>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-teal-700 text-white font-black text-base flex items-center justify-center shrink-0">
+                    {selectedLaundry?.name?.charAt(0) || 'L'}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">{selectedLaundry?.name}</h4>
+                    <p className="text-[11px] text-slate-500 line-clamp-1">{selectedLaundry?.address}</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">{selectedLaundry?.name}</h3>
-                <p className="text-xs text-slate-500 line-clamp-1">{selectedLaundry?.address}</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Layanan</span>
+                  <p className="font-bold text-slate-900 text-sm">{selectedService?.name}</p>
+                  <p className="text-[11px] text-slate-500">
+                    Tarif: <span className="font-bold text-slate-700">{formatIDR(selectedService?.price || 0)}</span> / {selectedService?.unit}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Estimasi Kuantitas</span>
+                  <p className="font-bold text-teal-700 text-sm">
+                    {selectedQty} {selectedService?.unit}
+                  </p>
+                  {selectedQty < minQtyThreshold ? (
+                    <p className="text-[11px] text-amber-700 font-semibold flex items-center gap-1">
+                      Minimum charge: {minQtyThreshold} {selectedService?.unit}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-slate-500">Estimasi sesuai berat/jumlah</p>
+                  )}
+                </div>
               </div>
             </div>
           </Card>
 
-          {/* Form Step 1: Addresses */}
-          <Card variant="white" className="space-y-4 text-xs">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">
-                  1
-                </span>
-                Lokasi Penjemputan &amp; Pengantaran
-              </h3>
+          {/* LOGISTICS SECTION WITH HORIZONTAL TABS */}
+          <div className="space-y-3">
+            {/* HORIZONTAL TAB HEADERS (2 EQUAL COLUMNS) */}
+            <div className="bg-slate-100 p-1.5 rounded-2xl grid grid-cols-2 gap-1.5 w-full">
+              <button
+                type="button"
+                onClick={() => setActiveLogisticsTab('pickup')}
+                className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs transition-all duration-200 cursor-pointer min-h-[44px] w-full ${
+                  activeLogisticsTab === 'pickup'
+                    ? 'bg-white text-teal-700 shadow-sm border border-slate-200/60 font-extrabold'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+                }`}
+              >
+                <Package className="w-4 h-4 text-teal-600" />
+                <span>📦 Pickup</span>
+                {!isPickupValid && (
+                  <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" title="Informasi Pickup belum lengkap" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveLogisticsTab('delivery')}
+                className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs transition-all duration-200 cursor-pointer min-h-[44px] w-full ${
+                  activeLogisticsTab === 'delivery'
+                    ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/60 font-extrabold'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+                }`}
+              >
+                <Truck className="w-4 h-4 text-indigo-600" />
+                <span>🚚 Delivery</span>
+              </button>
             </div>
 
-            {/* PICKUP ADDRESS SECTION */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="font-bold text-slate-700 uppercase flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-teal-600" /> Alamat Penjemputan (Pickup):
-                </label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsPickupSelectorOpen(true)}
-                  className="text-xs font-bold border-teal-200 text-teal-700 hover:bg-teal-50"
-                >
-                  Pilih Alamat Tersimpan
-                </Button>
-              </div>
+            {/* TAB CONTENT AREA */}
+            <div className="transition-all duration-200 ease-out">
+              {activeLogisticsTab === 'pickup' ? (
+                /* PICKUP TAB CONTENT */
+                <Card variant="white" className="space-y-4 text-xs border-teal-200 bg-teal-50/10 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-teal-100 pb-3">
+                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                      <Package className="w-4 h-4 text-teal-600" />
+                      Pickup Details
+                    </h3>
+                    <Badge variant="teal" size="sm">
+                      Penjemputan
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-slate-500 -mt-2">
+                    Di mana dan kapan pakaian Anda akan diambil oleh kurir?
+                  </p>
 
-              {selectedPickupAddress ? (
-                <div className="p-3.5 rounded-2xl border border-teal-300 bg-teal-50/50 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-black text-slate-900">{selectedPickupAddress.label}</span>
-                    {selectedPickupAddress.isDefault && (
-                      <Badge variant="teal" className="text-[9px] font-bold">
-                        DEFAULT
-                      </Badge>
+                  {/* PICKUP ADDRESS */}
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-slate-800 uppercase flex items-center gap-1.5 text-xs">
+                        <MapPin className="w-3.5 h-3.5 text-teal-600" /> Alamat Penjemputan (Pickup Address):
+                      </label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsPickupSelectorOpen(true)}
+                        className="text-xs font-bold border-teal-200 text-teal-700 hover:bg-teal-50"
+                      >
+                        Pilih Alamat Tersimpan
+                      </Button>
+                    </div>
+
+                    {selectedPickupAddress ? (
+                      <div className="p-3.5 rounded-2xl border border-teal-300 bg-teal-50/60 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-black text-slate-900">{selectedPickupAddress.label}</span>
+                          {selectedPickupAddress.isDefault && (
+                            <Badge variant="teal" className="text-[9px] font-bold">
+                              DEFAULT
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="font-bold text-slate-800">
+                          {selectedPickupAddress.recipientName} ({selectedPickupAddress.phone})
+                        </p>
+                        <p className="text-slate-600 leading-relaxed">
+                          {selectedPickupAddress.addressDetail}, Kel. {selectedPickupAddress.villageName}, Kec. {selectedPickupAddress.districtName}, {selectedPickupAddress.cityName}, {selectedPickupAddress.provinceName} ({selectedPickupAddress.postalCode})
+                        </p>
+                      </div>
+                    ) : (
+                      <textarea
+                        rows={2}
+                        required
+                        value={pickupAddress}
+                        onChange={(e) => {
+                          setPickupAddress(e.target.value);
+                          if (useSameAddress) setDeliveryAddress(e.target.value);
+                        }}
+                        placeholder="Alamat lengkap lokasi penjemputan pakaian..."
+                        className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500"
+                      />
                     )}
                   </div>
-                  <p className="font-bold text-slate-800">
-                    {selectedPickupAddress.recipientName} ({selectedPickupAddress.phone})
-                  </p>
-                  <p className="text-slate-600 leading-relaxed">
-                    {selectedPickupAddress.addressDetail}, Kel. {selectedPickupAddress.villageName}, Kec. {selectedPickupAddress.districtName}, {selectedPickupAddress.cityName}, {selectedPickupAddress.provinceName} ({selectedPickupAddress.postalCode})
-                  </p>
-                </div>
-              ) : (
-                <textarea
-                  rows={2}
-                  required
-                  value={pickupAddress}
-                  onChange={(e) => setPickupAddress(e.target.value)}
-                  placeholder="Alamat lengkap lokasi penjemputan pakaian..."
-                  className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500"
-                />
-              )}
-            </div>
 
-            {/* SAME ADDRESS CHECKBOX */}
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="sameAddressCheck"
-                checked={useSameAddress}
-                onChange={(e) => handleToggleSameAddress(e.target.checked)}
-                className="w-4 h-4 accent-teal-600 rounded-sm cursor-pointer"
-              />
-              <label htmlFor="sameAddressCheck" className="font-bold text-slate-800 cursor-pointer">
-                Alamat pengantaran sama dengan alamat penjemputan
-              </label>
-            </div>
-
-            {/* DELIVERY ADDRESS SECTION (If unchecked) */}
-            {!useSameAddress && (
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-slate-700 uppercase flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-sky-600" /> Alamat Pengantaran (Delivery):
-                  </label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsDeliverySelectorOpen(true)}
-                    className="text-xs font-bold border-sky-200 text-sky-700 hover:bg-sky-50"
-                  >
-                    Pilih Alamat Lain
-                  </Button>
-                </div>
-
-                {selectedDeliveryAddress ? (
-                  <div className="p-3.5 rounded-2xl border border-sky-300 bg-sky-50/50 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-black text-slate-900">{selectedDeliveryAddress.label}</span>
+                  {/* PICKUP DATE & TIME SLOT */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-teal-600" /> Tanggal Pickup:
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={pickupDate}
+                        onChange={(e) => setPickupDate(e.target.value)}
+                        className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 font-semibold"
+                      />
                     </div>
-                    <p className="font-bold text-slate-800">
-                      {selectedDeliveryAddress.recipientName} ({selectedDeliveryAddress.phone})
-                    </p>
-                    <p className="text-slate-600 leading-relaxed">
-                      {selectedDeliveryAddress.addressDetail}, Kel. {selectedDeliveryAddress.villageName}, Kec. {selectedDeliveryAddress.districtName}, {selectedDeliveryAddress.cityName}, {selectedDeliveryAddress.provinceName} ({selectedDeliveryAddress.postalCode})
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-teal-600" /> Slot Waktu Pickup:
+                      </label>
+                      <select
+                        value={pickupTimeSlot}
+                        onChange={(e) => setPickupTimeSlot(e.target.value)}
+                        disabled={availablePickupSlots.length === 0}
+                        className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-teal-500 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        {availablePickupSlots.length > 0 ? (
+                          availablePickupSlots.map((slot) => (
+                            <option key={slot} value={slot}>
+                              {slot}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="">Tidak ada slot pickup tersedia hari ini</option>
+                        )}
+                      </select>
+                      {availablePickupSlots.length === 0 && (
+                        <p className="text-[11px] text-amber-700 font-medium mt-1">
+                          Tidak ada slot pickup yang tersedia untuk tanggal ini. Silakan pilih tanggal berikutnya.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* PICKUP INSTRUCTIONS */}
+                  <div className="pt-2">
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-slate-500" /> Catatan / Instruksi Penjemputan:
+                    </label>
+                    <input
+                      type="text"
+                      value={pickupNotes}
+                      onChange={(e) => setPickupNotes(e.target.value)}
+                      placeholder="Misal: Pakaian di dalam kantong plastik biru di depan pagar, pelembut lavender..."
+                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                </Card>
+              ) : (
+                /* DELIVERY TAB CONTENT */
+                <Card variant="white" className="space-y-4 text-xs border-indigo-200 bg-indigo-50/10 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-indigo-100 pb-3">
+                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-indigo-600" />
+                      Delivery Details
+                    </h3>
+                    <Badge variant="indigo" size="sm">
+                      Pengembalian
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-slate-500 -mt-2">
+                    Di mana dan kapan pakaian bersih Anda akan dikembalikan?
+                  </p>
+
+                  {/* DELIVERY ADDRESS WITH SAME AS PICKUP CHECKBOX */}
+                  <div className="space-y-3 pt-1">
+                    <div className="p-3 rounded-xl bg-indigo-50/60 border border-indigo-200/80 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          id="sameAddressCheck"
+                          checked={useSameAddress}
+                          onChange={(e) => handleToggleSameAddress(e.target.checked)}
+                          className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0"
+                        />
+                        <label htmlFor="sameAddressCheck" className="font-bold text-slate-800 cursor-pointer select-none">
+                          Same as Pickup Address (Alamat pengantaran sama dengan pickup)
+                        </label>
+                      </div>
+                      {useSameAddress && (
+                        <Badge variant="indigo" className="text-[9px] font-bold shrink-0">
+                          Sama
+                        </Badge>
+                      )}
+                    </div>
+
+                    {!useSameAddress ? (
+                      <div className="space-y-2 pt-1 border-t border-slate-100">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-slate-800 uppercase flex items-center gap-1.5 text-xs">
+                            <MapPin className="w-3.5 h-3.5 text-indigo-600" /> Alamat Pengantaran (Delivery Address):
+                          </label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsDeliverySelectorOpen(true)}
+                            className="text-xs font-bold border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                          >
+                            Pilih Alamat Lain
+                          </Button>
+                        </div>
+
+                        {selectedDeliveryAddress ? (
+                          <div className="p-3.5 rounded-2xl border border-indigo-300 bg-indigo-50/60 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-black text-slate-900">{selectedDeliveryAddress.label}</span>
+                            </div>
+                            <p className="font-bold text-slate-800">
+                              {selectedDeliveryAddress.recipientName} ({selectedDeliveryAddress.phone})
+                            </p>
+                            <p className="text-slate-600 leading-relaxed">
+                              {selectedDeliveryAddress.addressDetail}, Kel. {selectedDeliveryAddress.villageName}, Kec. {selectedDeliveryAddress.districtName}, {selectedDeliveryAddress.cityName}, {selectedDeliveryAddress.provinceName} ({selectedDeliveryAddress.postalCode})
+                            </p>
+                          </div>
+                        ) : (
+                          <textarea
+                            rows={2}
+                            required
+                            value={deliveryAddress}
+                            onChange={(e) => {
+                              setDeliveryAddress(e.target.value);
+                              setSavedCustomDeliveryText(e.target.value);
+                            }}
+                            placeholder="Alamat lengkap lokasi pengantaran pakaian bersih..."
+                            className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500"
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 leading-relaxed text-[11px] flex items-center gap-2">
+                        <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Pengantaran akan menggunakan Alamat Penjemputan yang terpilih di tab Pickup.</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* PROCESSING TIME NOTICE & DELIVERY DATE/SLOT */}
+                  <div className="p-3 rounded-xl bg-indigo-50/80 border border-indigo-200/80 text-xs space-y-1">
+                    <div className="flex items-center justify-between font-bold text-indigo-900">
+                      <span>Estimasi Proses Pengerjaan: {effectiveProcessingHours} Jam</span>
+                      <Badge variant="indigo" className="text-[10px]">Layanan {selectedService?.name || 'Laundry'}</Badge>
+                    </div>
+                    <p className="text-indigo-700 text-[11px]">
+                      Pengantaran paling cepat tersedia pada <strong>{earliestDelivery.earliestDate}</strong> jam <strong>{earliestDelivery.earliestTimeSlot}</strong>.
                     </p>
                   </div>
-                ) : (
-                  <textarea
-                    rows={2}
-                    required
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    placeholder="Alamat lengkap lokasi pengantaran pakaian bersih..."
-                    className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500"
-                  />
-                )}
-              </div>
-            )}
-          </Card>
 
-          {/* Form Step 2: Pickup Schedule */}
-          <Card variant="white" className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">
-                2
-              </span>
-              Jadwal Penjemputan (Pickup)
-            </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-indigo-600" /> Tanggal Delivery:
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        min={earliestDelivery.earliestDate}
+                        value={deliveryDate}
+                        onChange={(e) => setDeliveryDate(e.target.value)}
+                        className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 font-semibold"
+                      />
+                    </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-teal-600" /> Tanggal Pickup:
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={pickupDate}
-                  onChange={(e) => setPickupDate(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 font-semibold"
-                />
-              </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-indigo-600" /> Slot Waktu Delivery:
+                      </label>
+                      <select
+                        value={deliveryTimeSlot}
+                        onChange={(e) => setDeliveryTimeSlot(e.target.value)}
+                        disabled={availableDeliverySlots.length === 0}
+                        className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        {availableDeliverySlots.length > 0 ? (
+                          availableDeliverySlots.map((slot) => (
+                            <option key={slot} value={slot}>
+                              {slot}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="">Tidak ada slot pengantaran tersedia</option>
+                        )}
+                      </select>
+                      {availableDeliverySlots.length === 0 && (
+                        <p className="text-[11px] text-amber-700 font-medium mt-1">
+                          Tidak ada slot pengantaran yang memenuhi durasi {effectiveProcessingHours} jam pada tanggal ini. Silakan pilih tanggal berikutnya.
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-teal-600" /> Slot Waktu Pickup:
-                </label>
-                <select
-                  value={pickupTimeSlot}
-                  onChange={(e) => setPickupTimeSlot(e.target.value)}
-                  disabled={availablePickupSlots.length === 0}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-teal-500 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400"
-                >
-                  {availablePickupSlots.length > 0 ? (
-                    availablePickupSlots.map((slot) => (
-                      <option key={slot} value={slot}>
-                        {slot}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">Tidak ada slot pickup tersedia hari ini</option>
-                  )}
-                </select>
-                {availablePickupSlots.length === 0 && (
-                  <p className="text-[11px] text-amber-700 font-medium mt-1">
-                    Tidak ada slot pickup yang tersedia untuk tanggal ini. Silakan pilih tanggal berikutnya.
-                  </p>
-                )}
-              </div>
+                  {/* DELIVERY INSTRUCTIONS */}
+                  <div className="pt-2">
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-slate-500" /> Catatan / Instruksi Pengantaran:
+                    </label>
+                    <input
+                      type="text"
+                      value={deliveryNotes}
+                      onChange={(e) => setDeliveryNotes(e.target.value)}
+                      placeholder="Misal: Titipkan ke resepsionis/satpam kantor, hubungi via WA saat tiba..."
+                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </Card>
+              )}
             </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-slate-500" /> Catatan Khusus Pakaian / Kurir:
-              </label>
-              <input
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Misal: Harap gunakan pelembut lavender, atau hubungi sebelum tiba..."
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-          </Card>
-
-          {/* Form Step 3: Delivery Schedule */}
-          <Card variant="white" className="space-y-4 border-l-4 border-l-indigo-600">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">
-                  3
-                </span>
-                Jadwal Pengembalian (Delivery)
-              </h3>
-              <Badge variant="indigo" className="text-[10px]">Target Pengantaran</Badge>
-            </div>
-            <div className="p-3 rounded-xl bg-indigo-50/80 border border-indigo-200/80 text-xs space-y-1">
-              <div className="flex items-center justify-between font-bold text-indigo-900">
-                <span>Estimasi Proses Pengerjaan: {effectiveProcessingHours} Jam</span>
-                <Badge variant="indigo" className="text-[10px]">Layanan {selectedService?.name || 'Laundry'}</Badge>
-              </div>
-              <p className="text-indigo-700 text-[11px]">
-                Pengantaran paling cepat tersedia pada <strong>{earliestDelivery.earliestDate}</strong> jam <strong>{earliestDelivery.earliestTimeSlot}</strong>.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-600" /> Tanggal Delivery:
-                </label>
-                <input
-                  type="date"
-                  required
-                  min={earliestDelivery.earliestDate}
-                  value={deliveryDate}
-                  onChange={(e) => setDeliveryDate(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-indigo-600" /> Slot Waktu Delivery:
-                </label>
-                <select
-                  value={deliveryTimeSlot}
-                  onChange={(e) => setDeliveryTimeSlot(e.target.value)}
-                  disabled={availableDeliverySlots.length === 0}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400"
-                >
-                  {availableDeliverySlots.length > 0 ? (
-                    availableDeliverySlots.map((slot) => (
-                      <option key={slot} value={slot}>
-                        {slot}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">Tidak ada slot pengantaran tersedia</option>
-                  )}
-                </select>
-                {availableDeliverySlots.length === 0 && (
-                  <p className="text-[11px] text-amber-700 font-medium mt-1">
-                    Tidak ada slot pengantaran yang memenuhi durasi {effectiveProcessingHours} jam pada tanggal ini. Silakan pilih tanggal berikutnya.
-                  </p>
-                )}
-              </div>
-            </div>
-          </Card>
+          </div>
         </div>
 
-        {/* Right Column: Fee Breakdown & Submit CTA */}
+        {/* Right Column: PAYMENT SUMMARY & PLACE ORDER CTA */}
         <div className="lg:col-span-5">
           <Card variant="slate" className="sticky top-24 space-y-6">
             <div className="border-b border-slate-800 pb-4">
-              <p className="text-xs font-bold text-teal-400 uppercase tracking-widest">
-                Rincian Biaya Transparan
-              </p>
+              <div className="flex items-center gap-2 text-teal-400 text-xs font-bold uppercase tracking-widest">
+                <CreditCard className="w-4 h-4" />
+                <span>Payment Summary</span>
+              </div>
               <h3 className="text-lg font-bold text-white mt-1">{selectedService?.name}</h3>
             </div>
 
@@ -819,6 +992,7 @@ function CheckoutContent() {
               </div>
             )}
 
+            {/* PLACE ORDER CTA */}
             <Button
               type="submit"
               variant="primary"
