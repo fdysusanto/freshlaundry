@@ -681,7 +681,10 @@ export const orderService = {
         subtotal: Number(i.subtotal),
       })),
       estimatedWeightKg: o.estimated_weight_kg ? Number(o.estimated_weight_kg) : undefined,
+      courierWeightKg: o.courier_weight_kg ? Number(o.courier_weight_kg) : undefined,
       finalWeightKg: o.final_weight_kg ? Number(o.final_weight_kg) : undefined,
+      weightFinalizedAt: o.weight_finalized_at || undefined,
+      weightFinalizedBy: o.weight_finalized_by || undefined,
       pickupAddress: o.pickup_address,
       deliveryAddress: o.delivery_address,
       pickupDate: o.pickup_date,
@@ -756,7 +759,10 @@ export const orderService = {
         subtotal: Number(i.subtotal),
       })),
       estimatedWeightKg: o.estimated_weight_kg ? Number(o.estimated_weight_kg) : undefined,
+      courierWeightKg: o.courier_weight_kg ? Number(o.courier_weight_kg) : undefined,
       finalWeightKg: o.final_weight_kg ? Number(o.final_weight_kg) : undefined,
+      weightFinalizedAt: o.weight_finalized_at || undefined,
+      weightFinalizedBy: o.weight_finalized_by || undefined,
       pickupAddress: o.pickup_address,
       deliveryAddress: o.delivery_address,
       pickupDate: o.pickup_date,
@@ -2286,6 +2292,180 @@ export const orderService = {
         const { paymentService } = await import('./paymentService');
         const { createServiceRoleClient, isSupabaseConfigured } = await import('./supabase');
         // Service Role client is used strictly server-side ONLY for payment attempt & gateway link generation
+        const serviceDb = (isSupabaseConfigured && typeof window === 'undefined') ? createServiceRoleClient() : db;
+        adjustmentAttempt = await paymentService.createAdjustmentPaymentAttemptAsync(order.id, priceDelta, serviceDb);
+      } catch (adjErr: any) {
+        console.warn('[PRICE-ADJUSTMENT-ATTEMPT-WARNING] Gagal membuat payment attempt selisih:', adjErr.message);
+      }
+    }
+
+    const updatedOrder = (await this.getOrderByIdAsync(orderId, db))!;
+    return { order: updatedOrder, priceDelta, adjustmentPaymentAttempt: adjustmentAttempt };
+  },
+
+  async saveCourierPreliminaryWeightAsync(
+    orderId: string,
+    courierWeightKg: number,
+    notes?: string,
+    client?: any
+  ): Promise<{ order: Order; courierWeightKg: number }> {
+    if (!courierWeightKg || courierWeightKg <= 0 || courierWeightKg > 50) {
+      throw new Error('Validasi Berat Gagal: Berat preliminary harus berupa angka antara 0.1 kg dan 50 kg.');
+    }
+
+    const db = client || (isSupabaseConfigured ? supabase : null);
+    const order = await this.getOrderByIdAsync(orderId, db);
+    if (!order) {
+      throw new Error('Order tidak ditemukan.');
+    }
+
+    if (order.weightFinalizedAt) {
+      throw new Error('Penimbangan Ditolak: Berat sudah difinalisasi oleh pihak laundry.');
+    }
+
+    if (order.status !== 'assigned' && order.status !== 'picked_up') {
+      throw new Error('Penimbangan Ditolak: Berat awal kurir hanya dapat dicatat setelah kurir ditugaskan atau pakaian telah dijemput.');
+    }
+
+    if (!isSupabaseConfigured || !db) {
+      const orders = this.getOrders();
+      const idx = orders.findIndex((o) => o.id === orderId);
+      if (idx !== -1) {
+        orders[idx] = {
+          ...orders[idx],
+          courierWeightKg,
+          updatedAt: new Date().toISOString(),
+          logs: [
+            ...orders[idx].logs,
+            {
+              id: `log_prelim_weight_${Date.now()}`,
+              orderId,
+              status: orders[idx].status,
+              notes: notes || `Kurir menimbang berat preliminary: ${courierWeightKg} kg (menunggu verifikasi laundry)`,
+              updatedBy: 'courier',
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        };
+        this.saveOrders(orders);
+      }
+    } else {
+      const { data: rpcRes, error: rpcErr } = await (db.rpc as any)('save_courier_preliminary_weight_atomic', {
+        p_order_id: order.id,
+        p_courier_weight_kg: courierWeightKg,
+        p_notes: notes || `Kurir menimbang berat preliminary: ${courierWeightKg} kg (menunggu verifikasi laundry)`,
+      });
+
+      if (rpcErr) {
+        throw new Error(`Gagal menyimpan berat preliminary: ${rpcErr.message}`);
+      }
+    }
+
+    const updatedOrder = (await this.getOrderByIdAsync(orderId, db))!;
+    return { order: updatedOrder, courierWeightKg };
+  },
+
+  async finalizeLaundryWeightAsync(
+    orderId: string,
+    finalWeightKg: number,
+    notes?: string,
+    client?: any
+  ): Promise<{ order: Order; priceDelta: number; adjustmentPaymentAttempt?: any }> {
+    if (!finalWeightKg || finalWeightKg <= 0 || finalWeightKg > 50) {
+      throw new Error('Validasi Berat Gagal: Berat final harus berupa angka antara 0.1 kg dan 50 kg.');
+    }
+
+    const db = client || (isSupabaseConfigured ? supabase : null);
+    const order = await this.getOrderByIdAsync(orderId, db);
+    if (!order) {
+      throw new Error('Order tidak ditemukan.');
+    }
+
+    if (order.status !== 'picked_up') {
+      throw new Error('Penimbangan Ditolak: Finalisasi berat laundry hanya dapat dilakukan setelah pakaian dijemput kurir dan diterima untuk proses verifikasi.');
+    }
+
+    let priceDelta = 0;
+
+    if (!isSupabaseConfigured || !db) {
+      const { paymentService } = await import('./paymentService');
+      const adjStatus = await paymentService.getAdjustmentPaymentStatusAsync(orderId, db);
+      if (adjStatus.exists && adjStatus.status === 'paid') {
+        throw new Error('Penimbangan Ditolak: Berat final tidak dapat diubah karena penyesuaian pembayaran telah dibayar.');
+      }
+
+      const itemMinSnapshot = order.items[0]?.minWeightSnapshot;
+      const serviceId = order.items[0]?.serviceId;
+      let minWeightThreshold = itemMinSnapshot && itemMinSnapshot >= 1 ? itemMinSnapshot : 1;
+      if (!itemMinSnapshot && serviceId) {
+        const srv = laundryService.getServiceById(serviceId);
+        if (srv) {
+          minWeightThreshold = Math.max(1, srv.minimumQuantity ?? srv.minWeight ?? 1);
+        }
+      }
+      const billableWeight = Math.max(finalWeightKg, minWeightThreshold);
+
+      const estimatedWeight = order.estimatedWeightKg || 5;
+      const unitPrice = order.items[0]?.unitPrice || 8000;
+      const initialBillableEst = Math.max(estimatedWeight, minWeightThreshold);
+      const estimatedTotal = Math.round((initialBillableEst * unitPrice) + (order.deliveryFee || 0) + (order.platformFee || 2000) - (order.discount || 0));
+
+      const actualItemSubtotal = Math.round(billableWeight * unitPrice);
+      const newSubtotal = actualItemSubtotal;
+      const newTotalPrice = Math.round(newSubtotal + (order.deliveryFee || 0) + (order.platformFee || 2000) - (order.discount || 0));
+      priceDelta = newTotalPrice - estimatedTotal;
+
+      const orders = this.getOrders();
+      const idx = orders.findIndex((o) => o.id === orderId);
+      if (idx !== -1) {
+        const updatedItems = orders[idx].items.map((item) => ({
+          ...item,
+          quantity: finalWeightKg,
+          subtotal: actualItemSubtotal,
+        }));
+        orders[idx] = {
+          ...orders[idx],
+          finalWeightKg,
+          weightFinalizedAt: new Date().toISOString(),
+          subtotal: newSubtotal,
+          totalPrice: newTotalPrice,
+          items: updatedItems,
+          updatedAt: new Date().toISOString(),
+          logs: [
+            ...orders[idx].logs,
+            {
+              id: `log_finalize_weight_${Date.now()}`,
+              orderId,
+              status: orders[idx].status,
+              notes: notes || `Pihak laundry memfinalisasi berat: ${finalWeightKg} kg (Selisih harga: Rp ${priceDelta})`,
+              updatedBy: 'laundry_staff',
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        };
+        this.saveOrders(orders);
+      }
+    } else {
+      const { data: rpcRes, error: rpcErr } = await (db.rpc as any)('finalize_laundry_weight_atomic', {
+        p_order_id: order.id,
+        p_final_weight_kg: finalWeightKg,
+        p_notes: notes || `Pihak laundry memfinalisasi berat: ${finalWeightKg} kg`,
+      });
+
+      if (rpcErr) {
+        throw new Error(`Gagal memfinalisasi berat di database: ${rpcErr.message}`);
+      }
+
+      if (rpcRes && typeof rpcRes.price_delta !== 'undefined') {
+        priceDelta = Number(rpcRes.price_delta);
+      }
+    }
+
+    let adjustmentAttempt: any = null;
+    if (priceDelta > 0) {
+      try {
+        const { paymentService } = await import('./paymentService');
+        const { createServiceRoleClient, isSupabaseConfigured } = await import('./supabase');
         const serviceDb = (isSupabaseConfigured && typeof window === 'undefined') ? createServiceRoleClient() : db;
         adjustmentAttempt = await paymentService.createAdjustmentPaymentAttemptAsync(order.id, priceDelta, serviceDb);
       } catch (adjErr: any) {

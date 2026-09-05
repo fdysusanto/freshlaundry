@@ -54,18 +54,19 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}));
-    const rawWeight = Number(body.finalWeightKg);
+    const rawWeight = Number(body.finalWeightKg ?? body.weight ?? body.courierWeightKg);
+    const action = body.action || (userRole === 'courier' ? 'preliminary' : 'finalize');
 
     if (isNaN(rawWeight) || !isFinite(rawWeight) || rawWeight <= 0) {
       return NextResponse.json(
-        { success: false, message: 'Validasi Gagal: finalWeightKg harus berupa angka > 0 kg.' },
+        { success: false, message: 'Validasi Gagal: Berat harus berupa angka > 0 kg.' },
         { status: 400 }
       );
     }
 
     if (rawWeight > 50.0) {
       return NextResponse.json(
-        { success: false, message: 'Validasi Berat Gagal: Berat aktual maksimal adalah 50 kg per pesanan.' },
+        { success: false, message: 'Validasi Berat Gagal: Berat maksimal adalah 50 kg per pesanan.' },
         { status: 400 }
       );
     }
@@ -87,26 +88,53 @@ export async function POST(
       );
     }
 
-    const res = await orderService.updateActualWeightAndRecalculatePriceAsync(
+    if (action === 'preliminary' || userRole === 'courier') {
+      if (order.status !== 'assigned' && order.status !== 'picked_up') {
+        return NextResponse.json(
+          { success: false, message: 'Berat awal kurir belum dapat dicatat pada status pesanan saat ini.' },
+          { status: 400 }
+        );
+      }
+
+      const res = await orderService.saveCourierPreliminaryWeightAsync(
+        orderId,
+        parsedWeight,
+        body.notes,
+        authClient || undefined
+      );
+
+      return NextResponse.json({
+        success: true,
+        mode: 'preliminary',
+        order: res.order,
+        courierWeightKg: res.courierWeightKg,
+      });
+    }
+
+    if (order.status !== 'picked_up') {
+      return NextResponse.json(
+        { success: false, message: 'Berat final laundry hanya dapat diverifikasi setelah pesanan dijemput kurir.' },
+        { status: 400 }
+      );
+    }
+
+    const res = await orderService.finalizeLaundryWeightAsync(
       orderId,
       parsedWeight,
-      {
-        id: userId,
-        role: userRole,
-        laundryId: order.laundryId,
-      },
+      body.notes,
       authClient || undefined
     );
 
     return NextResponse.json({
       success: true,
+      mode: 'finalized',
       order: res.order,
       priceDelta: res.priceDelta,
       adjustmentPaymentAttempt: res.adjustmentPaymentAttempt,
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, message: error.message || 'Gagal memperbarui penimbangan berat aktual.' },
+      { success: false, message: error.message || 'Gagal memperbarui penimbangan berat.' },
       { status: 400 }
     );
   }

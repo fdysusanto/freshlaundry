@@ -59,7 +59,10 @@ export interface Order {
   status: OrderStatus;
   items: OrderItem[];
   estimatedWeightKg?: number;
+  courierWeightKg?: number;
   finalWeightKg?: number;
+  weightFinalizedAt?: string;
+  weightFinalizedBy?: string;
   pickupAddress: string;
   deliveryAddress: string;
   pickupAddressSnapshot?: AddressSnapshot;

@@ -17,6 +17,7 @@ import { getStatusConfig } from '@/utils/helpers';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { WeightVerificationModal } from '@/components/owner/WeightVerificationModal';
 import {
   Store,
   ShoppingBag,
@@ -78,6 +79,9 @@ export default function OwnerDashboardPage() {
   });
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSuccessMsg, setProfileSuccessMsg] = useState<string | null>(null);
+
+  // Weight Verification Modal State (Option B)
+  const [selectedOrderForVerification, setSelectedOrderForVerification] = useState<Order | null>(null);
 
   // Weigh & Verify Modal State
   const [weighModalOrder, setWeighModalOrder] = useState<Order | null>(null);
@@ -638,7 +642,13 @@ export default function OwnerDashboardPage() {
                           <td className="p-3 text-slate-500 max-w-xs truncate">{order.pickupAddress}</td>
                           <td className="p-3 text-slate-700 font-medium">{order.serviceType}</td>
                           <td className="p-3 text-slate-600">
-                            {order.finalWeightKg ? `${order.finalWeightKg} kg (Final)` : `${order.estimatedWeightKg || '-'} kg (Est)`}
+                            {order.weightFinalizedAt || order.finalWeightKg ? (
+                              <span className="font-bold text-emerald-700">✓ {order.finalWeightKg} kg (Final)</span>
+                            ) : order.courierWeightKg ? (
+                              <span className="font-semibold text-blue-700">⚖️ {order.courierWeightKg} kg (Kurir)</span>
+                            ) : (
+                              <span>{order.estimatedWeightKg || '-'} kg (Est)</span>
+                            )}
                           </td>
                           <td className="p-3">
                             <div className="space-y-1">
@@ -659,21 +669,28 @@ export default function OwnerDashboardPage() {
                           <td className="p-3 font-black text-slate-900">{formatIDR(order.totalPrice)}</td>
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              {order.courierId && order.finalWeightKg && (
-                                <Badge variant="teal" className="font-bold py-1 px-2.5 flex items-center gap-1">
-                                  ⚖️ Berat Kurir: {order.finalWeightKg} kg
+                              {(order.weightFinalizedAt || order.finalWeightKg) ? (
+                                <Badge variant="emerald" className="font-bold py-1 px-2.5 flex items-center gap-1">
+                                  ✓ Berat Final: {order.finalWeightKg} kg
                                 </Badge>
-                              )}
-                              {!order.courierId && !order.finalWeightKg && (order.status === 'pending' || order.status === 'assigned' || order.status === 'picked_up') && (
+                              ) : !order.weightFinalizedAt && order.status === 'picked_up' ? (
                                 <Button
                                   variant="primary"
                                   size="sm"
-                                  className="bg-amber-600 hover:bg-amber-500 font-bold flex items-center gap-1"
-                                  onClick={() => openWeighModal(order)}
+                                  className="bg-amber-600 hover:bg-amber-500 font-bold flex items-center gap-1 cursor-pointer"
+                                  onClick={() => setSelectedOrderForVerification(order)}
                                 >
-                                  ⚖️ Terima &amp; Timbang
+                                  ⚖️ Verifikasi Berat
                                 </Button>
-                              )}
+                              ) : order.status === 'assigned' ? (
+                                <span className="text-[11px] font-semibold text-slate-500 italic">
+                                  Menunggu cucian dijemput kurir
+                                </span>
+                              ) : order.status === 'pending' ? (
+                                <span className="text-[11px] font-semibold text-slate-500 italic">
+                                  Menunggu kurir mengambil pesanan
+                                </span>
+                              ) : null}
                               {order.finalWeightKg && (order.status === 'picked_up' || order.status === 'assigned') && (
                                 <Button
                                   variant="primary"
@@ -1126,6 +1143,25 @@ export default function OwnerDashboardPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Option B Weight Verification Modal */}
+      {selectedOrderForVerification && (
+        <WeightVerificationModal
+          order={selectedOrderForVerification}
+          onClose={() => setSelectedOrderForVerification(null)}
+          onSuccess={async () => {
+            setSelectedOrderForVerification(null);
+            if (selectedLaundryId) {
+              try {
+                const updatedOrders = await orderService.getOrdersByLaundryAsync(selectedLaundryId);
+                setLaundryOrders(updatedOrders);
+              } catch (err) {
+                console.warn('[OWNER-PAGE] Error refreshing orders after weight verification:', err);
+              }
+            }
+          }}
+        />
       )}
     </div>
   );

@@ -17,7 +17,7 @@ import { TIME_SLOTS } from '@/utils/constants';
 import { calculateEarliestDeliveryDateTime, validateDeliverySchedule, resolveOrderProcessingHours, filterAvailableDeliverySlots } from '@/utils/scheduleUtils';
 import { paymentService } from '@/services/paymentService';
 import { PaymentAttempt } from '@/types/payment';
-import { Truck, MapPin, Calendar, Clock, ArrowLeft, Phone, User, FileText, Store, CreditCard, ShieldCheck, AlertCircle, AlertTriangle, CheckCircle2, ExternalLink, Edit3 } from 'lucide-react';
+import { Truck, MapPin, Calendar, Clock, ArrowLeft, Phone, User, FileText, Store, CreditCard, ShieldCheck, AlertCircle, AlertTriangle, CheckCircle2, ExternalLink, Edit3, Scale } from 'lucide-react';
 import { triggerPaymentFlow } from '@/utils/midtransSnap';
 
 export default function OrderDetailPage() {
@@ -513,6 +513,19 @@ export default function OrderDetailPage() {
             >
               {isPaying ? 'Menghubungkan ke Gateway Pembayaran...' : 'Bayar Sekarang'}
             </Button>
+          </div>
+        )}
+
+        {/* Preliminary Courier Weight Notice (Option B) */}
+        {order.courierWeightKg && !order.weightFinalizedAt && (
+          <div className="p-4 bg-blue-50/80 rounded-2xl border border-blue-200 flex items-center gap-3">
+            <Scale className="w-5 h-5 text-blue-600 shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-blue-900">ℹ️ Penimbangan Awal Kurir Recorded ({order.courierWeightKg} kg)</p>
+              <p className="text-[11px] text-blue-700">
+                Kurir telah menimbang cucian Anda sebesar <strong>{order.courierWeightKg} kg</strong> saat penjemputan. Pihak laundry akan memverifikasi berat ini saat pakaian tiba di outlet sebelum harga final ditetapkan.
+              </p>
+            </div>
           </div>
         )}
 
