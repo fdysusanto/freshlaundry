@@ -306,16 +306,6 @@ export const Navbar: React.FC = () => {
                   </div>
                 </button>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLogout}
-                  leftIcon={<LogOut className="w-4 h-4 text-rose-500" />}
-                  className="border-slate-200 text-rose-600 hover:bg-rose-50 font-medium"
-                >
-                  Keluar
-                </Button>
-
                 {(!currentUser || currentUser?.role === 'customer') && (
                   <Button
                     variant="primary"
