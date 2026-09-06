@@ -22,6 +22,23 @@ export function parseCoordinateNumber(val: any): number | null {
   return null;
 }
 
+/**
+ * Normalizes estimated hours for partner application services.
+ * Enforces integer validation between 1 and 168 hours.
+ * Applies service-aware fallbacks (express -> 6, pcs/dry_clean -> 48, default/kiloan -> 24).
+ */
+export function normalizeEstimatedHours(hours: any, code?: string, unit?: string): number {
+  if (hours !== null && hours !== undefined && hours !== '') {
+    const num = Number(hours);
+    if (Number.isInteger(num) && num >= 1 && num <= 168) {
+      return num;
+    }
+  }
+  if (code === 'express') return 6;
+  if (unit === 'pcs' || code === 'dry_clean' || code === 'satuan') return 48;
+  return 24;
+}
+
 export interface CreatePartnerApplicationPayload {
   ownerFullName: string;
   ownerPhone: string;
@@ -54,6 +71,7 @@ export interface CreatePartnerApplicationPayload {
     price: number;
     unit: 'kg' | 'pcs';
     minWeight?: number | null;
+    estimatedHours?: number | null;
   }>;
 }
 
@@ -95,6 +113,8 @@ export interface PartnerApplicationRecord {
     code: string;
     price_per_unit: number;
     unit: string;
+    min_weight?: number | null;
+    estimated_hours?: number | null;
   }>;
 }
 
@@ -207,6 +227,8 @@ export const partnerApplicationService = {
           ? s.minWeight
           : null;
 
+        const parsedEstHours = normalizeEstimatedHours(s.estimatedHours, validCode, s.unit);
+
         return {
           application_id: application.id,
           name: s.name.trim(),
@@ -214,6 +236,7 @@ export const partnerApplicationService = {
           price_per_unit: s.price,
           unit: s.unit || 'kg',
           min_weight: parsedMinWeight,
+          estimated_hours: parsedEstHours,
         };
       });
 
@@ -267,7 +290,15 @@ export const partnerApplicationService = {
 
       return {
         ...application,
-        services: draftServices || [],
+        services: (draftServices || []).map((ds: any) => ({
+          id: ds.id,
+          name: ds.name,
+          code: ds.code,
+          price_per_unit: Number(ds.price_per_unit),
+          unit: ds.unit,
+          min_weight: ds.min_weight !== null && ds.min_weight !== undefined ? Number(ds.min_weight) : null,
+          estimated_hours: ds.estimated_hours !== null && ds.estimated_hours !== undefined ? Number(ds.estimated_hours) : null,
+        })),
       } as PartnerApplicationRecord;
     } catch (err) {
       console.warn('Error fetching partner application:', err);
@@ -399,6 +430,8 @@ export const partnerApplicationService = {
           ? s.minWeight
           : null;
 
+        const parsedEstHours = normalizeEstimatedHours(s.estimatedHours, validCode, s.unit);
+
         return {
           application_id: applicationId,
           name: s.name.trim(),
@@ -406,6 +439,7 @@ export const partnerApplicationService = {
           price_per_unit: s.price,
           unit: s.unit || 'kg',
           min_weight: parsedMinWeight,
+          estimated_hours: parsedEstHours,
         };
       });
 

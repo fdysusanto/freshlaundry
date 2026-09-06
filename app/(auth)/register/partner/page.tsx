@@ -33,6 +33,15 @@ import {
   Tag,
 } from 'lucide-react';
 
+export function formatEstimatedTimeText(hours?: number | null): string {
+  if (!hours || hours <= 0) return '-';
+  if (hours < 24) return `${hours} Jam`;
+  const days = Math.floor(hours / 24);
+  const rem = hours % 24;
+  if (rem === 0) return `${days} Hari`;
+  return `${days} Hari ${rem} Jam`;
+}
+
 export interface ServiceItem {
   id: string;
   name: string;
@@ -40,6 +49,7 @@ export interface ServiceItem {
   unit: 'kg' | 'pcs';
   code?: string;
   minWeight?: number | null;
+  estimatedHours?: number | null;
 }
 
 function PartnerRegisterContent() {
@@ -66,9 +76,9 @@ function PartnerRegisterContent() {
 
   // Step 3: Services Catalog
   const [services, setServices] = useState<ServiceItem[]>([
-    { id: 'srv_p1', name: 'Cuci Kering', price: 10000, unit: 'kg', code: 'kiloan' },
-    { id: 'srv_p2', name: 'Cuci Kering Express', price: 15000, unit: 'kg', code: 'express' },
-    { id: 'srv_p3', name: 'Dry Clean', price: 25000, unit: 'pcs', code: 'dry_clean' },
+    { id: 'srv_p1', name: 'Cuci Kering', price: 10000, unit: 'kg', code: 'kiloan', estimatedHours: 24 },
+    { id: 'srv_p2', name: 'Cuci Kering Express', price: 15000, unit: 'kg', code: 'express', estimatedHours: 6 },
+    { id: 'srv_p3', name: 'Dry Clean', price: 25000, unit: 'pcs', code: 'dry_clean', estimatedHours: 48 },
   ]);
 
   // Inline service creation state
@@ -76,6 +86,7 @@ function PartnerRegisterContent() {
   const [newServicePrice, setNewServicePrice] = useState('');
   const [newServiceUnit, setNewServiceUnit] = useState<'kg' | 'pcs'>('kg');
   const [newServiceMinWeight, setNewServiceMinWeight] = useState('');
+  const [newServiceEstimatedHours, setNewServiceEstimatedHours] = useState('24');
   const [isAddingService, setIsAddingService] = useState(false);
 
   // Editing service state
@@ -84,6 +95,7 @@ function PartnerRegisterContent() {
   const [editPrice, setEditPrice] = useState('');
   const [editUnit, setEditUnit] = useState<'kg' | 'pcs'>('kg');
   const [editMinWeight, setEditMinWeight] = useState('');
+  const [editEstimatedHours, setEditEstimatedHours] = useState('24');
 
   // Step 4: Payout Data
   const [accountHolder, setAccountHolder] = useState('Budi Santoso');
@@ -152,6 +164,8 @@ function PartnerRegisterContent() {
                     price: s.price_per_unit,
                     unit: (s.unit as 'kg' | 'pcs') || 'kg',
                     code: s.code || 'kiloan',
+                    minWeight: s.min_weight,
+                    estimatedHours: s.estimated_hours ?? (s.code === 'express' ? 6 : s.unit === 'pcs' ? 48 : 24),
                   }))
                 );
               }
@@ -264,6 +278,22 @@ function PartnerRegisterContent() {
         ? Number(newServiceMinWeight)
         : null;
 
+    if (newServiceEstimatedHours.trim() !== '') {
+      const hrs = Number(newServiceEstimatedHours);
+      if (isNaN(hrs) || !Number.isInteger(hrs) || hrs < 1) {
+        setErrorMessage('Estimasi waktu pengerjaan minimal 1 jam.');
+        return;
+      }
+      if (hrs > 168) {
+        setErrorMessage('Estimasi waktu pengerjaan maksimal 168 jam (7 hari).');
+        return;
+      }
+    }
+
+    const parsedEstHours = newServiceEstimatedHours.trim() !== '' && !isNaN(Number(newServiceEstimatedHours))
+      ? Number(newServiceEstimatedHours)
+      : (newServiceUnit === 'pcs' ? 48 : 24);
+
     const newId = `srv_p${Date.now()}`;
     setServices([
       ...services,
@@ -273,6 +303,7 @@ function PartnerRegisterContent() {
         price: Number(newServicePrice),
         unit: newServiceUnit,
         minWeight: parsedMinWeight,
+        estimatedHours: parsedEstHours,
         code: `custom_${Date.now()}`,
       },
     ]);
@@ -280,6 +311,7 @@ function PartnerRegisterContent() {
     setNewServicePrice('');
     setNewServiceUnit('kg');
     setNewServiceMinWeight('');
+    setNewServiceEstimatedHours('24');
     setIsAddingService(false);
     setErrorMessage('');
   };
@@ -294,6 +326,7 @@ function PartnerRegisterContent() {
     setEditPrice(service.price.toString());
     setEditUnit(service.unit);
     setEditMinWeight(service.minWeight && service.unit === 'kg' ? service.minWeight.toString() : '');
+    setEditEstimatedHours(service.estimatedHours ? service.estimatedHours.toString() : (service.unit === 'pcs' ? '48' : '24'));
   };
 
   const saveEditService = (id: string) => {
@@ -306,15 +339,39 @@ function PartnerRegisterContent() {
         ? Number(editMinWeight)
         : null;
 
+    if (editEstimatedHours.trim() !== '') {
+      const hrs = Number(editEstimatedHours);
+      if (isNaN(hrs) || !Number.isInteger(hrs) || hrs < 1) {
+        setErrorMessage('Estimasi waktu pengerjaan minimal 1 jam.');
+        return;
+      }
+      if (hrs > 168) {
+        setErrorMessage('Estimasi waktu pengerjaan maksimal 168 jam (7 hari).');
+        return;
+      }
+    }
+
+    const parsedEditEstHours = editEstimatedHours.trim() !== '' && !isNaN(Number(editEstimatedHours))
+      ? Number(editEstimatedHours)
+      : (editUnit === 'pcs' ? 48 : 24);
+
     setServices(
       services.map((s) =>
         s.id === id
-          ? { ...s, name: editName.trim(), price: Number(editPrice), unit: editUnit, minWeight: parsedEditMinWeight }
+          ? {
+              ...s,
+              name: editName.trim(),
+              price: Number(editPrice),
+              unit: editUnit,
+              minWeight: parsedEditMinWeight,
+              estimatedHours: parsedEditEstHours,
+            }
           : s
       )
     );
     setEditingId(null);
     setEditMinWeight('');
+    setEditEstimatedHours('24');
     setErrorMessage('');
   };
 
@@ -908,25 +965,47 @@ function PartnerRegisterContent() {
                       <option value="pcs">per Pcs / Satuan</option>
                     </select>
 
-                    {newServiceUnit === 'kg' && (
-                      <div className="sm:col-span-3 pt-1">
-                        <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
-                          Minimum Order (KG) — Opsional
-                        </label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0.1"
-                          placeholder="Kosongkan jika tidak ada minimum order (mis. 3)"
-                          value={newServiceMinWeight}
-                          onChange={(e) => setNewServiceMinWeight(e.target.value)}
-                          className="w-full px-3 py-2 text-xs bg-white rounded-lg border border-teal-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
-                        />
-                        <span className="text-[10px] text-slate-500 block mt-0.5">
-                          Kosongkan jika layanan tidak memiliki minimum order.
-                        </span>
+                    <div className="sm:col-span-3 pt-1 border-t border-teal-100/80 mt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {newServiceUnit === 'kg' && (
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                              Minimum Order (KG) — Opsional
+                            </label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0.1"
+                              placeholder="misal 3 (Kosongkan jika tidak ada)"
+                              value={newServiceMinWeight}
+                              onChange={(e) => setNewServiceMinWeight(e.target.value)}
+                              className="w-full px-3 py-2 text-xs bg-white rounded-lg border border-teal-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                            />
+                          </div>
+                        )}
+                        <div className={newServiceUnit === 'kg' ? '' : 'sm:col-span-2'}>
+                          <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                            Estimasi Pengerjaan (Jam) *
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              max="168"
+                              step="1"
+                              required
+                              placeholder="misal 24 (1 Hari) atau 6 (6 Jam)"
+                              value={newServiceEstimatedHours}
+                              onChange={(e) => setNewServiceEstimatedHours(e.target.value)}
+                              className="w-full px-3 py-2 text-xs bg-white rounded-lg border border-teal-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                            />
+                            <span className="text-xs font-bold text-teal-800 shrink-0 bg-teal-100/80 px-2.5 py-1.5 rounded-lg border border-teal-200">
+                              ⏱ {formatEstimatedTimeText(Number(newServiceEstimatedHours))}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button type="button" variant="ghost" size="sm" onClick={() => setIsAddingService(false)}>
@@ -989,22 +1068,44 @@ function PartnerRegisterContent() {
                               </Button>
                             </div>
                           </div>
-                          {editUnit === 'kg' && (
-                            <div className="pt-1">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-200">
+                            {editUnit === 'kg' && (
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
+                                  Min Order (KG) — Opsional
+                                </label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  min="0.1"
+                                  placeholder="misal 3"
+                                  value={editMinWeight}
+                                  onChange={(e) => setEditMinWeight(e.target.value)}
+                                  className="w-full px-2.5 py-1 text-xs bg-white rounded-lg border border-slate-300"
+                                />
+                              </div>
+                            )}
+                            <div className={editUnit === 'kg' ? '' : 'sm:col-span-2'}>
                               <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
-                                Min Order (KG) — Opsional
+                                Estimasi Pengerjaan (Jam) *
                               </label>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0.1"
-                                placeholder="Kosongkan jika tidak ada minimum order"
-                                value={editMinWeight}
-                                onChange={(e) => setEditMinWeight(e.target.value)}
-                                className="w-full px-2.5 py-1 text-xs bg-white rounded-lg border border-slate-300"
-                              />
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="168"
+                                  step="1"
+                                  required
+                                  value={editEstimatedHours}
+                                  onChange={(e) => setEditEstimatedHours(e.target.value)}
+                                  className="w-full px-2.5 py-1 text-xs bg-white rounded-lg border border-slate-300"
+                                />
+                                <span className="text-[10px] font-bold text-teal-800 shrink-0 bg-teal-50 px-2 py-1 rounded-md border border-teal-200">
+                                  ⏱ {formatEstimatedTimeText(Number(editEstimatedHours))}
+                                </span>
+                              </div>
                             </div>
-                          )}
+                          </div>
                         </div>
                       ) : (
                         <>
@@ -1017,6 +1118,9 @@ function PartnerRegisterContent() {
                                   Min. order {service.minWeight} kg
                                 </span>
                               ) : null}
+                              <span className="text-[10px] font-bold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded-md border border-teal-200">
+                                ⏱ Estimasi {formatEstimatedTimeText(service.estimatedHours || (service.code === 'express' ? 6 : service.unit === 'pcs' ? 48 : 24))}
+                              </span>
                             </p>
                           </div>
                           <div className="flex items-center gap-1.5">
