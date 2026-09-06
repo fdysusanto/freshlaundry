@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { partnerApplicationService } from '@/services/partnerApplicationService';
+import { locationService } from '@/services/locationService';
 import { isSupabaseConfigured } from '@/services/supabase';
+import { MapLocationPicker } from '@/components/address/MapLocationPicker';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -58,8 +60,8 @@ function PartnerRegisterContent() {
   const [laundryDistrict, setLaundryDistrict] = useState('Kedawung');
   const [openingTime, setOpeningTime] = useState('08:00');
   const [closingTime, setClosingTime] = useState('20:00');
-  const [latitude, setLatitude] = useState('-6.7063');
-  const [longitude, setLongitude] = useState('108.5570');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
 
   // Step 3: Services Catalog
   const [services, setServices] = useState<ServiceItem[]>([
@@ -136,6 +138,8 @@ function PartnerRegisterContent() {
               setAccountHolder(existingApp.payout_account_holder || profile.fullName || '');
               setBankName(existingApp.payout_bank || 'BCA');
               setAccountNumber(existingApp.payout_account_number || '');
+              setLatitude(existingApp.latitude ?? null);
+              setLongitude(existingApp.longitude ?? null);
 
               if (existingApp.services && existingApp.services.length > 0) {
                 setServices(
@@ -204,6 +208,10 @@ function PartnerRegisterContent() {
       !closingTime
     ) {
       setErrorMessage('Semua bidang pada Data Laundry wajib diisi.');
+      return false;
+    }
+    if (!locationService.isValidCoordinate(latitude, longitude)) {
+      setErrorMessage('Silakan tentukan lokasi outlet laundry Anda pada peta terlebih dahulu.');
       return false;
     }
     setErrorMessage('');
@@ -377,8 +385,8 @@ function PartnerRegisterContent() {
               laundryAddress: laundryAddress,
               city: laundryCity,
               district: laundryDistrict,
-              latitude: latitude,
-              longitude: longitude,
+              latitude: latitude !== null ? Number(latitude) : undefined,
+              longitude: longitude !== null ? Number(longitude) : undefined,
               openingTime: openingTime,
               closingTime: closingTime,
               payoutAccountHolder: accountHolder,
@@ -395,8 +403,8 @@ function PartnerRegisterContent() {
             laundryAddress: laundryAddress,
             city: laundryCity,
             district: laundryDistrict,
-            latitude: latitude,
-            longitude: longitude,
+            latitude: latitude !== null ? Number(latitude) : undefined,
+            longitude: longitude !== null ? Number(longitude) : undefined,
             openingTime: openingTime,
             closingTime: closingTime,
             payoutAccountHolder: accountHolder,
@@ -763,36 +771,53 @@ function PartnerRegisterContent() {
                   </div>
                 </div>
 
-                {/* Geolocation Coordinates Sample */}
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-teal-600" /> Koordinat Lokasi GPS
-                    </span>
-                    <Badge variant="teal" className="text-[10px]">
-                      PROTOTYPE SAMPLE
-                    </Badge>
+                {/* Interactive Map Location Picker Section */}
+                <div className="p-4 rounded-2xl bg-teal-50/60 border border-teal-200/80 space-y-3 pt-3">
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase">
+                      <MapPin className="w-4 h-4 text-teal-600 shrink-0" />
+                      📍 Lokasi Outlet Laundry
+                    </h3>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Pilih lokasi outlet laundry Anda pada peta agar pelanggan sekitar dapat menemukan usaha Anda.
+                      Anda dapat:
+                    </p>
+                    <ul className="text-[11px] text-slate-600 list-disc list-inside pl-1 space-y-0.5 font-medium">
+                      <li>Menekan lokasi pada peta</li>
+                      <li>Menggeser pin untuk menentukan lokasi</li>
+                      <li>Menggunakan tombol <span className="font-bold text-teal-700">"Gunakan Lokasi Saya"</span></li>
+                    </ul>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-[11px] text-slate-500 block">Latitude</span>
-                      <input
-                        type="text"
-                        value={latitude}
-                        onChange={(e) => setLatitude(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 font-mono"
-                      />
+
+                  <MapLocationPicker
+                    latitude={latitude}
+                    longitude={longitude}
+                    onLocationChange={(lat, lng) => {
+                      setLatitude(lat);
+                      setLongitude(lng);
+                    }}
+                    disabled={isSubmitting}
+                  />
+
+                  {/* Read-Only Coordinate Information Display */}
+                  {latitude !== null && longitude !== null && (
+                    <div className="p-3 rounded-xl bg-white border border-teal-200 shadow-2xs space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-teal-800">
+                        <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                        <span>✓ Lokasi outlet berhasil dipilih</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-sans block uppercase font-bold">Latitude (Read-Only)</span>
+                          <span className="font-bold text-slate-800">{latitude}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-sans block uppercase font-bold">Longitude (Read-Only)</span>
+                          <span className="font-bold text-slate-800">{longitude}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-[11px] text-slate-500 block">Longitude</span>
-                      <input
-                        type="text"
-                        value={longitude}
-                        onChange={(e) => setLongitude(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-200 font-mono"
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
