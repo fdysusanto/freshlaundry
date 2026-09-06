@@ -1,6 +1,7 @@
 import { UserRole } from '../types/user';
-import { partnerApplicationService } from '../services/partnerApplicationService';
+import { partnerApplicationService, parseCoordinateNumber } from '../services/partnerApplicationService';
 import { adminPartnerService } from '../services/adminPartnerService';
+import { locationService } from '../services/locationService';
 
 export function getOwnerDashboardViewMode(
   role: UserRole,
@@ -136,6 +137,42 @@ async function runOwnerOnboardingTests() {
     addressDetail: 'Jl. Pemuda No. 10 RT 001/RW 002',
   };
   assert(mockPartnerPayload.postalCode === '45144', 'Postal code 45144 correctly defined in partner application input payload');
+
+  // 8. Testing Phase 2.1 Hardened Production Coordinate Parser & Location Validation
+  console.log('\n--- 8. Testing Phase 2.1 Hardened Production Coordinate Parser & Location Validation ---');
+
+  // Location Validation Checks
+  assert(locationService.isValidCoordinate(null, null) === false, 'null, null coordinates rejected by locationService');
+  assert(locationService.isValidCoordinate(undefined, undefined) === false, 'undefined, undefined coordinates rejected by locationService');
+  assert(locationService.isValidCoordinate(999, 108) === false, 'out-of-bounds latitude 999 rejected by locationService');
+  assert(locationService.isValidCoordinate(-6.7320, 108.5523) === true, 'valid Cirebon coordinates (-6.7320, 108.5523) accepted by locationService');
+  assert(locationService.isValidCoordinate(0, 0) === true, 'equatorial prime meridian coordinates (0, 0) accepted by locationService');
+
+  // TEST GROUP A — VALID NUMERIC INPUT (Production parseCoordinateNumber)
+  assert(parseCoordinateNumber(-6.732) === -6.732, 'A1: parseCoordinateNumber(-6.732) returns -6.732');
+  assert(parseCoordinateNumber('108.552') === 108.552, 'A2: parseCoordinateNumber("108.552") returns 108.552');
+  assert(parseCoordinateNumber(0) === 0, 'A3: parseCoordinateNumber(0) preserves numeric 0');
+  assert(parseCoordinateNumber('0') === 0, 'A4: parseCoordinateNumber("0") parses string "0" to 0');
+
+  // TEST GROUP B — NULL SAFETY
+  assert(parseCoordinateNumber(null) === null, 'B1: parseCoordinateNumber(null) returns null');
+  assert(parseCoordinateNumber(undefined) === null, 'B2: parseCoordinateNumber(undefined) returns null');
+
+  // TEST GROUP C — FINITE NUMBER SAFETY
+  assert(parseCoordinateNumber(NaN) === null, 'C1: parseCoordinateNumber(NaN) returns null');
+  assert(parseCoordinateNumber(Infinity) === null, 'C2: parseCoordinateNumber(Infinity) returns null');
+  assert(parseCoordinateNumber(-Infinity) === null, 'C3: parseCoordinateNumber(-Infinity) returns null');
+
+  // TEST GROUP D — STRING HARDENING
+  assert(parseCoordinateNumber('') === null, 'D1: parseCoordinateNumber("") returns null');
+  assert(parseCoordinateNumber('   ') === null, 'D2: parseCoordinateNumber("   ") returns null');
+  assert(parseCoordinateNumber('abc') === null, 'D3: parseCoordinateNumber("abc") returns null');
+
+  // TEST GROUP E — TYPE HARDENING
+  assert(parseCoordinateNumber(false) === null, 'E1: parseCoordinateNumber(false) returns null');
+  assert(parseCoordinateNumber(true) === null, 'E2: parseCoordinateNumber(true) returns null');
+  assert(parseCoordinateNumber([]) === null, 'E3: parseCoordinateNumber([]) returns null');
+  assert(parseCoordinateNumber({}) === null, 'E4: parseCoordinateNumber({}) returns null');
 
 
   console.log('\n===========================================================');

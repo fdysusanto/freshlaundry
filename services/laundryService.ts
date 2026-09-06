@@ -48,6 +48,18 @@ export const laundryService = {
       ownerId: l.owner_id || '',
       phone: l.phone,
       address: l.address,
+      latitude:
+        l.latitude !== null &&
+        l.latitude !== undefined &&
+        Number.isFinite(Number(l.latitude))
+          ? Number(l.latitude)
+          : undefined,
+      longitude:
+        l.longitude !== null &&
+        l.longitude !== undefined &&
+        Number.isFinite(Number(l.longitude))
+          ? Number(l.longitude)
+          : undefined,
       logoUrl: l.logo_url || undefined,
       openingTime: l.opening_time || '08:00',
       closingTime: l.closing_time || '20:00',
@@ -87,6 +99,18 @@ export const laundryService = {
         ownerId: l.owner_id || ownerId,
         phone: l.phone,
         address: l.address,
+        latitude:
+          l.latitude !== null &&
+          l.latitude !== undefined &&
+          Number.isFinite(Number(l.latitude))
+            ? Number(l.latitude)
+            : undefined,
+        longitude:
+          l.longitude !== null &&
+          l.longitude !== undefined &&
+          Number.isFinite(Number(l.longitude))
+            ? Number(l.longitude)
+            : undefined,
         logoUrl: l.logo_url || undefined,
         openingTime: l.opening_time || '08:00',
         closingTime: l.closing_time || '20:00',
@@ -115,6 +139,18 @@ export const laundryService = {
           ownerId: l.owner_id || ownerId,
           phone: l.phone,
           address: l.address,
+          latitude:
+            l.latitude !== null &&
+            l.latitude !== undefined &&
+            Number.isFinite(Number(l.latitude))
+              ? Number(l.latitude)
+              : undefined,
+          longitude:
+            l.longitude !== null &&
+            l.longitude !== undefined &&
+            Number.isFinite(Number(l.longitude))
+              ? Number(l.longitude)
+              : undefined,
           logoUrl: l.logo_url || undefined,
           openingTime: l.opening_time || '08:00',
           closingTime: l.closing_time || '20:00',
@@ -154,6 +190,18 @@ export const laundryService = {
       ownerId: data.owner_id || '',
       phone: data.phone,
       address: data.address,
+      latitude:
+        data.latitude !== null &&
+        data.latitude !== undefined &&
+        Number.isFinite(Number(data.latitude))
+          ? Number(data.latitude)
+          : undefined,
+      longitude:
+        data.longitude !== null &&
+        data.longitude !== undefined &&
+        Number.isFinite(Number(data.longitude))
+          ? Number(data.longitude)
+          : undefined,
       logoUrl: data.logo_url || undefined,
       openingTime: data.opening_time || '08:00',
       closingTime: data.closing_time || '20:00',

@@ -6,9 +6,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { partnerApplicationService, PartnerApplicationRecord } from '@/services/partnerApplicationService';
 import { customerAddressService } from '@/services/customerAddressService';
+import { locationService } from '@/services/locationService';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { UserProfile } from '@/types/user';
 import { Province, City, District, Village } from '@/types/address';
+import { MapLocationPicker } from '@/components/address/MapLocationPicker';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -44,6 +46,11 @@ function OwnerLaundryRegisterContent() {
   const [ownerFullName, setOwnerFullName] = useState('');
   const [ownerPhone, setOwnerPhone] = useState('');
   const [laundryName, setLaundryName] = useState('');
+
+  // Map Location Picker Coordinate State
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+
 
   // Master Wilayah Cascading Dropdown States
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -218,6 +225,8 @@ function OwnerLaundryRegisterContent() {
               setPayoutAccountHolder(app.payout_account_holder || '');
               setPayoutBank(app.payout_bank || 'BCA');
               setPayoutAccountNumber(app.payout_account_number || '');
+              setLatitude(app.latitude ?? null);
+              setLongitude(app.longitude ?? null);
 
               if (app.services && app.services.length > 0) {
                 setServices(
@@ -284,6 +293,8 @@ function OwnerLaundryRegisterContent() {
       return setErrorMessage('Nomor WhatsApp pemilik wajib diisi dengan benar.');
     if (!laundryName.trim()) return setErrorMessage('Nama outlet laundry wajib diisi.');
     if (!addressDetail.trim()) return setErrorMessage('Alamat lengkap outlet wajib diisi.');
+    if (!locationService.isValidCoordinate(latitude, longitude))
+      return setErrorMessage('Titik lokasi outlet pada peta wajib ditentukan sebelum mengirim pendaftaran.');
     if (!payoutAccountHolder.trim() || !payoutAccountNumber.trim())
       return setErrorMessage('Informasi rekening bank pencairan dana wajib diisi lengkap.');
     if (services.length === 0) return setErrorMessage('Wajib menambahkan minimal 1 layanan.');
@@ -316,6 +327,8 @@ function OwnerLaundryRegisterContent() {
       rt: rt.trim() || undefined,
       rw: rw.trim() || undefined,
       addressDetail: addressDetail.trim(),
+      latitude: latitude !== null ? Number(latitude) : undefined,
+      longitude: longitude !== null ? Number(longitude) : undefined,
       openingTime,
       closingTime,
       payoutAccountHolder: payoutAccountHolder.trim(),
@@ -323,6 +336,7 @@ function OwnerLaundryRegisterContent() {
       payoutAccountNumber: payoutAccountNumber.trim(),
       services,
     };
+
 
     try {
       if (isSupabaseConfigured) {
@@ -573,6 +587,19 @@ function OwnerLaundryRegisterContent() {
                 onChange={(e) => setAddressDetail(e.target.value)}
                 placeholder="Nama jalan, nomor ruko/gedung, patokan lokasi..."
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+
+            {/* Interactive Map Location Picker for Outlet Location */}
+            <div className="sm:col-span-2 pt-2">
+              <MapLocationPicker
+                latitude={latitude}
+                longitude={longitude}
+                onLocationChange={(lat, lng) => {
+                  setLatitude(lat);
+                  setLongitude(lng);
+                }}
+                disabled={isSubmitting}
               />
             </div>
           </div>

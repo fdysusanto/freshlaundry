@@ -1,6 +1,27 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { isValidUuid } from '@/utils/formatters';
 
+/**
+ * Hardened defensive coordinate parser function.
+ * Accepts finite numbers and valid non-empty numeric strings.
+ * Safely rejects null, undefined, NaN, Infinity, empty/whitespace strings, booleans, arrays, and objects.
+ */
+export function parseCoordinateNumber(val: any): number | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'boolean') return null;
+  if (typeof val === 'object') return null;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (trimmed === '') return null;
+    const num = Number(trimmed);
+    return Number.isFinite(num) ? num : null;
+  }
+  if (typeof val === 'number') {
+    return Number.isFinite(val) ? val : null;
+  }
+  return null;
+}
+
 export interface CreatePartnerApplicationPayload {
   ownerFullName: string;
   ownerPhone: string;
@@ -109,8 +130,9 @@ export const partnerApplicationService = {
     }
 
     // Prepare numerical lat/lng
-    const numLat = payload.latitude ? parseFloat(payload.latitude.toString()) : null;
-    const numLng = payload.longitude ? parseFloat(payload.longitude.toString()) : null;
+    const numLat = parseCoordinateNumber(payload.latitude);
+    const numLng = parseCoordinateNumber(payload.longitude);
+
 
     // Prepare time string (HH:MM:SS)
     const formattedOpening = payload.openingTime
@@ -298,8 +320,9 @@ export const partnerApplicationService = {
       throw new Error('Hanya pengajuan berstatus ditolak yang dapat direvisi.');
     }
 
-    const numLat = payload.latitude ? parseFloat(payload.latitude.toString()) : null;
-    const numLng = payload.longitude ? parseFloat(payload.longitude.toString()) : null;
+    const numLat = parseCoordinateNumber(payload.latitude);
+    const numLng = parseCoordinateNumber(payload.longitude);
+
 
     const formattedOpening = payload.openingTime
       ? payload.openingTime.includes(':') && payload.openingTime.split(':').length === 2

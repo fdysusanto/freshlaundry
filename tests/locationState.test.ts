@@ -89,6 +89,31 @@ async function runLocationStateTests() {
   assert(farResult.items.length === 0, 'Test 4c: Far location >10km returns 0 items (Radius Empty State)');
   assert(farResult.activeRadiusKm === 10, 'Test 4c-2: Empty state defaults activeRadiusKm to 10');
 
+  // TEST 5: Service Layer Coordinate Mapping (Phase 1)
+  const parseCoord = (val: any) =>
+    val !== null && val !== undefined && Number.isFinite(Number(val))
+      ? Number(val)
+      : undefined;
+
+  // Test 5a: Standard numeric coordinates
+  assert(parseCoord(-6.732) === -6.732, 'Test 5a: Numeric latitude -6.732 maps correctly');
+  assert(parseCoord(108.552) === 108.552, 'Test 5a-2: Numeric longitude 108.552 maps correctly');
+
+  // Test 5b: String numeric coordinates
+  assert(parseCoord('-6.732') === -6.732, 'Test 5b: String numeric "-6.732" converts to number');
+  assert(parseCoord('108.552') === 108.552, 'Test 5b-2: String numeric "108.552" converts to number');
+
+  // Test 5c: Null coordinates
+  assert(parseCoord(null) === undefined, 'Test 5c: Null latitude converts to undefined (not 0)');
+  assert(parseCoord(undefined) === undefined, 'Test 5c-2: Undefined longitude converts to undefined');
+
+  // Test 5d: Coordinate 0, 0 is valid
+  assert(parseCoord(0) === 0, 'Test 5d: Latitude 0 remains 0 (valid coordinate)');
+
+  // Test 5e: Invalid coordinates (NaN, Infinity)
+  assert(parseCoord(NaN) === undefined, 'Test 5e: NaN latitude converts to undefined');
+  assert(parseCoord(Infinity) === undefined, 'Test 5e-2: Infinity longitude converts to undefined');
+
   console.log('\n==================================================');
   console.log(`GPS-FIRST MARKETPLACE LOCATION TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('==================================================');
@@ -99,4 +124,5 @@ async function runLocationStateTests() {
 }
 
 runLocationStateTests();
+
 
