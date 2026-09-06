@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { isValidUuid } from '@/utils/formatters';
+import { normalizeServiceType } from '@/utils/serviceCodeUtils';
 
 /**
  * Hardened defensive coordinate parser function.
@@ -216,23 +217,18 @@ export const partnerApplicationService = {
     // 2. Insert draft services into public.partner_application_services
     if (payload.services && payload.services.length > 0) {
       const servicesToInsert = payload.services.map((s) => {
-        let validCode = 'kiloan';
-        if (s.code === 'express' || s.code === 'dry_clean' || s.code === 'satuan') {
-          validCode = s.code;
-        } else if (s.unit === 'pcs') {
-          validCode = 'satuan';
-        }
+        const enumCode = normalizeServiceType(s.code, s.unit, s.name);
 
         const parsedMinWeight = (s.unit === 'kg' && typeof s.minWeight === 'number' && Number.isFinite(s.minWeight) && s.minWeight > 0)
           ? s.minWeight
           : null;
 
-        const parsedEstHours = normalizeEstimatedHours(s.estimatedHours, validCode, s.unit);
+        const parsedEstHours = normalizeEstimatedHours(s.estimatedHours, enumCode, s.unit);
 
         return {
           application_id: application.id,
           name: s.name.trim(),
-          code: validCode,
+          code: enumCode,
           price_per_unit: s.price,
           unit: s.unit || 'kg',
           min_weight: parsedMinWeight,
@@ -419,23 +415,18 @@ export const partnerApplicationService = {
 
     if (payload.services && payload.services.length > 0) {
       const servicesToInsert = payload.services.map((s) => {
-        let validCode = 'kiloan';
-        if (s.code === 'express' || s.code === 'dry_clean' || s.code === 'satuan') {
-          validCode = s.code;
-        } else if (s.unit === 'pcs') {
-          validCode = 'satuan';
-        }
+        const enumCode = normalizeServiceType(s.code, s.unit, s.name);
 
         const parsedMinWeight = (s.unit === 'kg' && typeof s.minWeight === 'number' && Number.isFinite(s.minWeight) && s.minWeight > 0)
           ? s.minWeight
           : null;
 
-        const parsedEstHours = normalizeEstimatedHours(s.estimatedHours, validCode, s.unit);
+        const parsedEstHours = normalizeEstimatedHours(s.estimatedHours, enumCode, s.unit);
 
         return {
           application_id: applicationId,
           name: s.name.trim(),
-          code: validCode,
+          code: enumCode,
           price_per_unit: s.price,
           unit: s.unit || 'kg',
           min_weight: parsedMinWeight,

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { partnerApplicationService } from '@/services/partnerApplicationService';
 import { locationService } from '@/services/locationService';
+import { normalizeServiceType, VALID_SERVICE_TYPE_CODES } from '@/utils/serviceCodeUtils';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { MapLocationPicker } from '@/components/address/MapLocationPicker';
 import { Card } from '@/components/ui/Card';
@@ -294,6 +295,8 @@ function PartnerRegisterContent() {
       ? Number(newServiceEstimatedHours)
       : (newServiceUnit === 'pcs' ? 48 : 24);
 
+    const enumCode = normalizeServiceType(null, newServiceUnit, newServiceName.trim());
+
     const newId = `srv_p${Date.now()}`;
     setServices([
       ...services,
@@ -304,7 +307,7 @@ function PartnerRegisterContent() {
         unit: newServiceUnit,
         minWeight: parsedMinWeight,
         estimatedHours: parsedEstHours,
-        code: `custom_${Date.now()}`,
+        code: enumCode,
       },
     ]);
     setNewServiceName('');
