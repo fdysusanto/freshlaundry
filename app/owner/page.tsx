@@ -1,15 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import { orderService } from '@/services/orderService';
 import { laundryService } from '@/services/laundryService';
 import { laundryPhotoService } from '@/services/laundryPhotoService';
 import { partnerApplicationService, PartnerApplicationRecord } from '@/services/partnerApplicationService';
-import { Order } from '@/types/order';
+import { Order, OrderStatus } from '@/types/order';
 import { Laundry, LaundryService as ServiceCatalogItem, LaundryPhoto } from '@/types/laundry';
 import { UserProfile } from '@/types/user';
 import { formatIDR, formatDateIndo, formatDateTimeIndo } from '@/utils/formatters';
@@ -18,6 +18,8 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { WeightVerificationModal } from '@/components/owner/WeightVerificationModal';
+import { OwnerHomeDashboard } from '@/components/owner/OwnerHomeDashboard';
+import { MobileOrdersView } from '@/components/owner/mobile/MobileOrdersView';
 import {
   Store,
   ShoppingBag,
@@ -48,8 +50,9 @@ import {
 const FALLBACK_STOREFRONT =
   'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=800&q=80';
 
-export default function OwnerDashboardPage() {
+function OwnerDashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [ownerLaundries, setOwnerLaundries] = useState<Laundry[]>([]);
   const [selectedLaundryId, setSelectedLaundryId] = useState<string | null>(null);
@@ -66,6 +69,27 @@ export default function OwnerDashboardPage() {
   // Orders Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [weightVerificationOnly, setWeightVerificationOnly] = useState(false);
+
+  // Sync tab & filters from URL search params
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    const statusParam = searchParams.get('status');
+    const filterParam = searchParams.get('filter');
+
+    if (tabParam && ['dashboard', 'orders', 'services', 'profile', 'reviews'].includes(tabParam)) {
+      setActiveTab(tabParam as any);
+    }
+    if (statusParam) {
+      setStatusFilter(statusParam);
+    }
+    if (filterParam === 'weight_verification') {
+      setStatusFilter('picked_up');
+      setWeightVerificationOnly(true);
+    } else {
+      setWeightVerificationOnly(false);
+    }
+  }, [searchParams]);
 
   // Profile Edit Form State
   const [profileForm, setProfileForm] = useState({
@@ -80,88 +104,48 @@ export default function OwnerDashboardPage() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSuccessMsg, setProfileSuccessMsg] = useState<string | null>(null);
 
-  // Weight Verification Modal State (Option B)
+  // Weight Verification Modal State (Option B Centralized)
   const [selectedOrderForVerification, setSelectedOrderForVerification] = useState<Order | null>(null);
-
-  // Weigh & Verify Modal State
-  const [weighModalOrder, setWeighModalOrder] = useState<Order | null>(null);
-  const [weighInput, setWeighInput] = useState<string>('');
-  const [isSubmittingWeigh, setIsSubmittingWeigh] = useState(false);
-  const [weighError, setWeighError] = useState<string | null>(null);
-  const [weighSuccessMsg, setWeighSuccessMsg] = useState<string | null>(null);
 
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
 
-  const openWeighModal = (order: Order) => {
-    setWeighModalOrder(order);
-    setWeighInput(order.finalWeightKg ? String(order.finalWeightKg) : String(order.estimatedWeightKg || 5));
-    setWeighError(null);
-    setWeighSuccessMsg(null);
-  };
-
-  const handleSaveWeighVerification = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!weighModalOrder || !currentUser || isSubmittingWeigh) return;
-
-    const rawNum = Number(weighInput);
-    if (isNaN(rawNum) || !isFinite(rawNum) || rawNum <= 0) {
-      setWeighError('Masukkan angka berat aktual yang valid (harus berupa angka > 0 kg).');
-      return;
-    }
-
-    const parsedWeight = Math.round(rawNum * 100) / 100;
-    if (parsedWeight <= 0) {
-      setWeighError('Masukkan angka berat aktual yang valid (> 0 kg).');
-      return;
-    }
-
-    setIsSubmittingWeigh(true);
-    setWeighError(null);
-
+  const handleOrderTransition = async (order: Order, targetStatus: OrderStatus, notes: string) => {
+    if (processingOrderId) return;
+    setProcessingOrderId(order.id);
     try {
-      const sessionRes = await supabase?.auth?.getSession();
+      const sessionRes = await (supabase?.auth?.getSession() || Promise.resolve({ data: { session: null } }));
       const token = sessionRes?.data?.session?.access_token;
-
-      const apiRes = await fetch(`/api/orders/${weighModalOrder.id}/weigh`, {
+      const res = await fetch(`/api/orders/${order.id}/transition`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ finalWeightKg: parsedWeight }),
+        body: JSON.stringify({
+          targetStatus,
+          notes,
+          userId: currentUser?.id,
+          role: currentUser?.role || 'laundry_owner',
+          laundryId: order.laundryId,
+        }),
       });
-
-      const apiData = await apiRes.json();
-      if (!apiRes.ok || !apiData.success) {
-        throw new Error(apiData.message || 'Gagal menyimpan penimbangan di server.');
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Gagal merubah status.');
       }
-
-      const res = apiData;
-
-      let msg = `Penimbangan berhasil disimpan! Berat aktual: ${parsedWeight} kg (Total: ${formatIDR(res.order.totalPrice)})`;
-      if (res.priceDelta > 0) {
-        if (res.adjustmentPaymentAttempt) {
-          msg += `. Selisih +${formatIDR(res.priceDelta)} perlu dibayar customer sebelum pencucian.`;
-        } else {
-          msg += `. Selisih +${formatIDR(res.priceDelta)} terdeteksi, namun pembuatan tiket pembayaran mengalami kendala.`;
-        }
-      } else if (res.priceDelta < 0) {
-        msg += `. Berat lebih rendah dari estimasi. Selisih: -${formatIDR(Math.abs(res.priceDelta))}. Catatan: Pengembalian dana otomatis belum tersedia (kelebihan pembayaran dicatat).`;
-      } else {
-        msg += `. Berat sesuai estimasi. Cucian siap diproses.`;
+      if (selectedLaundryId) {
+        const updatedOrders = await orderService.getOrdersByLaundryAsync(selectedLaundryId);
+        setLaundryOrders(updatedOrders);
       }
-
-      setWeighSuccessMsg(msg);
-      setTimeout(() => {
-        setWeighModalOrder(null);
-        setWeighSuccessMsg(null);
-        window.location.reload();
-      }, 2500);
     } catch (err: any) {
-      setWeighError(err.message || 'Gagal menyimpan penimbangan.');
+      alert(err.message || 'Gagal merubah status.');
     } finally {
-      setIsSubmittingWeigh(false);
+      setProcessingOrderId(null);
     }
+  };
+
+  const openWeighModal = (order: Order) => {
+    setSelectedOrderForVerification(order);
   };
 
   useEffect(() => {
@@ -327,10 +311,14 @@ export default function OwnerDashboardPage() {
         order.customerName?.toLowerCase().includes(q) ||
         order.pickupAddress.toLowerCase().includes(q);
 
-      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+      let matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+      if (weightVerificationOnly) {
+        matchesStatus = order.status === 'picked_up' && !order.weightFinalizedAt && !order.finalWeightKg;
+      }
+
       return matchesQuery && matchesStatus;
     });
-  }, [laundryOrders, searchQuery, statusFilter]);
+  }, [laundryOrders, searchQuery, statusFilter, weightVerificationOnly]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -370,7 +358,7 @@ export default function OwnerDashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 pb-24 md:pb-10">
       {/* HEADER DASHBOARD */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
         <div>
@@ -488,135 +476,72 @@ export default function OwnerDashboardPage() {
 
           {/* TAB 1: RINGKASAN DASHBOARD */}
           {activeTab === 'dashboard' && (
-            <div className="space-y-6">
-              {/* METRIC CARDS GRID */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card variant="white" className="p-5 border-teal-100 bg-teal-50/30 space-y-2">
-                  <div className="flex items-center justify-between text-teal-800">
-                    <span className="text-xs font-bold">Total Pendapatan Selesai</span>
-                    <DollarSign className="w-5 h-5 text-teal-600" />
-                  </div>
-                  <p className="text-2xl font-black text-teal-900">{formatIDR(metrics.totalRevenue)}</p>
-                  <p className="text-[11px] text-teal-700 font-semibold">{metrics.completedOrdersCount} pesanan selesai</p>
-                </Card>
-
-                <Card variant="white" className="p-5 border-amber-100 bg-amber-50/30 space-y-2">
-                  <div className="flex items-center justify-between text-amber-800">
-                    <span className="text-xs font-bold">Pesanan Perlu Tindakan</span>
-                    <Clock className="w-5 h-5 text-amber-600" />
-                  </div>
-                  <p className="text-2xl font-black text-amber-900">{metrics.pendingActionCount}</p>
-                  <p className="text-[11px] text-amber-700 font-semibold">Tiba di outlet &amp; siap diproses</p>
-                </Card>
-
-                <Card variant="white" className="p-5 border-blue-100 bg-blue-50/30 space-y-2">
-                  <div className="flex items-center justify-between text-blue-800">
-                    <span className="text-xs font-bold">Pesanan Aktif Diproses</span>
-                    <Package className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <p className="text-2xl font-black text-blue-900">{metrics.activeOrdersCount}</p>
-                  <p className="text-[11px] text-blue-700 font-semibold">Proses pencucian &amp; pengantaran</p>
-                </Card>
-
-                <Card variant="white" className="p-5 border-purple-100 bg-purple-50/30 space-y-2">
-                  <div className="flex items-center justify-between text-purple-800">
-                    <span className="text-xs font-bold">Rating Mitra Laundry</span>
-                    <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
-                  </div>
-                  <p className="text-2xl font-black text-purple-900">★ {selectedLaundry.rating.toFixed(1)}</p>
-                  <p className="text-[11px] text-purple-700 font-semibold">{selectedLaundry.totalReviews} ulasan customer</p>
-                </Card>
-              </div>
-
-              {/* RECENT ORDERS TABLE BRIEF */}
-              <Card variant="white" className="p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <ShoppingBag className="w-5 h-5 text-teal-600" />
-                    <span>Pesanan Masuk Terbaru ({laundryOrders.slice(0, 5).length})</span>
-                  </h3>
-                  <Button variant="outline" size="sm" onClick={() => setActiveTab('orders')}>
-                    Lihat Semua Pesanan
-                  </Button>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-slate-400 font-bold bg-slate-50">
-                        <th className="p-3">No. Tracking</th>
-                        <th className="p-3">Customer</th>
-                        <th className="p-3">Layanan</th>
-                        <th className="p-3">Status</th>
-                        <th className="p-3">Total</th>
-                        <th className="p-3 text-right">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {laundryOrders.slice(0, 5).map((order) => {
-                        const statusCfg = getStatusConfig(order.status);
-                        return (
-                          <tr key={order.id} className="hover:bg-slate-50/80">
-                            <td className="p-3 font-bold text-slate-800">{order.trackingNumber}</td>
-                            <td className="p-3 font-semibold text-slate-700">{order.customerName || 'Customer'}</td>
-                            <td className="p-3 text-slate-600">{order.serviceType}</td>
-                            <td className="p-3">
-                              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${statusCfg.bg} ${statusCfg.color}`}>
-                                {statusCfg.label}
-                              </span>
-                            </td>
-                            <td className="p-3 font-black text-slate-900">{formatIDR(order.totalPrice)}</td>
-                            <td className="p-3 text-right">
-                              <Link href={`/orders/${order.id}`}>
-                                <Button variant="outline" size="sm" leftIcon={<Eye className="w-3.5 h-3.5" />}>
-                                  Detail
-                                </Button>
-                              </Link>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            </div>
+            <OwnerHomeDashboard
+              currentUser={currentUser}
+              selectedLaundry={selectedLaundry}
+              laundryOrders={laundryOrders}
+              metrics={metrics}
+              onNavigateToOrders={(targetStatus, isWeightVerification) => {
+                setActiveTab('orders');
+                if (targetStatus) {
+                  setStatusFilter(targetStatus);
+                } else {
+                  setStatusFilter('all');
+                }
+                setWeightVerificationOnly(Boolean(isWeightVerification));
+              }}
+            />
           )}
 
           {/* TAB 2: DAFTAR PESANAN FULL */}
           {activeTab === 'orders' && (
-            <Card variant="white" className="p-6 space-y-6">
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
-                <div>
-                  <h3 className="text-lg font-black text-slate-900">Manajemen Pesanan Laundry</h3>
-                  <p className="text-xs text-slate-500">Kelola status penerimaan cucian, timbangan, dan proses pencucian.</p>
-                </div>
+            <>
+              {/* MOBILE VIEW (< 768px): COMPACT CARDS & ACTION CENTER CHIPS */}
+              <div className="block md:hidden">
+                <MobileOrdersView
+                  orders={laundryOrders}
+                  onVerifyWeight={(order) => setSelectedOrderForVerification(order)}
+                  onTransitionStatus={(order, targetStatus, notes) =>
+                    handleOrderTransition(order, targetStatus, notes)
+                  }
+                  processingOrderId={processingOrderId}
+                  initialFilter={weightVerificationOnly ? 'weight_verification' : 'all'}
+                />
+              </div>
 
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Cari tracking / customer..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9 pr-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50"
-                    />
+              {/* DESKTOP VIEW (>= 768px): FULL MANAGEMENT TABLE */}
+              <Card variant="white" className="hidden md:block p-6 space-y-6">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">Manajemen Pesanan Laundry</h3>
+                    <p className="text-xs text-slate-500">Kelola status penerimaan cucian, timbangan, dan proses pencucian.</p>
                   </div>
 
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="text-xs font-bold py-2 px-3 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer"
-                  >
-                    <option value="all">Semua Status</option>
-                    <option value="picked_up">Pakaian Diambil</option>
-                    <option value="in_washing">Sedang Dicuci</option>
-                    <option value="ready_for_delivery">Siap Diantar</option>
-                    <option value="delivered">Selesai/Tiba</option>
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Cari tracking / customer..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9 pr-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50"
+                      />
+                    </div>
+
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="text-xs font-bold py-2 px-3 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer"
+                    >
+                      <option value="all">Semua Status</option>
+                      <option value="picked_up">Pakaian Diambil</option>
+                      <option value="in_washing">Sedang Dicuci</option>
+                      <option value="ready_for_delivery">Siap Diantar</option>
+                      <option value="delivered">Selesai/Tiba</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
@@ -786,6 +711,7 @@ export default function OwnerDashboardPage() {
                 </table>
               </div>
             </Card>
+          </>
           )}
 
           {/* TAB 3: KATALOG LAYANAN (Dapat Mengubah Status Aktif & Harga) */}
@@ -1023,129 +949,7 @@ export default function OwnerDashboardPage() {
         </>
       )}
 
-      {/* MODAL VERIFIKASI & TIMBANG LAUNDRY */}
-      {weighModalOrder && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-black text-slate-900">Verifikasi &amp; Timbang Laundry</h3>
-                <p className="text-xs text-slate-500 font-medium">Order #{weighModalOrder.trackingNumber}</p>
-              </div>
-              <button
-                onClick={() => setWeighModalOrder(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveWeighVerification} className="space-y-4 text-xs">
-              <div className="p-3 bg-slate-50 rounded-2xl space-y-2 border border-slate-200">
-                <div className="flex justify-between text-slate-600">
-                  <span>Customer:</span>
-                  <span className="font-bold text-slate-900">{weighModalOrder.customerName}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Berat Estimasi (Awal):</span>
-                  <span className="font-semibold text-slate-800">{weighModalOrder.estimatedWeightKg || 5} kg</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Harga Estimasi (Awal):</span>
-                  <span className="font-semibold text-slate-800">{formatIDR(weighModalOrder.totalPrice)}</span>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-800 block">
-                  Berat Aktual Timbangan (kg) <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0.5"
-                    value={weighInput}
-                    onChange={(e) => setWeighInput(e.target.value)}
-                    className="w-full text-base font-extrabold p-3 rounded-2xl border-2 border-teal-500 bg-teal-50/20 text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-teal-600"
-                    placeholder="Contoh: 7.0"
-                    required
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">kg</span>
-                </div>
-              </div>
-
-              {/* Server-Side Calculated Actual Summary Preview */}
-              {(() => {
-                const w = parseFloat(weighInput);
-                if (isNaN(w) || w <= 0) return null;
-                const unitPrice = weighModalOrder.items[0]?.unitPrice || 8000;
-                const estTotal = Math.round(weighModalOrder.totalPrice);
-                const actualTotal = Math.round(
-                  (w * unitPrice) + (weighModalOrder.deliveryFee || 0) + (weighModalOrder.platformFee || 2000) - (weighModalOrder.discount || 0)
-                );
-                const delta = actualTotal - estTotal;
-
-                return (
-                  <div className="p-3 bg-teal-50/60 border border-teal-200 rounded-2xl space-y-1.5 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-teal-800 font-medium">Harga per kg:</span>
-                      <span className="font-bold text-slate-800">{formatIDR(unitPrice)} / kg</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-teal-800 font-medium">Harga Aktual (Server Calculated):</span>
-                      <span className="font-black text-teal-900">{formatIDR(actualTotal)}</span>
-                    </div>
-                    <div className="flex justify-between pt-1 border-t border-teal-200 font-bold">
-                      <span className="text-slate-800">Selisih Penyesuaian Harga:</span>
-                      <span className={delta > 0 ? 'text-amber-700 font-black' : delta < 0 ? 'text-blue-700 font-black' : 'text-emerald-700 font-black'}>
-                        {delta > 0 ? `+${formatIDR(delta)}` : delta < 0 ? `-${formatIDR(Math.abs(delta))}` : 'Rp 0'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {weighError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 font-semibold flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{weighError}</span>
-                </div>
-              )}
-
-              {weighSuccessMsg && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 font-semibold flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{weighSuccessMsg}</span>
-                </div>
-              )}
-
-              <div className="flex items-center gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="md"
-                  onClick={() => setWeighModalOrder(null)}
-                  className="w-1/2 font-bold"
-                >
-                  Batal
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="md"
-                  disabled={isSubmittingWeigh}
-                  className="w-1/2 bg-teal-600 hover:bg-teal-500 font-bold"
-                >
-                  {isSubmittingWeigh ? 'Menyimpan...' : 'Simpan & Verifikasi'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Option B Weight Verification Modal */}
+      {/* Option B Weight Verification Modal (Single Source of Truth) */}
       {selectedOrderForVerification && (
         <WeightVerificationModal
           order={selectedOrderForVerification}
@@ -1164,5 +968,20 @@ export default function OwnerDashboardPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function OwnerDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
+          <div className="w-10 h-10 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs font-semibold text-slate-500">Memuat Dashboard Partner FreshLaundry...</p>
+        </div>
+      }
+    >
+      <OwnerDashboardContent />
+    </Suspense>
   );
 }

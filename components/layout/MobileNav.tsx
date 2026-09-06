@@ -8,6 +8,8 @@ import { isSupabaseConfigured } from '@/services/supabase';
 import { UserProfile } from '@/types/user';
 import { Home, Search, Package, User, Truck, Store, BarChart3, Users, RotateCcw, Layers } from 'lucide-react';
 
+import { OwnerMobileNavigation } from '@/components/owner/OwnerMobileNavigation';
+
 export const MobileNav: React.FC = () => {
   const pathname = usePathname();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -30,6 +32,10 @@ export const MobileNav: React.FC = () => {
 
   const role = currentUser?.role;
 
+  if (role === 'laundry_owner' || role === 'laundry_staff') {
+    return <OwnerMobileNavigation />;
+  }
+
   let navItems: { id: string; label: string; href: string; icon: React.ElementType; isCta?: boolean }[] = [];
 
   if (role === 'courier') {
@@ -38,11 +44,6 @@ export const MobileNav: React.FC = () => {
       { id: 'courier-job-pool', label: 'Job Pool', href: '/courier/job-pool', icon: Layers },
       { id: 'courier-active-tasks', label: 'Tugas', href: '/courier/active-tasks', icon: Truck },
       { id: 'courier-account', label: 'Akun', href: '/courier/account', icon: User },
-    ];
-  } else if (role === 'laundry_owner' || role === 'laundry_staff') {
-    navItems = [
-      { id: 'home', label: 'Beranda', href: '/', icon: Home },
-      { id: 'owner-portal', label: 'Owner Portal', href: '/owner', icon: Store, isCta: true },
     ];
   } else if (role === 'admin' || role === 'platform_admin') {
     navItems = [
