@@ -38,7 +38,8 @@ export interface ServiceItem {
   name: string;
   price: number;
   unit: 'kg' | 'pcs';
-  code: string;
+  code?: string;
+  minWeight?: number | null;
 }
 
 function PartnerRegisterContent() {
@@ -74,6 +75,7 @@ function PartnerRegisterContent() {
   const [newServiceName, setNewServiceName] = useState('');
   const [newServicePrice, setNewServicePrice] = useState('');
   const [newServiceUnit, setNewServiceUnit] = useState<'kg' | 'pcs'>('kg');
+  const [newServiceMinWeight, setNewServiceMinWeight] = useState('');
   const [isAddingService, setIsAddingService] = useState(false);
 
   // Editing service state
@@ -81,6 +83,7 @@ function PartnerRegisterContent() {
   const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editUnit, setEditUnit] = useState<'kg' | 'pcs'>('kg');
+  const [editMinWeight, setEditMinWeight] = useState('');
 
   // Step 4: Payout Data
   const [accountHolder, setAccountHolder] = useState('Budi Santoso');
@@ -256,6 +259,11 @@ function PartnerRegisterContent() {
       setErrorMessage('Nama layanan dan tarif valid wajib diisi.');
       return;
     }
+    const parsedMinWeight =
+      newServiceUnit === 'kg' && newServiceMinWeight.trim() !== '' && !isNaN(Number(newServiceMinWeight)) && Number(newServiceMinWeight) > 0
+        ? Number(newServiceMinWeight)
+        : null;
+
     const newId = `srv_p${Date.now()}`;
     setServices([
       ...services,
@@ -264,12 +272,14 @@ function PartnerRegisterContent() {
         name: newServiceName.trim(),
         price: Number(newServicePrice),
         unit: newServiceUnit,
+        minWeight: parsedMinWeight,
         code: `custom_${Date.now()}`,
       },
     ]);
     setNewServiceName('');
     setNewServicePrice('');
     setNewServiceUnit('kg');
+    setNewServiceMinWeight('');
     setIsAddingService(false);
     setErrorMessage('');
   };
@@ -283,6 +293,7 @@ function PartnerRegisterContent() {
     setEditName(service.name);
     setEditPrice(service.price.toString());
     setEditUnit(service.unit);
+    setEditMinWeight(service.minWeight && service.unit === 'kg' ? service.minWeight.toString() : '');
   };
 
   const saveEditService = (id: string) => {
@@ -290,12 +301,20 @@ function PartnerRegisterContent() {
       setErrorMessage('Nama dan harga layanan harus diisi dengan benar.');
       return;
     }
+    const parsedEditMinWeight =
+      editUnit === 'kg' && editMinWeight.trim() !== '' && !isNaN(Number(editMinWeight)) && Number(editMinWeight) > 0
+        ? Number(editMinWeight)
+        : null;
+
     setServices(
       services.map((s) =>
-        s.id === id ? { ...s, name: editName.trim(), price: Number(editPrice), unit: editUnit } : s
+        s.id === id
+          ? { ...s, name: editName.trim(), price: Number(editPrice), unit: editUnit, minWeight: parsedEditMinWeight }
+          : s
       )
     );
     setEditingId(null);
+    setEditMinWeight('');
     setErrorMessage('');
   };
 
@@ -878,12 +897,36 @@ function PartnerRegisterContent() {
                     />
                     <select
                       value={newServiceUnit}
-                      onChange={(e) => setNewServiceUnit(e.target.value as 'kg' | 'pcs')}
+                      onChange={(e) => {
+                        const nextUnit = e.target.value as 'kg' | 'pcs';
+                        setNewServiceUnit(nextUnit);
+                        if (nextUnit === 'pcs') setNewServiceMinWeight('');
+                      }}
                       className="px-3 py-2 text-xs bg-white rounded-lg border border-teal-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
                     >
                       <option value="kg">per Kg</option>
                       <option value="pcs">per Pcs / Satuan</option>
                     </select>
+
+                    {newServiceUnit === 'kg' && (
+                      <div className="sm:col-span-3 pt-1">
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                          Minimum Order (KG) — Opsional
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          placeholder="Kosongkan jika tidak ada minimum order (mis. 3)"
+                          value={newServiceMinWeight}
+                          onChange={(e) => setNewServiceMinWeight(e.target.value)}
+                          className="w-full px-3 py-2 text-xs bg-white rounded-lg border border-teal-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                        />
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                          Kosongkan jika layanan tidak memiliki minimum order.
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button type="button" variant="ghost" size="sm" onClick={() => setIsAddingService(false)}>
@@ -909,44 +952,71 @@ function PartnerRegisterContent() {
                       className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-3"
                     >
                       {editingId === service.id ? (
-                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <input
-                            type="text"
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            className="px-2.5 py-1 text-xs bg-white rounded-lg border border-slate-300"
-                          />
-                          <input
-                            type="number"
-                            value={editPrice}
-                            onChange={(e) => setEditPrice(e.target.value)}
-                            className="px-2.5 py-1 text-xs bg-white rounded-lg border border-slate-300"
-                          />
-                          <div className="flex items-center gap-1">
-                            <select
-                              value={editUnit}
-                              onChange={(e) => setEditUnit(e.target.value as 'kg' | 'pcs')}
-                              className="px-2 py-1 text-xs bg-white rounded-lg border border-slate-300"
-                            >
-                              <option value="kg">/ kg</option>
-                              <option value="pcs">/ pcs</option>
-                            </select>
-                            <Button
-                              type="button"
-                              variant="primary"
-                              size="sm"
-                              onClick={() => saveEditService(service.id)}
-                            >
-                              OK
-                            </Button>
+                        <div className="flex-1 space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="px-2.5 py-1 text-xs bg-white rounded-lg border border-slate-300"
+                            />
+                            <input
+                              type="number"
+                              value={editPrice}
+                              onChange={(e) => setEditPrice(e.target.value)}
+                              className="px-2.5 py-1 text-xs bg-white rounded-lg border border-slate-300"
+                            />
+                            <div className="flex items-center gap-1">
+                              <select
+                                value={editUnit}
+                                onChange={(e) => {
+                                  const nextUnit = e.target.value as 'kg' | 'pcs';
+                                  setEditUnit(nextUnit);
+                                  if (nextUnit === 'pcs') setEditMinWeight('');
+                                }}
+                                className="px-2 py-1 text-xs bg-white rounded-lg border border-slate-300"
+                              >
+                                <option value="kg">/ kg</option>
+                                <option value="pcs">/ pcs</option>
+                              </select>
+                              <Button
+                                type="button"
+                                variant="primary"
+                                size="sm"
+                                onClick={() => saveEditService(service.id)}
+                              >
+                                OK
+                              </Button>
+                            </div>
                           </div>
+                          {editUnit === 'kg' && (
+                            <div className="pt-1">
+                              <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
+                                Min Order (KG) — Opsional
+                              </label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0.1"
+                                placeholder="Kosongkan jika tidak ada minimum order"
+                                value={editMinWeight}
+                                onChange={(e) => setEditMinWeight(e.target.value)}
+                                className="w-full px-2.5 py-1 text-xs bg-white rounded-lg border border-slate-300"
+                              />
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <>
                           <div className="space-y-0.5">
                             <p className="text-xs font-bold text-slate-800">{service.name}</p>
-                            <p className="text-[11px] font-semibold text-teal-700">
-                              Rp {service.price.toLocaleString('id-ID')} / {service.unit}
+                            <p className="text-[11px] font-semibold text-teal-700 flex items-center gap-1.5 flex-wrap">
+                              <span>Rp {service.price.toLocaleString('id-ID')} / {service.unit}</span>
+                              {service.unit === 'kg' && service.minWeight && service.minWeight > 0 ? (
+                                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">
+                                  Min. order {service.minWeight} kg
+                                </span>
+                              ) : null}
                             </p>
                           </div>
                           <div className="flex items-center gap-1.5">

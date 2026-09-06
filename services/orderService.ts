@@ -585,7 +585,7 @@ export const orderService = {
     if (insertedOrder && pricing.items.length > 0) {
       const orderItemsRows = pricing.items.map((item) => {
         // Fetch minimum charge from service layer or item property
-        const minQty = Math.max(1, item.minimumQuantity ?? item.minWeight ?? 1);
+        const minQty = item.unit === 'kg' && typeof item.minWeight === 'number' && item.minWeight > 0 ? item.minWeight : null;
         return {
           order_id: insertedOrder.id,
           service_id: isValidUuid(item.serviceId) ? item.serviceId : null,
@@ -709,7 +709,7 @@ export const orderService = {
         name: i.service_name_snapshot,
         quantity: Number(i.quantity),
         unitPrice: Number(i.price_snapshot),
-        minWeightSnapshot: Number(i.min_weight_snapshot || 1),
+        minWeightSnapshot: i.min_weight_snapshot !== null && i.min_weight_snapshot !== undefined && Number(i.min_weight_snapshot) > 0 ? Number(i.min_weight_snapshot) : undefined,
         unit: 'kg',
         subtotal: Number(i.subtotal),
       })),
@@ -790,7 +790,7 @@ export const orderService = {
         name: i.service_name_snapshot,
         quantity: Number(i.quantity),
         unitPrice: Number(i.price_snapshot),
-        minWeightSnapshot: Number(i.min_weight_snapshot || 1),
+        minWeightSnapshot: i.min_weight_snapshot !== null && i.min_weight_snapshot !== undefined && Number(i.min_weight_snapshot) > 0 ? Number(i.min_weight_snapshot) : undefined,
         unit: 'kg',
         subtotal: Number(i.subtotal),
       })),

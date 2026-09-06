@@ -53,6 +53,7 @@ export interface CreatePartnerApplicationPayload {
     code?: string;
     price: number;
     unit: 'kg' | 'pcs';
+    minWeight?: number | null;
   }>;
 }
 
@@ -202,12 +203,17 @@ export const partnerApplicationService = {
           validCode = 'satuan';
         }
 
+        const parsedMinWeight = (s.unit === 'kg' && typeof s.minWeight === 'number' && Number.isFinite(s.minWeight) && s.minWeight > 0)
+          ? s.minWeight
+          : null;
+
         return {
           application_id: application.id,
           name: s.name.trim(),
           code: validCode,
           price_per_unit: s.price,
           unit: s.unit || 'kg',
+          min_weight: parsedMinWeight,
         };
       });
 
@@ -389,12 +395,17 @@ export const partnerApplicationService = {
           validCode = 'satuan';
         }
 
+        const parsedMinWeight = (s.unit === 'kg' && typeof s.minWeight === 'number' && Number.isFinite(s.minWeight) && s.minWeight > 0)
+          ? s.minWeight
+          : null;
+
         return {
           application_id: applicationId,
           name: s.name.trim(),
           code: validCode,
           price_per_unit: s.price,
           unit: s.unit || 'kg',
+          min_weight: parsedMinWeight,
         };
       });
 

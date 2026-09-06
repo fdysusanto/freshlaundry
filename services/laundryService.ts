@@ -5,6 +5,7 @@ import { isValidUuid } from '@/utils/formatters';
 import { supabase, isSupabaseConfigured } from './supabase';
 
 const SERVICES_STORAGE_KEY = 'fresh_laundry_services_db';
+let inMemoryServicesStore: ServiceCatalogItem[] = [...SERVICE_CATALOG];
 
 export const laundryService = {
   /**
@@ -231,18 +232,21 @@ export const laundryService = {
 
     if (error || !s) return null;
 
+    const unit = s.unit as 'kg' | 'pcs';
+    const minW = unit === 'kg' && s.min_weight !== null && s.min_weight !== undefined && Number(s.min_weight) > 0 ? Number(s.min_weight) : null;
+
     return {
       id: s.id,
       laundryId: s.laundry_id,
       code: s.code || 'kiloan',
       name: s.name,
       description: s.description || '',
-      pricingType: s.unit === 'pcs' ? 'per_item' : 'per_kg',
+      pricingType: unit === 'pcs' ? 'per_item' : 'per_kg',
       price: Number(s.price_per_unit),
       price_per_unit: Number(s.price_per_unit),
-      unit: s.unit as 'kg' | 'pcs',
-      minWeight: Number(s.min_weight || 1),
-      minimumQuantity: Number(s.min_weight || 1),
+      unit: unit,
+      minWeight: minW,
+      minimumQuantity: minW,
       estimatedHours: s.estimated_hours || 24,
       estimatedTime: `${s.estimated_hours || 24} Jam`,
       iconName: s.icon_name || 'Sparkles',
@@ -255,17 +259,17 @@ export const laundryService = {
    * Mengambil semua layanan dari localStorage atau fallback SERVICE_CATALOG.
    */
   getAllServices(): ServiceCatalogItem[] {
-    if (typeof window === 'undefined') return SERVICE_CATALOG;
+    if (typeof window === 'undefined') return inMemoryServicesStore;
     const saved = localStorage.getItem(SERVICES_STORAGE_KEY);
     if (!saved) {
-      localStorage.setItem(SERVICES_STORAGE_KEY, JSON.stringify(SERVICE_CATALOG));
-      return SERVICE_CATALOG;
+      localStorage.setItem(SERVICES_STORAGE_KEY, JSON.stringify(inMemoryServicesStore));
+      return inMemoryServicesStore;
     }
     try {
       const parsed: ServiceCatalogItem[] = JSON.parse(saved);
       return parsed;
     } catch {
-      return SERVICE_CATALOG;
+      return inMemoryServicesStore;
     }
   },
 
@@ -273,6 +277,7 @@ export const laundryService = {
    * Menyimpan daftar layanan ke localStorage.
    */
   saveServices(services: ServiceCatalogItem[]): void {
+    inMemoryServicesStore = services;
     if (typeof window !== 'undefined') {
       localStorage.setItem(SERVICES_STORAGE_KEY, JSON.stringify(services));
     }
@@ -294,24 +299,28 @@ export const laundryService = {
       throw new Error(`Gagal memuat layanan dari Supabase: ${error.message}`);
     }
 
-    return (data || []).map((s: any) => ({
-      id: s.id,
-      laundryId: s.laundry_id,
-      code: s.code || 'kiloan',
-      name: s.name,
-      description: s.description || '',
-      pricingType: s.unit === 'pcs' ? 'per_item' : 'per_kg',
-      price: Number(s.price_per_unit),
-      price_per_unit: Number(s.price_per_unit),
-      unit: s.unit as 'kg' | 'pcs',
-      minWeight: Number(s.min_weight || 1),
-      minimumQuantity: Number(s.min_weight || 1),
-      estimatedHours: s.estimated_hours || 24,
-      estimatedTime: `${s.estimated_hours || 24} Jam`,
-      iconName: s.icon_name || 'Sparkles',
-      isActive: s.is_active ?? true,
-      createdAt: s.created_at || new Date().toISOString(),
-    }));
+    return (data || []).map((s: any) => {
+      const unit = s.unit as 'kg' | 'pcs';
+      const minW = unit === 'kg' && s.min_weight !== null && s.min_weight !== undefined && Number(s.min_weight) > 0 ? Number(s.min_weight) : null;
+      return {
+        id: s.id,
+        laundryId: s.laundry_id,
+        code: s.code || 'kiloan',
+        name: s.name,
+        description: s.description || '',
+        pricingType: unit === 'pcs' ? 'per_item' : 'per_kg',
+        price: Number(s.price_per_unit),
+        price_per_unit: Number(s.price_per_unit),
+        unit: unit,
+        minWeight: minW,
+        minimumQuantity: minW,
+        estimatedHours: s.estimated_hours || 24,
+        estimatedTime: `${s.estimated_hours || 24} Jam`,
+        iconName: s.icon_name || 'Sparkles',
+        isActive: s.is_active ?? true,
+        createdAt: s.created_at || new Date().toISOString(),
+      };
+    });
   },
 
 
@@ -336,7 +345,10 @@ export const laundryService = {
       throw new Error('Validasi Gagal: Tarif layanan harus lebih besar dari Rp 0.');
     }
 
-    const minQty = Math.max(1, payload.minimumQuantity ?? payload.minWeight ?? 1);
+    const unit = payload.unit || 'kg';
+    const minW = unit === 'kg' && typeof payload.minWeight === 'number' && payload.minWeight > 0
+      ? payload.minWeight
+      : (unit === 'kg' && typeof payload.minimumQuantity === 'number' && payload.minimumQuantity > 0 ? payload.minimumQuantity : null);
 
     const { data: inserted, error } = await (supabase.from('services') as any)
       .insert({
@@ -345,8 +357,8 @@ export const laundryService = {
         description: payload.description || null,
         code: payload.code || 'kiloan',
         price_per_unit: payload.price,
-        unit: payload.unit || 'kg',
-        min_weight: minQty,
+        unit: unit,
+        min_weight: minW,
         estimated_hours: payload.estimatedHours || 24,
         is_active: payload.isActive ?? true,
         icon_name: payload.iconName || 'Sparkles',
@@ -358,6 +370,8 @@ export const laundryService = {
       throw new Error(`Supabase Service Insert Error: ${error.message}`);
     }
 
+    const insertedMinW = inserted.unit === 'kg' && inserted.min_weight !== null && inserted.min_weight !== undefined && Number(inserted.min_weight) > 0 ? Number(inserted.min_weight) : null;
+
     return {
       id: inserted.id,
       laundryId: inserted.laundry_id,
@@ -368,8 +382,8 @@ export const laundryService = {
       price: Number(inserted.price_per_unit),
       price_per_unit: Number(inserted.price_per_unit),
       unit: inserted.unit as 'kg' | 'pcs',
-      minWeight: Number(inserted.min_weight || minQty),
-      minimumQuantity: Number(inserted.min_weight || minQty),
+      minWeight: insertedMinW,
+      minimumQuantity: insertedMinW,
       estimatedHours: inserted.estimated_hours || 24,
       estimatedTime: `${inserted.estimated_hours || 24} Jam`,
       iconName: inserted.icon_name || 'Sparkles',
@@ -395,9 +409,14 @@ export const laundryService = {
     if (updates.description !== undefined) dbUpdates.description = updates.description;
     if (updates.price !== undefined) dbUpdates.price_per_unit = updates.price;
     if (updates.unit !== undefined) dbUpdates.unit = updates.unit;
-    if (updates.minimumQuantity !== undefined || updates.minWeight !== undefined) {
-      dbUpdates.min_weight = Math.max(1, updates.minimumQuantity ?? updates.minWeight ?? 1);
+
+    if (updates.unit === 'pcs') {
+      dbUpdates.min_weight = null;
+    } else if (updates.minimumQuantity !== undefined || updates.minWeight !== undefined) {
+      const rawMin = updates.minWeight ?? updates.minimumQuantity;
+      dbUpdates.min_weight = typeof rawMin === 'number' && rawMin > 0 ? rawMin : null;
     }
+
     if (updates.estimatedHours !== undefined) dbUpdates.estimated_hours = updates.estimatedHours;
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
 
@@ -411,6 +430,8 @@ export const laundryService = {
       throw new Error(`Supabase Service Update Error: ${error.message}`);
     }
 
+    const updatedMinW = updatedRow.unit === 'kg' && updatedRow.min_weight !== null && updatedRow.min_weight !== undefined && Number(updatedRow.min_weight) > 0 ? Number(updatedRow.min_weight) : null;
+
     return {
       id: updatedRow.id,
       laundryId: updatedRow.laundry_id,
@@ -421,8 +442,8 @@ export const laundryService = {
       price: Number(updatedRow.price_per_unit),
       price_per_unit: Number(updatedRow.price_per_unit),
       unit: updatedRow.unit as 'kg' | 'pcs',
-      minWeight: Number(updatedRow.min_weight || 1),
-      minimumQuantity: Number(updatedRow.min_weight || 1),
+      minWeight: updatedMinW,
+      minimumQuantity: updatedMinW,
       estimatedHours: updatedRow.estimated_hours || 24,
       estimatedTime: `${updatedRow.estimated_hours || 24} Jam`,
       iconName: updatedRow.icon_name || 'Sparkles',
@@ -498,19 +519,23 @@ export const laundryService = {
       throw new Error('Validasi Gagal: Estimasi pengerjaan harus lebih dari 0 jam.');
     }
 
+    const unit = payload.unit || 'kg';
+    const minW = unit === 'kg' && typeof payload.minWeight === 'number' && payload.minWeight > 0 ? payload.minWeight : null;
+
     const newService: ServiceCatalogItem = {
       ...payload,
-      id: `srv_${Date.now()}`,
+      id: `srv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       laundryId: targetLaundryId,
       code: payload.code || 'kiloan',
       price: payload.price,
       price_per_unit: payload.price,
-      unit: payload.unit || 'kg',
-      pricingType: payload.pricingType || (payload.unit === 'pcs' ? 'per_item' : 'per_kg'),
-      minWeight: payload.minWeight || 1,
+      unit: unit,
+      pricingType: payload.pricingType || (unit === 'pcs' ? 'per_item' : 'per_kg'),
+      minWeight: minW,
+      minimumQuantity: minW,
       estimatedHours: payload.estimatedHours,
       estimatedTime: payload.estimatedTime || `${payload.estimatedHours} Jam`,
-      iconName: payload.iconName || (payload.unit === 'pcs' ? 'Sparkles' : 'ShoppingBag'),
+      iconName: payload.iconName || (unit === 'pcs' ? 'Sparkles' : 'ShoppingBag'),
       isActive: payload.isActive ?? true,
       createdAt: new Date().toISOString(),
     };
@@ -544,9 +569,20 @@ export const laundryService = {
       throw new Error('Validasi Gagal: Estimasi pengerjaan harus lebih dari 0 jam.');
     }
 
+    const nextUnit = updates.unit ?? existing.unit;
+    let nextMinW = updates.minWeight !== undefined ? updates.minWeight : existing.minWeight;
+    if (nextUnit === 'pcs') {
+      nextMinW = null;
+    } else if (typeof nextMinW === 'number' && nextMinW <= 0) {
+      nextMinW = null;
+    }
+
     const updatedService: ServiceCatalogItem = {
       ...existing,
       ...updates,
+      unit: nextUnit,
+      minWeight: nextMinW,
+      minimumQuantity: nextMinW,
       price_per_unit: updates.price ?? existing.price,
       price: updates.price ?? existing.price,
     };

@@ -239,8 +239,9 @@ export default function CustomerLaundryDetailPage() {
 
   const activeService = laundryServices.find((s) => s.id === selectedServiceId);
   const currentQuantity = selectedServiceId ? quantities[selectedServiceId] || 0 : 0;
-  const minQuantityThreshold = activeService ? Math.max(1, activeService.minimumQuantity ?? activeService.minWeight ?? 1) : 1;
-  const billableQuantity = activeService && currentQuantity > 0 ? Math.max(currentQuantity, minQuantityThreshold) : 0;
+  const hasMinWeight = activeService && activeService.unit === 'kg' && typeof activeService.minWeight === 'number' && activeService.minWeight > 0;
+  const minQuantityThreshold = hasMinWeight ? (activeService!.minWeight as number) : null;
+  const billableQuantity = activeService && currentQuantity > 0 ? (hasMinWeight ? Math.max(currentQuantity, minQuantityThreshold!) : currentQuantity) : 0;
   const subtotal = activeService && currentQuantity > 0 ? activeService.price * billableQuantity : 0;
 
   const handleServiceSelect = (serviceId: string) => {
@@ -500,7 +501,8 @@ export default function CustomerLaundryDetailPage() {
                 const qty = quantities[service.id];
                 const hasQuantity = qty !== undefined;
                 const estDays = Math.max(1, Math.round((service.estimatedHours || 24) / 24));
-                const srvMinQty = Math.max(1, service.minimumQuantity ?? service.minWeight ?? 1);
+                const hasSrvMin = service.unit === 'kg' && typeof service.minWeight === 'number' && service.minWeight > 0;
+                const srvMinQty = hasSrvMin ? (service.minWeight as number) : null;
 
                 return (
                   <div
@@ -518,7 +520,7 @@ export default function CustomerLaundryDetailPage() {
                           <span>{service.name}</span>
                           {isSelected && hasQuantity && qty > 0 && <CheckCircle2 className="w-4 h-4 text-teal-600" />}
                         </h3>
-                        {srvMinQty > 1 && (
+                        {srvMinQty !== null && (
                           <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 shrink-0">
                             Min. charge {srvMinQty} {service.unit}
                           </span>
@@ -538,7 +540,7 @@ export default function CustomerLaundryDetailPage() {
                     </div>
 
                     {/* Disclosure when selected quantity is below minimum charge */}
-                    {isSelected && hasQuantity && qty > 0 && qty < srvMinQty && (
+                    {isSelected && hasQuantity && qty > 0 && srvMinQty !== null && qty < srvMinQty && (
                       <div className="text-[11px] text-slate-600 bg-amber-50/70 p-2 rounded-xl border border-amber-200/60 font-medium">
                         ⓘ Minimum charge berlaku untuk {srvMinQty} {service.unit} ({formatIDR(service.price * srvMinQty)})
                       </div>
@@ -642,7 +644,7 @@ export default function CustomerLaundryDetailPage() {
                     </span>
                   </div>
 
-                  {currentQuantity < minQuantityThreshold && (
+                  {minQuantityThreshold !== null && currentQuantity < minQuantityThreshold && (
                     <div className="flex justify-between items-center text-amber-800 text-[11px] font-semibold bg-amber-50 p-2.5 rounded-xl border border-amber-200/80">
                       <span>Min. Charge ({minQuantityThreshold} {activeService.unit})</span>
                       <span className="font-bold">{formatIDR(subtotal)}</span>
@@ -689,7 +691,7 @@ export default function CustomerLaundryDetailPage() {
                 1 Layanan ({currentQuantity} {activeService.unit})
               </p>
               <p className="text-[10px] font-bold text-slate-500">
-                {currentQuantity < minQuantityThreshold
+                {minQuantityThreshold !== null && currentQuantity < minQuantityThreshold
                   ? `Min. charge ${minQuantityThreshold} ${activeService.unit} berlaku (${formatIDR(subtotal)})`
                   : 'Harga final setelah penimbangan'}
               </p>

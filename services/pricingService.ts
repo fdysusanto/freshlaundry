@@ -144,8 +144,9 @@ export const pricingService = {
 
       // Authoritative Unit Price (Integer IDR) & Minimum Charge Calculation
       const authoritativeUnitPrice = Math.round(Number(srv.price));
-      const minQty = Math.max(1, Number(srv.minWeight ?? srv.minimumQuantity ?? 1));
-      const billableQty = Math.max(qty, minQty);
+      const hasMinWeight = srv.unit === 'kg' && typeof srv.minWeight === 'number' && srv.minWeight > 0;
+      const minWeightVal = hasMinWeight ? (srv.minWeight as number) : undefined;
+      const billableQty = hasMinWeight ? Math.max(qty, minWeightVal!) : qty;
       const itemSubtotal = Math.round(authoritativeUnitPrice * billableQty);
       subtotal += itemSubtotal;
 
@@ -155,8 +156,8 @@ export const pricingService = {
         unitPrice: authoritativeUnitPrice,
         quantity: qty,
         unit: srv.unit,
-        minimumQuantity: minQty,
-        minWeight: minQty,
+        minimumQuantity: minWeightVal,
+        minWeight: minWeightVal,
         subtotal: itemSubtotal,
         estimatedHours: srv.estimatedHours || 48,
       });
@@ -220,8 +221,9 @@ export const pricingService = {
       }
 
       const authoritativeUnitPrice = Math.round(Number(srv.price));
-      const minQty = Math.max(1, Number(srv.minWeight ?? srv.minimumQuantity ?? 1));
-      const billableQty = Math.max(qty, minQty);
+      const hasMinWeight = srv.unit === 'kg' && typeof srv.minWeight === 'number' && srv.minWeight > 0;
+      const minWeightVal = hasMinWeight ? (srv.minWeight as number) : undefined;
+      const billableQty = hasMinWeight ? Math.max(qty, minWeightVal!) : qty;
       const itemSubtotal = Math.round(authoritativeUnitPrice * billableQty);
       subtotal += itemSubtotal;
 
@@ -231,8 +233,8 @@ export const pricingService = {
         unitPrice: authoritativeUnitPrice,
         quantity: qty,
         unit: srv.unit,
-        minimumQuantity: minQty,
-        minWeight: minQty,
+        minimumQuantity: minWeightVal,
+        minWeight: minWeightVal,
         subtotal: itemSubtotal,
         estimatedHours: typeof srv.estimatedHours === 'number' && srv.estimatedHours > 0 ? srv.estimatedHours : 48,
       });

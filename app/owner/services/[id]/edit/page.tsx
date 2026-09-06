@@ -40,7 +40,7 @@ export default function EditOwnerServicePage() {
   const [description, setDescription] = useState('');
   const [unit, setUnit] = useState<'kg' | 'pcs'>('kg');
   const [price, setPrice] = useState<number>(0);
-  const [minWeight, setMinWeight] = useState<number>(1);
+  const [minWeightInput, setMinWeightInput] = useState<string>('');
   const [estimatedHours, setEstimatedHours] = useState<number>(24);
   const [estimatedTime, setEstimatedTime] = useState('');
   const [badge, setBadge] = useState('');
@@ -79,7 +79,7 @@ export default function EditOwnerServicePage() {
         setDescription(srv.description);
         setUnit(srv.unit || 'kg');
         setPrice(srv.price);
-        setMinWeight(srv.minWeight || 1);
+        setMinWeightInput(srv.minWeight && srv.unit === 'kg' ? String(srv.minWeight) : '');
         setEstimatedHours(srv.estimatedHours || 24);
         setEstimatedTime(srv.estimatedTime || `${srv.estimatedHours || 24} Jam`);
         setBadge(srv.badge || '');
@@ -144,8 +144,13 @@ export default function EditOwnerServicePage() {
       setErrorMsg('Tarif harga layanan harus lebih dari Rp 0.');
       return;
     }
-    if (!minWeight || minWeight < 1) {
-      setErrorMsg(unit === 'kg' ? 'Minimum charge (kg) harus minimal 1 kg.' : 'Minimum quantity (pcs) harus minimal 1 pcs.');
+    const parsedMinWeight =
+      unit === 'kg' && minWeightInput.trim() !== '' && !isNaN(Number(minWeightInput)) && Number(minWeightInput) > 0
+        ? Number(minWeightInput)
+        : null;
+
+    if (unit === 'kg' && minWeightInput.trim() !== '' && (isNaN(Number(minWeightInput)) || Number(minWeightInput) <= 0)) {
+      setErrorMsg('Minimum order (kg) harus berupa angka lebih besar dari 0.');
       return;
     }
     if (!estimatedHours || estimatedHours <= 0) {
@@ -163,8 +168,8 @@ export default function EditOwnerServicePage() {
           pricingType: unit === 'pcs' ? 'per_item' : 'per_kg',
           price,
           unit,
-          minWeight,
-          minimumQuantity: minWeight,
+          minWeight: parsedMinWeight,
+          minimumQuantity: parsedMinWeight,
           estimatedHours,
           estimatedTime: estimatedTime.trim() || `${estimatedHours} Jam`,
           badge: badge.trim() || undefined,
@@ -188,50 +193,55 @@ export default function EditOwnerServicePage() {
         onClick={() => router.push('/owner/services')}
         className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 transition-colors cursor-pointer"
       >
-        <ArrowLeft className="w-4 h-4" /> Kembali ke Daftar Layanan
+        <ArrowLeft className="w-4 h-4" />
+        <span>Kembali ke Katalog Layanan</span>
       </button>
 
-      {/* Header Banner */}
-      <div className="space-y-2">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-100 text-teal-800 text-xs font-bold">
-          <Edit className="w-4 h-4 text-teal-600" />
-          <span>Form Edit Layanan #{targetService.id}</span>
+      {/* Header Info Banner */}
+      <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <Edit className="w-6 h-6 text-teal-600" /> Edit Layanan #{targetService.code || serviceId.slice(0, 8)}
+          </h1>
+          <p className="text-xs text-slate-500 font-medium">
+            Perbarui nama, tarif harga, deskripsi, atau status keaktifan layanan toko.
+          </p>
         </div>
-        <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
-          Edit Layanan: {targetService.name}
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-500">
-          Toko Mitra: <strong className="text-slate-800">{selectedLaundry.name}</strong> ({selectedLaundry.id})
-        </p>
+        <div className="hidden sm:block text-right">
+          <span className="text-[10px] text-slate-400 font-bold uppercase block">Mitra Laundry</span>
+          <span className="text-xs font-bold text-slate-800">{selectedLaundry.name}</span>
+        </div>
       </div>
 
+      {/* Error Alert Banner */}
       {errorMsg && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-rose-800 text-xs font-semibold">
-          <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
           <span>{errorMsg}</span>
         </div>
       )}
 
+      {/* Main Edit Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card variant="white" className="space-y-5">
-          <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+          <div className="border-b border-slate-100 pb-3">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <Store className="w-4 h-4 text-teal-600" /> Informasi Utama Layanan
+              <Layers className="w-4 h-4 text-teal-600" /> Informasi Layanan Utam
             </h2>
-            <span className="text-xs font-mono text-slate-400">ID: {targetService.id}</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
+            <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                Nama Layanan Laundry <span className="text-rose-500">*</span>:
+                Nama Paket Layanan <span className="text-rose-500">*</span>:
               </label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                placeholder="mis. Cuci Komplit Kiloan, Cuci Sepatu Sneaker"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-medium"
               />
             </div>
 
@@ -242,7 +252,7 @@ export default function EditOwnerServicePage() {
               <select
                 value={code}
                 onChange={(e) => setCode(e.target.value as ServiceType)}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-bold bg-slate-50 cursor-pointer"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold bg-slate-50 cursor-pointer"
               >
                 <option value="kiloan">kiloan — Cuci Kiloan Reguler</option>
                 <option value="express">express — Express Kilat</option>
@@ -260,6 +270,7 @@ export default function EditOwnerServicePage() {
                 onChange={(e) => {
                   const newUnit = e.target.value as 'kg' | 'pcs';
                   setUnit(newUnit);
+                  if (newUnit === 'pcs') setMinWeightInput('');
                 }}
                 className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-bold bg-slate-50 cursor-pointer"
               >
@@ -309,24 +320,25 @@ export default function EditOwnerServicePage() {
               </p>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                {unit === 'kg' ? 'Minimum Charge (kg)' : 'Minimum Quantity (pcs)'} <span className="text-rose-500">*</span>:
-              </label>
-              <input
-                type="number"
-                required
-                min={1}
-                value={minWeight}
-                onChange={(e) => setMinWeight(Math.max(1, Number(e.target.value)))}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
-              />
-              <p className="text-[10px] text-slate-500 mt-1 font-medium leading-tight">
-                {unit === 'kg'
-                  ? 'Minimum berat yang dikenakan biaya. Customer dapat memilih estimasi lebih rendah, biaya minimum tetap berlaku.'
-                  : 'Minimum jumlah item yang dikenakan biaya.'}
-              </p>
-            </div>
+            {unit === 'kg' && (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Minimum Order (KG) — Opsional:
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  placeholder="Kosongkan jika tidak ada min. order"
+                  value={minWeightInput}
+                  onChange={(e) => setMinWeightInput(e.target.value)}
+                  className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                />
+                <p className="text-[10px] text-slate-500 mt-1 font-medium leading-tight">
+                  Kosongkan jika layanan tidak memiliki minimum order.
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">

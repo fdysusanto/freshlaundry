@@ -33,7 +33,7 @@ export default function CreateOwnerServicePage() {
   const [description, setDescription] = useState('');
   const [unit, setUnit] = useState<'kg' | 'pcs'>('kg');
   const [price, setPrice] = useState<number>(8000);
-  const [minWeight, setMinWeight] = useState<number>(3);
+  const [minWeightInput, setMinWeightInput] = useState<string>('');
   const [estimatedHours, setEstimatedHours] = useState<number>(48);
   const [estimatedTime, setEstimatedTime] = useState('2-3 Hari');
   const [badge, setBadge] = useState('');
@@ -70,8 +70,13 @@ export default function CreateOwnerServicePage() {
       setErrorMsg('Tarif harga layanan harus lebih dari Rp 0.');
       return;
     }
-    if (!minWeight || minWeight < 1) {
-      setErrorMsg(unit === 'kg' ? 'Minimum charge (kg) harus minimal 1 kg.' : 'Minimum quantity (pcs) harus minimal 1 pcs.');
+    const parsedMinWeight =
+      unit === 'kg' && minWeightInput.trim() !== '' && !isNaN(Number(minWeightInput)) && Number(minWeightInput) > 0
+        ? Number(minWeightInput)
+        : null;
+
+    if (unit === 'kg' && minWeightInput.trim() !== '' && (isNaN(Number(minWeightInput)) || Number(minWeightInput) <= 0)) {
+      setErrorMsg('Minimum order (kg) harus berupa angka lebih besar dari 0.');
       return;
     }
     if (!estimatedHours || estimatedHours <= 0) {
@@ -90,8 +95,8 @@ export default function CreateOwnerServicePage() {
           price,
           price_per_unit: price,
           unit,
-          minWeight,
-          minimumQuantity: minWeight,
+          minWeight: parsedMinWeight,
+          minimumQuantity: parsedMinWeight,
           estimatedHours,
           estimatedTime: estimatedTime.trim() || `${estimatedHours} Jam`,
           badge: badge.trim() || undefined,
@@ -189,7 +194,7 @@ export default function CreateOwnerServicePage() {
                 onChange={(e) => {
                   const newUnit = e.target.value as 'kg' | 'pcs';
                   setUnit(newUnit);
-                  if (newUnit === 'pcs' && minWeight > 1) setMinWeight(1);
+                  if (newUnit === 'pcs') setMinWeightInput('');
                 }}
                 className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-bold bg-slate-50 cursor-pointer"
               >
@@ -237,24 +242,25 @@ export default function CreateOwnerServicePage() {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                {unit === 'kg' ? 'Minimum Charge (kg)' : 'Minimum Quantity (pcs)'} <span className="text-rose-500">*</span>:
-              </label>
-              <input
-                type="number"
-                required
-                min={1}
-                value={minWeight}
-                onChange={(e) => setMinWeight(Math.max(1, Number(e.target.value)))}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
-              />
-              <p className="text-[10px] text-slate-500 mt-1 font-medium leading-tight">
-                {unit === 'kg'
-                  ? 'Minimum berat yang dikenakan biaya. Customer dapat memilih estimasi lebih rendah, biaya minimum tetap berlaku.'
-                  : 'Minimum jumlah item yang dikenakan biaya.'}
-              </p>
-            </div>
+            {unit === 'kg' && (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Minimum Order (KG) — Opsional:
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  placeholder="Kosongkan jika tidak ada min. order"
+                  value={minWeightInput}
+                  onChange={(e) => setMinWeightInput(e.target.value)}
+                  className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                />
+                <p className="text-[10px] text-slate-500 mt-1 font-medium leading-tight">
+                  Kosongkan jika layanan tidak memiliki minimum order.
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
