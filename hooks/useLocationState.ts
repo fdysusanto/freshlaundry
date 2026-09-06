@@ -1,56 +1,133 @@
-import { useState, useEffect, useCallback } from 'react';
-import { authService } from '@/services/authService';
-import { isSupabaseConfigured } from '@/services/supabase';
-import { UserProfile } from '@/types/user';
-import { locationService, LocationStateResult } from '@/services/locationService';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { MarketplaceLocation, MarketplaceLocationSource, MarketplaceLocationStatus } from '@/types/address';
+import { locationService } from '@/services/locationService';
 
 export function useLocationState() {
-  const [authLoading, setAuthLoading] = useState(true);
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [refreshToggle, setRefreshToggle] = useState(0);
+  const [marketplaceLocation, setMarketplaceLocation] = useState<MarketplaceLocation>({
+    latitude: null,
+    longitude: null,
+    source: null,
+    status: 'idle',
+  });
 
-  useEffect(() => {
-    let isMounted = true;
-    const checkAuth = async () => {
-      setAuthLoading(true);
-      try {
-        if (isSupabaseConfigured) {
-          const profile = await authService.fetchCurrentProfile();
-          if (isMounted) setUser(profile);
-        } else {
-          const syncUser = authService.getCurrentUserSync();
-          // In mock mode without explicit logged-in user, treat as null guest if user has no valid id
-          if (isMounted) setUser(syncUser && syncUser.id ? syncUser : null);
-        }
-      } catch (err) {
-        console.warn('[USE-LOCATION-STATE] Auth resolution warning:', err);
-        if (isMounted) setUser(null);
-      } finally {
-        if (isMounted) setAuthLoading(false);
+  const isMountedRef = useRef(true);
+
+  // Request fresh GPS position from device
+  const requestGpsLocation = useCallback(() => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      if (isMountedRef.current) {
+        setMarketplaceLocation({
+          latitude: null,
+          longitude: null,
+          source: null,
+          status: 'error',
+          errorMessage: 'Perangkat Anda tidak mendukung fitur pemindaian GPS.',
+        });
       }
-    };
+      return;
+    }
 
-    checkAuth();
-    return () => {
-      isMounted = false;
-    };
-  }, [refreshToggle]);
+    if (isMountedRef.current) {
+      setMarketplaceLocation((prev) => ({
+        ...prev,
+        status: 'locating',
+      }));
+    }
 
-  const updateSearchLocation = useCallback((newLocation: string) => {
-    locationService.setGuestSearchLocation(newLocation);
-    setRefreshToggle((prev) => prev + 1);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (!isMountedRef.current) return;
+        const lat = Number(position.coords.latitude.toFixed(6));
+        const lng = Number(position.coords.longitude.toFixed(6));
+
+        setMarketplaceLocation({
+          latitude: lat,
+          longitude: lng,
+          source: 'current_gps',
+          status: 'success',
+          displayAddress: 'Lokasi Saat Ini',
+        });
+      },
+      (error) => {
+        if (!isMountedRef.current) return;
+        let msg = 'Gagal mengakses GPS lokasi Anda.';
+        let status: MarketplaceLocationStatus = 'error';
+
+        if (error.code === error.PERMISSION_DENIED) {
+          msg = 'Izin lokasi GPS ditolak oleh browser/perangkat Anda.';
+          status = 'denied';
+        } else if (error.code === error.TIMEOUT) {
+          msg = 'Permintaan lokasi GPS waktu habis.';
+          status = 'error';
+        }
+
+        setMarketplaceLocation({
+          latitude: null,
+          longitude: null,
+          source: null,
+          status,
+          errorMessage: msg,
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000,
+      }
+    );
   }, []);
 
-  const locationResult: LocationStateResult = locationService.computeLocationState(
-    authLoading,
-    user
-  );
+  // Initialize location state on mount
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    // Priority 1: Manual Pin Override in Session Storage
+    const manualPin = locationService.getManualPinLocation();
+    if (manualPin) {
+      setMarketplaceLocation({
+        latitude: manualPin.latitude,
+        longitude: manualPin.longitude,
+        source: 'manual_pin',
+        status: 'success',
+        displayAddress: manualPin.displayAddress,
+      });
+      return () => {
+        isMountedRef.current = false;
+      };
+    }
+
+    // Priority 2: Current Device GPS Location
+    requestGpsLocation();
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [requestGpsLocation]);
+
+  // Set manual pin location override
+  const setManualPinLocation = useCallback((lat: number, lng: number, displayAddress?: string) => {
+    const saved = locationService.setManualPinLocation(lat, lng, displayAddress);
+    setMarketplaceLocation({
+      latitude: saved.latitude,
+      longitude: saved.longitude,
+      source: 'manual_pin',
+      status: 'success',
+      displayAddress: saved.displayAddress,
+    });
+  }, []);
+
+  // Reset manual override and request fresh GPS
+  const resetToGps = useCallback(() => {
+    locationService.clearManualPinLocation();
+    requestGpsLocation();
+  }, [requestGpsLocation]);
 
   return {
-    ...locationResult,
-    authLoading,
-    user,
-    updateSearchLocation,
-    refreshLocation: () => setRefreshToggle((prev) => prev + 1),
+    marketplaceLocation,
+    isLocating: marketplaceLocation.status === 'locating',
+    requestGpsLocation,
+    setManualPinLocation,
+    resetToGps,
+    formattedLocationLabel: locationService.formatMarketplaceLocationLabel(marketplaceLocation),
   };
 }

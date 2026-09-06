@@ -177,19 +177,7 @@ export default function CustomerDashboardPage() {
             </Button>
           </Link>
         </Card>
-      ) : (
-        <Card variant="white" className="bg-slate-900 text-white p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h3 className="text-sm font-bold text-white">Punya Usaha Laundry Sendiri?</h3>
-            <p className="text-xs text-slate-300">Daftarkan laundry Anda sebagai mitra FreshWash dan dapatkan jangkauan ribuan pelanggan baru.</p>
-          </div>
-          <Link href="/register/partner">
-            <Button variant="primary" size="md" className="shrink-0 font-bold bg-teal-500 hover:bg-teal-400 text-slate-900 border-none">
-              Daftar Jadi Mitra
-            </Button>
-          </Link>
-        </Card>
-      )}
+      ) : null}
 
       {/* Active Orders Section (Quick Overview) */}
       <div className="space-y-4">

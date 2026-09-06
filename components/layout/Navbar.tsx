@@ -189,30 +189,6 @@ export const Navbar: React.FC = () => {
               </Link>
             )}
 
-            {currentUser?.role === 'customer' && (
-              partnerAppStatus === 'pending' || partnerAppStatus === 'rejected' ? (
-                <Link
-                  href="/register/partner/status"
-                  className={`hover:text-teal-600 transition-colors flex items-center gap-1.5 ${
-                    pathname.startsWith('/register/partner/status') ? 'text-teal-700 font-bold' : ''
-                  }`}
-                >
-                  <Sparkles className="w-4 h-4 text-teal-600" />
-                  <span>Pengajuan Mitra</span>
-                </Link>
-              ) : (
-                <Link
-                  href="/register/partner"
-                  className={`hover:text-teal-600 transition-colors flex items-center gap-1.5 ${
-                    pathname.startsWith('/register/partner') ? 'text-teal-700 font-bold' : ''
-                  }`}
-                >
-                  <Sparkles className="w-4 h-4 text-teal-600" />
-                  <span>Jadi Mitra</span>
-                </Link>
-              )
-            )}
-
             {(currentUser?.role === 'admin' || currentUser?.role === 'platform_admin') && (
               <>
                 <Link
@@ -261,18 +237,6 @@ export const Navbar: React.FC = () => {
                   <span>Pesanan</span>
                 </Link>
               </>
-            )}
-
-            {!currentUser && (
-              <Link
-                href="/register/partner"
-                className={`hover:text-teal-600 transition-colors flex items-center gap-1.5 ${
-                  pathname.startsWith('/register/partner') ? 'text-teal-700 font-bold' : ''
-                }`}
-              >
-                <Sparkles className="w-4 h-4 text-teal-600" />
-                <span>Jadi Mitra</span>
-              </Link>
             )}
           </nav>
 

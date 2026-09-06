@@ -36,7 +36,20 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
   const isPickedUpFromCustomer = order.status === 'picked_up';
 
   const handleCustomerQuickAction = () => {
-    alert('Navigasi ke Customer akan segera tersedia.');
+    const snapshot = order.pickupAddressSnapshot;
+    if (snapshot?.latitude && snapshot?.longitude) {
+      window.open(
+        `https://www.google.com/maps/search/?api=1&query=${snapshot.latitude},${snapshot.longitude}`,
+        '_blank'
+      );
+    } else if (order.pickupAddress) {
+      window.open(
+        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.pickupAddress)}`,
+        '_blank'
+      );
+    } else {
+      alert('Navigasi ke Customer belum memiliki alamat valid.');
+    }
   };
 
   const handleLaundryQuickAction = () => {

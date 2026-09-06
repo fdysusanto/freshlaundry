@@ -1,11 +1,12 @@
 -- =============================================================================
--- SCRIPT CLEANUP DATA TRANSAKSI ORDER SUPABASE LIVE PRODUCTION
+-- SCRIPT CLEANUP DATA TRANSAKSI ORDER SUPABASE LIVE PRODUCTION / TEST
 -- =============================================================================
 -- TUJUAN: Membersihkan seluruh data transaksi order uji coba/lama untuk mempersiapkan
 --         database ke kondisi clean state sebelum pengujian business rules baru.
--- SAFEGUARD: Hanya menghapus data dari 7 tabel transaksi.
---           DILARANG MENGHAPUS data dari profiles, laundries, services, laundry_users.
--- EXECUTION NOTICE: Jalankan script ini pada Supabase Dashboard SQL Editor (Admin/Superuser).
+-- SAFEGUARD: Hanya menghapus data dari 10 tabel transaksi order.
+--           DILARANG MENGHAPUS data dari profiles, laundries, services, laundry_users, 
+--           administrative_regions, customer_addresses, laundry_photos.
+-- EXECUTION NOTICE: Jalankan script ini pada Supabase Dashboard SQL Editor atau via Admin/Service Role client.
 -- =============================================================================
 
 BEGIN;
@@ -22,6 +23,10 @@ DECLARE
   v_webhooks_cnt INT;
   v_assignments_cnt INT;
   v_batches_cnt INT;
+  v_refunds_cnt INT;
+  v_payouts_cnt INT;
+  v_reviews_cnt INT;
+
   v_profiles_cnt INT;
   v_laundries_cnt INT;
   v_services_cnt INT;
@@ -35,6 +40,9 @@ BEGIN
   SELECT COUNT(*) INTO v_webhooks_cnt FROM public.payment_webhook_events;
   SELECT COUNT(*) INTO v_assignments_cnt FROM public.courier_assignments;
   SELECT COUNT(*) INTO v_batches_cnt FROM public.dispatch_batches;
+  SELECT COUNT(*) INTO v_refunds_cnt FROM public.refunds;
+  SELECT COUNT(*) INTO v_payouts_cnt FROM public.laundry_payouts;
+  SELECT COUNT(*) INTO v_reviews_cnt FROM public.reviews;
 
   -- Hitung master data
   SELECT COUNT(*) INTO v_profiles_cnt FROM public.profiles;
@@ -50,6 +58,9 @@ BEGIN
   RAISE NOTICE 'payment_webhook_events: %', v_webhooks_cnt;
   RAISE NOTICE 'courier_assignments: %', v_assignments_cnt;
   RAISE NOTICE 'dispatch_batches: %', v_batches_cnt;
+  RAISE NOTICE 'refunds: %', v_refunds_cnt;
+  RAISE NOTICE 'laundry_payouts: %', v_payouts_cnt;
+  RAISE NOTICE 'reviews: %', v_reviews_cnt;
 
   RAISE NOTICE '=== PRE-CLEANUP MASTER DATA COUNT (MUST BE PRESERVED) ===';
   RAISE NOTICE 'profiles: %', v_profiles_cnt;
@@ -57,7 +68,7 @@ BEGIN
   RAISE NOTICE 'services: %', v_services_cnt;
   RAISE NOTICE 'laundry_users: %', v_laundry_users_cnt;
 
-  IF v_profiles_cnt = 0 OR v_laundries_cnt = 0 OR v_services_cnt = 0 THEN
+  IF v_profiles_cnt = 0 OR v_laundries_cnt = 0 OR v_services_cnt = 0 OR v_laundry_users_cnt = 0 THEN
     RAISE EXCEPTION 'SAFETY GUARD TRIGGERED: Master data tidak ditemukan atau kosong. Process ditahan.';
   END IF;
 END $$;
@@ -70,6 +81,9 @@ PERFORM set_config('app.payment_processing', 'true', true);
 
 DELETE FROM public.courier_assignments;
 DELETE FROM public.dispatch_batches;
+DELETE FROM public.refunds;
+DELETE FROM public.reviews;
+DELETE FROM public.laundry_payouts;
 DELETE FROM public.payment_webhook_events;
 DELETE FROM public.payment_attempts;
 DELETE FROM public.order_status_logs;
@@ -88,12 +102,16 @@ DECLARE
   v_webhooks_cnt INT;
   v_assignments_cnt INT;
   v_batches_cnt INT;
+  v_refunds_cnt INT;
+  v_payouts_cnt INT;
+  v_reviews_cnt INT;
+
   v_profiles_cnt INT;
   v_laundries_cnt INT;
   v_services_cnt INT;
   v_laundry_users_cnt INT;
 BEGIN
-  -- 1. Verifikasi 7 tabel transaksi bersih (0 records)
+  -- 1. Verifikasi 10 tabel transaksi bersih (0 records)
   SELECT COUNT(*) INTO v_orders_cnt FROM public.orders;
   SELECT COUNT(*) INTO v_items_cnt FROM public.order_items;
   SELECT COUNT(*) INTO v_logs_cnt FROM public.order_status_logs;
@@ -101,12 +119,15 @@ BEGIN
   SELECT COUNT(*) INTO v_webhooks_cnt FROM public.payment_webhook_events;
   SELECT COUNT(*) INTO v_assignments_cnt FROM public.courier_assignments;
   SELECT COUNT(*) INTO v_batches_cnt FROM public.dispatch_batches;
+  SELECT COUNT(*) INTO v_refunds_cnt FROM public.refunds;
+  SELECT COUNT(*) INTO v_payouts_cnt FROM public.laundry_payouts;
+  SELECT COUNT(*) INTO v_reviews_cnt FROM public.reviews;
 
   IF v_orders_cnt > 0 OR v_items_cnt > 0 OR v_logs_cnt > 0 OR 
      v_attempts_cnt > 0 OR v_webhooks_cnt > 0 OR v_assignments_cnt > 0 OR 
-     v_batches_cnt > 0 THEN
-    RAISE EXCEPTION 'POST-CLEANUP ASSERTION FAILED: Data transaksi belum 100%% bersih. Orders: %, Items: %, Logs: %, Attempts: %, Webhooks: %, Assignments: %, Batches: %. Transaksi dibatalkan (ROLLBACK).',
-      v_orders_cnt, v_items_cnt, v_logs_cnt, v_attempts_cnt, v_webhooks_cnt, v_assignments_cnt, v_batches_cnt;
+     v_batches_cnt > 0 OR v_refunds_cnt > 0 OR v_payouts_cnt > 0 OR v_reviews_cnt > 0 THEN
+    RAISE EXCEPTION 'POST-CLEANUP ASSERTION FAILED: Data transaksi belum 100%% bersih. Orders: %, Items: %, Logs: %, Attempts: %, Webhooks: %, Assignments: %, Batches: %, Refunds: %, Payouts: %, Reviews: %. Transaksi dibatalkan (ROLLBACK).',
+      v_orders_cnt, v_items_cnt, v_logs_cnt, v_attempts_cnt, v_webhooks_cnt, v_assignments_cnt, v_batches_cnt, v_refunds_cnt, v_payouts_cnt, v_reviews_cnt;
   END IF;
 
   -- 2. Verifikasi Master Data utuh (> 0 records)

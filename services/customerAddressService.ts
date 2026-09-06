@@ -266,6 +266,8 @@ export const customerAddressService = {
         address_detail: payload.addressDetail.trim(),
         rt: payload.rt?.trim() || null,
         rw: payload.rw?.trim() || null,
+        latitude: payload.latitude ?? null,
+        longitude: payload.longitude ?? null,
         is_default: payload.isDefault ?? false,
         is_active: true,
       })
@@ -324,6 +326,8 @@ export const customerAddressService = {
     if (payload.addressDetail !== undefined) updateBody.address_detail = payload.addressDetail.trim();
     if (payload.rt !== undefined) updateBody.rt = payload.rt?.trim() || null;
     if (payload.rw !== undefined) updateBody.rw = payload.rw?.trim() || null;
+    if (payload.latitude !== undefined) updateBody.latitude = payload.latitude;
+    if (payload.longitude !== undefined) updateBody.longitude = payload.longitude;
     if (payload.isDefault !== undefined) updateBody.is_default = payload.isDefault;
     if (payload.isActive !== undefined) updateBody.is_active = payload.isActive;
 

@@ -9,9 +9,11 @@ import { marketplaceService } from '@/services/marketplaceService';
 import { useLocationState } from '@/hooks/useLocationState';
 import { LaundryMarketplaceItem } from '@/types/laundry';
 import { LocationPickerHeader } from '@/components/marketplace/LocationPickerHeader';
+import { MarketplaceLocationModal } from '@/components/marketplace/MarketplaceLocationModal';
 import { LaundryPartnerCard } from '@/components/marketplace/LaundryPartnerCard';
 import { HorizontalCardCarousel } from '@/components/marketplace/HorizontalCardCarousel';
 import { MarketplaceSectionSkeleton } from '@/components/ui/MarketplaceSkeleton';
+import { LocationRequiredCard } from '@/components/marketplace/LocationRequiredCard';
 import { Features } from '@/components/landing/Features';
 import { HowItWorks } from '@/components/landing/HowItWorks';
 import { CTA } from '@/components/landing/CTA';
@@ -25,6 +27,8 @@ export default function LandingMarketplacePage() {
   const [marketplaceItems, setMarketplaceItems] = useState<LaundryMarketplaceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+
 
   // Role Guard
   useEffect(() => {
@@ -58,13 +62,15 @@ export default function LandingMarketplacePage() {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      // Determine if lat/lng are available from user address/location
       let userLat: number | null = null;
       let userLng: number | null = null;
 
-      if (locationState.user && (locationState.user as any).latitude) {
-        userLat = Number((locationState.user as any).latitude);
-        userLng = Number((locationState.user as any).longitude);
+      if (
+        locationState.marketplaceLocation.latitude !== null &&
+        locationState.marketplaceLocation.longitude !== null
+      ) {
+        userLat = Number(locationState.marketplaceLocation.latitude);
+        userLng = Number(locationState.marketplaceLocation.longitude);
       }
 
       const items = await marketplaceService.getNearbyLaundryPartnersAsync(userLat, userLng);
@@ -76,7 +82,7 @@ export default function LandingMarketplacePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [locationState.user]);
+  }, [locationState.marketplaceLocation.latitude, locationState.marketplaceLocation.longitude]);
 
   useEffect(() => {
     loadMarketplaceData();
@@ -88,7 +94,7 @@ export default function LandingMarketplacePage() {
       if (a.distanceKm !== undefined && b.distanceKm !== undefined) {
         return a.distanceKm - b.distanceKm;
       }
-      return 0; // retain default order if distance is not present
+      return 0;
     });
   }, [marketplaceItems]);
 
@@ -106,7 +112,12 @@ export default function LandingMarketplacePage() {
     router.push(`/customer/laundries?search=${encodeURIComponent(searchQuery.trim())}`);
   };
 
-  const hasLocationAvailable = Boolean(locationState.displayLocation && locationState.searchLocation);
+  const hasLocationAvailable = Boolean(
+    locationState.marketplaceLocation.latitude !== null &&
+    locationState.marketplaceLocation.longitude !== null
+  );
+
+  const activeRadiusKm = (marketplaceItems as any).activeRadiusKm ?? 10;
 
   return (
     <div className="space-y-12 py-6">
@@ -166,109 +177,112 @@ export default function LandingMarketplacePage() {
           </div>
         )}
 
-        {/* SECTION 1: Mitra laundry terdekat */}
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                <span>Mitra laundry terdekat</span>
-              </h2>
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mt-0.5">
-                <MapPin className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                <span>
-                  {hasLocationAvailable
-                    ? `📍 Sekitar ${locationState.displayLocation}`
-                    : 'Mitra pilihan di area sekitar Anda'}
-                </span>
+        {/* RULE 1: LOCATION REQUIRED BLOCKING */}
+        {!hasLocationAvailable && !isLoading && !locationState.isLocating ? (
+          <LocationRequiredCard
+            onRequestGps={() => locationState.requestGpsLocation()}
+            onOpenMapModal={() => setIsLocationModalOpen(true)}
+            isLocating={locationState.isLocating}
+          />
+        ) : (
+
+          <>
+            {/* SECTION 1: Mitra laundry terdekat */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                      Mitra laundry terdekat
+                    </h2>
+                    {hasLocationAvailable && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-teal-100 text-teal-800 border border-teal-200">
+                        Radius {activeRadiusKm} km
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mt-0.5">
+                    <MapPin className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                    <span>
+                      {locationState.marketplaceLocation.source === 'current_gps'
+                        ? `📍 Berdasarkan Lokasi GPS Perangkat Saat Ini (Radius ${activeRadiusKm} km)`
+                        : locationState.marketplaceLocation.source === 'manual_pin'
+                        ? `📍 ${locationState.marketplaceLocation.displayAddress || 'Lokasi Pilihan di Peta'} (Radius ${activeRadiusKm} km)`
+                        : '📍 Tentukan lokasi Anda untuk melihat laundry terdekat'}
+                    </span>
+                  </div>
+                </div>
+
+                <Link
+                  href="/customer/laundries"
+                  className="text-xs font-bold text-teal-700 hover:text-teal-600 hover:underline flex items-center gap-1 shrink-0"
+                >
+                  Lihat Semua ({marketplaceItems.length}) <ArrowRight className="w-4 h-4" />
+                </Link>
               </div>
+
+              {isLoading || locationState.isLocating ? (
+                <MarketplaceSectionSkeleton />
+              ) : nearestPartners.length > 0 ? (
+                <HorizontalCardCarousel>
+                  {nearestPartners.map((item) => (
+                    <LaundryPartnerCard key={`nearest-${item.laundry.id}`} item={item} />
+                  ))}
+                </HorizontalCardCarousel>
+              ) : (
+                <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center space-y-3">
+                  <Store className="w-10 h-10 text-slate-300 mx-auto" />
+                  <p className="text-sm font-bold text-slate-700">Tidak ada mitra laundry dalam radius 10 km dari lokasi ini.</p>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Coba atur ulang titik lokasi pada peta ke area lain atau gunakan lokasi GPS perangkat Anda.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => locationState.resetToGps()}
+                    className="cursor-pointer text-xs"
+                  >
+                    Gunakan Lokasi GPS Saya
+                  </Button>
+                </div>
+              )}
             </div>
 
-            <Link
-              href="/customer/laundries"
-              className="text-xs font-bold text-teal-700 hover:text-teal-600 hover:underline flex items-center gap-1 shrink-0"
-            >
-              Lihat Semua ({marketplaceItems.length}) <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
+            {/* SECTION 2: Laundry pilihan di sekitar Anda */}
+            {topRatedPartners.length > 0 && (
+              <div className="space-y-4 pt-4 border-t border-slate-200/80">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-bold mb-1">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Rating &amp; Favorit Pelanggan</span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                      Laundry pilihan di sekitar Anda
+                    </h2>
+                  </div>
 
-          {isLoading ? (
-            <MarketplaceSectionSkeleton />
-          ) : nearestPartners.length > 0 ? (
-            <HorizontalCardCarousel>
-              {nearestPartners.map((item) => (
-                <LaundryPartnerCard key={`nearest-${item.laundry.id}`} item={item} />
-              ))}
-            </HorizontalCardCarousel>
-          ) : (
-            <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center space-y-3">
-              <Store className="w-10 h-10 text-slate-300 mx-auto" />
-              <p className="text-sm font-bold text-slate-700">Tidak ada mitra laundry di sekitar Anda.</p>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Coba ubah lokasi pencarian atau periksa kembali filter area Anda.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => locationState.updateSearchLocation('Kota Cirebon')}
-                className="cursor-pointer"
-              >
-                Ubah Lokasi Pencarian
-              </Button>
-            </div>
-          )}
-        </div>
+                  <Link
+                    href="/customer/laundries?sort=rating"
+                    className="text-xs font-bold text-teal-700 hover:text-teal-600 hover:underline flex items-center gap-1 shrink-0"
+                  >
+                    Lihat Urutan Rating <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
 
-        {/* SECTION 2: Laundry pilihan di sekitar Anda */}
-        <div className="space-y-4 pt-4 border-t border-slate-200/80">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-bold mb-1">
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                <span>Rating &amp; Favorit Pelanggan</span>
+                {isLoading ? (
+                  <MarketplaceSectionSkeleton />
+                ) : (
+                  <HorizontalCardCarousel>
+                    {topRatedPartners.map((item) => (
+                      <LaundryPartnerCard key={`toprated-${item.laundry.id}`} item={item} />
+                    ))}
+                  </HorizontalCardCarousel>
+                )}
               </div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                Laundry pilihan di sekitar Anda
-              </h2>
-            </div>
-
-            <Link
-              href="/customer/laundries?sort=rating"
-              className="text-xs font-bold text-teal-700 hover:text-teal-600 hover:underline flex items-center gap-1 shrink-0"
-            >
-              Lihat Urutan Rating <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-
-          {isLoading ? (
-            <MarketplaceSectionSkeleton />
-          ) : topRatedPartners.length > 0 ? (
-            <HorizontalCardCarousel>
-              {topRatedPartners.map((item) => (
-                <LaundryPartnerCard key={`toprated-${item.laundry.id}`} item={item} />
-              ))}
-            </HorizontalCardCarousel>
-          ) : null}
-        </div>
-
-        {/* Callout Banner */}
-        <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-cyan-950 rounded-3xl p-6 sm:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
-          <div className="space-y-2">
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight">
-              Punya Usaha Laundry? Bergabung Menjadi Mitra FreshWash!
-            </h3>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-              Jangkau pelanggan baru di kota Anda dengan sistem order management modern, kurir otomatis, dan manajemen katalog layanan.
-            </p>
-          </div>
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={() => router.push('/auth/register/partner')}
-            className="bg-white text-slate-950 font-black hover:bg-slate-100 shrink-0 cursor-pointer shadow-lg"
-          >
-            Daftar Mitra Laundry
-          </Button>
-        </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Trust & Process Features (Desktop) */}
@@ -277,6 +291,21 @@ export default function LandingMarketplacePage() {
         <HowItWorks />
         <CTA />
       </div>
+      {/* Unified Marketplace Location Modal */}
+      <MarketplaceLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        initialLat={locationState.marketplaceLocation.latitude}
+        initialLng={locationState.marketplaceLocation.longitude}
+        isGpsActive={locationState.marketplaceLocation.source === 'current_gps'}
+        onSelectManualPin={(lat, lng, displayAddress) => {
+          locationState.setManualPinLocation(lat, lng, displayAddress);
+        }}
+        onResetToGps={() => {
+          locationState.resetToGps();
+        }}
+      />
     </div>
   );
 }
+

@@ -1,111 +1,84 @@
-import { UserProfile } from '@/types/user';
+import { MarketplaceLocation, MarketplaceLocationSource, MarketplaceLocationStatus } from '@/types/address';
 
-export const DEFAULT_SEARCH_LOCATION = 'Siliwangi, Kota Cirebon';
-export const GUEST_SEARCH_LOCATION_KEY = 'freshwash_search_location';
+export const MARKETPLACE_MANUAL_LOCATION_KEY = 'freshlaundry_marketplace_manual_location';
 
-export type LocationStateType =
-  | 'AUTH_LOADING'
-  | 'GUEST_DEFAULT'
-  | 'GUEST_CUSTOM'
-  | 'CUSTOMER_NO_ADDRESS'
-  | 'CUSTOMER_HAS_ADDRESS';
-
-export interface LocationStateResult {
-  stateType: LocationStateType;
-  headerLabel: string;
-  displayLocation: string;
-  ctaText: string;
-  isCustomerPickupAddress: boolean;
-  searchLocation: string;
-  pickupAddress: string;
+export interface ManualPinLocationData {
+  latitude: number;
+  longitude: number;
+  displayAddress?: string;
+  updatedAt: string;
 }
 
-let inMemoryGuestSearchLocationStore: string | null = null;
+let inMemoryManualPinStore: ManualPinLocationData | null = null;
 
 export const locationService = {
-  getGuestSearchLocation(): string | null {
-    if (typeof window === 'undefined') return inMemoryGuestSearchLocationStore;
-    return localStorage.getItem(GUEST_SEARCH_LOCATION_KEY) || inMemoryGuestSearchLocationStore;
+  // Validate geographic coordinate bounds safely
+  isValidCoordinate(lat: any, lng: any): boolean {
+    if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
+    const numLat = Number(lat);
+    const numLng = Number(lng);
+    if (isNaN(numLat) || isNaN(numLng) || !isFinite(numLat) || !isFinite(numLng)) return false;
+    return numLat >= -90 && numLat <= 90 && numLng >= -180 && numLng <= 180;
   },
 
-  setGuestSearchLocation(location: string): void {
-    inMemoryGuestSearchLocationStore = location;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(GUEST_SEARCH_LOCATION_KEY, location);
-    }
-  },
-
-  clearGuestSearchLocation(): void {
-    inMemoryGuestSearchLocationStore = null;
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(GUEST_SEARCH_LOCATION_KEY);
-    }
-  },
-
-  computeLocationState(
-    authLoading: boolean,
-    user: UserProfile | null
-  ): LocationStateResult {
-    if (authLoading) {
-      return {
-        stateType: 'AUTH_LOADING',
-        headerLabel: 'MEMUAT LOKASI:',
-        displayLocation: 'Memuat data lokasi...',
-        ctaText: 'Memuat...',
-        isCustomerPickupAddress: false,
-        searchLocation: DEFAULT_SEARCH_LOCATION,
-        pickupAddress: '',
-      };
-    }
-
-    // Guest / Unauthenticated User
-    if (!user || !user.id) {
-      const customGuestLoc = this.getGuestSearchLocation();
-      if (customGuestLoc && customGuestLoc.trim() !== '') {
-        return {
-          stateType: 'GUEST_CUSTOM',
-          headerLabel: 'LOKASI PENCARIAN:',
-          displayLocation: customGuestLoc.trim(),
-          ctaText: 'Ubah',
-          isCustomerPickupAddress: false,
-          searchLocation: customGuestLoc.trim(),
-          pickupAddress: '',
-        };
+  // Read manual location override from sessionStorage
+  getManualPinLocation(): ManualPinLocationData | null {
+    if (typeof window === 'undefined') return inMemoryManualPinStore;
+    try {
+      const raw = sessionStorage.getItem(MARKETPLACE_MANUAL_LOCATION_KEY);
+      if (!raw) return inMemoryManualPinStore;
+      const parsed: ManualPinLocationData = JSON.parse(raw);
+      if (this.isValidCoordinate(parsed.latitude, parsed.longitude)) {
+        return parsed;
       }
-
-      return {
-        stateType: 'GUEST_DEFAULT',
-        headerLabel: 'LOKASI PENCARIAN:',
-        displayLocation: DEFAULT_SEARCH_LOCATION,
-        ctaText: 'Pilih Lokasi',
-        isCustomerPickupAddress: false,
-        searchLocation: DEFAULT_SEARCH_LOCATION,
-        pickupAddress: '',
-      };
+      return inMemoryManualPinStore;
+    } catch {
+      return inMemoryManualPinStore;
     }
+  },
 
-    // Authenticated Customer
-    const userAddress = (user.address || '').trim();
-    if (userAddress !== '') {
-      return {
-        stateType: 'CUSTOMER_HAS_ADDRESS',
-        headerLabel: 'LOKASI PENJEMPUTAN ANDA:',
-        displayLocation: userAddress,
-        ctaText: 'Ubah',
-        isCustomerPickupAddress: true,
-        searchLocation: userAddress,
-        pickupAddress: userAddress,
-      };
-    }
-
-    return {
-      stateType: 'CUSTOMER_NO_ADDRESS',
-      headerLabel: 'LOKASI PENJEMPUTAN:',
-      displayLocation: 'Tambahkan alamat pickup',
-      ctaText: 'Tambah Alamat',
-      isCustomerPickupAddress: false,
-      searchLocation: DEFAULT_SEARCH_LOCATION,
-      pickupAddress: '',
+  // Save manual pin location override to sessionStorage
+  setManualPinLocation(lat: number, lng: number, displayAddress?: string): ManualPinLocationData {
+    const data: ManualPinLocationData = {
+      latitude: Number(lat.toFixed(6)),
+      longitude: Number(lng.toFixed(6)),
+      displayAddress: displayAddress || `Titik Peta (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+      updatedAt: new Date().toISOString(),
     };
+    inMemoryManualPinStore = data;
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem(MARKETPLACE_MANUAL_LOCATION_KEY, JSON.stringify(data));
+      } catch (err) {
+        console.warn('[LOCATION-SERVICE] Failed to save manual pin to sessionStorage:', err);
+      }
+    }
+    return data;
+  },
+
+  // Clear manual pin location override from sessionStorage
+  clearManualPinLocation(): void {
+    inMemoryManualPinStore = null;
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem(MARKETPLACE_MANUAL_LOCATION_KEY);
+      } catch (err) {
+        console.warn('[LOCATION-SERVICE] Failed to clear manual pin from sessionStorage:', err);
+      }
+    }
+  },
+
+  // Format compact marketplace header location string
+  formatMarketplaceLocationLabel(location: MarketplaceLocation): string {
+    if (location.status === 'locating') {
+      return '📍 Mencari lokasi Anda...';
+    }
+    if (location.source === 'manual_pin') {
+      return location.displayAddress ? `📍 ${location.displayAddress}` : '📍 Lokasi Pilihan (Peta)';
+    }
+    if (location.source === 'current_gps' && location.status === 'success') {
+      return '📍 Lokasi Saat Ini';
+    }
+    return '📍 Lokasi belum dipilih';
   },
 };

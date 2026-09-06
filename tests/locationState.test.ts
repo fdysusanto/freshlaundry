@@ -1,9 +1,9 @@
-import { locationService, DEFAULT_SEARCH_LOCATION } from '../services/locationService';
-import { UserProfile } from '../types/user';
+import { locationService } from '../services/locationService';
+import { MarketplaceLocation } from '../types/address';
 
 async function runLocationStateTests() {
   console.log('==================================================');
-  console.log('RUNNING LOCATION STATE & UX CORRECTION TESTS');
+  console.log('RUNNING GPS-FIRST MARKETPLACE LOCATION TESTS');
   console.log('==================================================\n');
 
   let passed = 0;
@@ -19,74 +19,78 @@ async function runLocationStateTests() {
     }
   }
 
-  // Clear any existing localStorage mock state before starting
-  locationService.clearGuestSearchLocation();
+  // TEST 1: Coordinate Validation
+  assert(locationService.isValidCoordinate(-6.732, 108.5523) === true, 'Test 1: Valid lat/lng returns true');
+  assert(locationService.isValidCoordinate(0, 0) === true, 'Test 1b: Coordinate (0, 0) is valid');
+  assert(locationService.isValidCoordinate(95, 108) === false, 'Test 1c: Out of bounds latitude returns false');
+  assert(locationService.isValidCoordinate(null, 108) === false, 'Test 1d: Null latitude returns false');
 
-  // TEST 1: Guest + no location chosen
-  const state1 = locationService.computeLocationState(false, null);
-  assert(state1.stateType === 'GUEST_DEFAULT', 'Test 1: Guest without location resolves to GUEST_DEFAULT');
-  assert(state1.headerLabel === 'LOKASI PENCARIAN:', 'Test 1: Guest header label is "LOKASI PENCARIAN:" (NOT "LOKASI PENJEMPUTAN ANDA")');
-  assert(state1.displayLocation === DEFAULT_SEARCH_LOCATION, 'Test 1: Default search area display text');
-  assert(state1.ctaText === 'Pilih Lokasi', 'Test 1: Guest CTA text is "Pilih Lokasi"');
-  assert(state1.isCustomerPickupAddress === false, 'Test 1: Default location is NOT marked as customer pickup address');
+  // TEST 2: Manual Pin Storage in SessionStorage / Memory
+  locationService.clearManualPinLocation();
+  assert(locationService.getManualPinLocation() === null, 'Test 2: Initial manual pin is null');
 
-  // TEST 2: Guest + custom search location chosen
-  locationService.setGuestSearchLocation('Tebet, Jakarta Selatan');
-  const state2 = locationService.computeLocationState(false, null);
-  assert(state2.stateType === 'GUEST_CUSTOM', 'Test 2: Guest with custom location resolves to GUEST_CUSTOM');
-  assert(state2.headerLabel === 'LOKASI PENCARIAN:', 'Test 2: Header label remains "LOKASI PENCARIAN:"');
-  assert(state2.displayLocation === 'Tebet, Jakarta Selatan', 'Test 2: Display location shows chosen search area');
-  assert(state2.ctaText === 'Ubah', 'Test 2: CTA text is "Ubah"');
-  assert(state2.isCustomerPickupAddress === false, 'Test 2: Guest custom search location is NOT a customer pickup address');
-  locationService.clearGuestSearchLocation();
+  const pin = locationService.setManualPinLocation(-6.2, 106.8, 'Kebayoran, Jakarta Selatan');
+  assert(pin.latitude === -6.2 && pin.longitude === 106.8, 'Test 2b: Manual pin correctly saved');
+  assert(locationService.getManualPinLocation()?.displayAddress === 'Kebayoran, Jakarta Selatan', 'Test 2c: Manual pin displayAddress correctly returned');
 
-  // TEST 3: Authenticated customer + no saved pickup address
-  const unaddressedCustomer: UserProfile = {
-    id: 'usr_cust_no_addr',
-    email: 'new@customer.com',
-    fullName: 'Pelanggan Baru',
-    phone: '0811111111',
-    role: 'customer',
-    address: '',
-    createdAt: new Date().toISOString(),
+  locationService.clearManualPinLocation();
+  assert(locationService.getManualPinLocation() === null, 'Test 2d: Manual pin cleared successfully');
+
+  // TEST 3: Header Format Label
+  const gpsLoc: MarketplaceLocation = {
+    latitude: -6.732,
+    longitude: 108.5523,
+    source: 'current_gps',
+    status: 'success',
   };
-  const state3 = locationService.computeLocationState(false, unaddressedCustomer);
-  assert(state3.stateType === 'CUSTOMER_NO_ADDRESS', 'Test 3: Customer without address resolves to CUSTOMER_NO_ADDRESS');
-  assert(state3.headerLabel === 'LOKASI PENJEMPUTAN:', 'Test 3: Header label is "LOKASI PENJEMPUTAN:"');
-  assert(state3.displayLocation === 'Tambahkan alamat pickup', 'Test 3: Placeholder displays "Tambahkan alamat pickup"');
-  assert(state3.ctaText === 'Tambah Alamat', 'Test 3: CTA text is "Tambah Alamat"');
-  assert(state3.isCustomerPickupAddress === false, 'Test 3: Unaddressed customer has no pickup address');
+  assert(locationService.formatMarketplaceLocationLabel(gpsLoc) === '📍 Lokasi Saat Ini', 'Test 3: GPS location formats as 📍 Lokasi Saat Ini');
 
-  // TEST 4: Authenticated customer + saved pickup address
-  const addressedCustomer: UserProfile = {
-    id: 'usr_cust_with_addr',
-    email: 'budi@customer.com',
-    fullName: 'Budi Santoso',
-    phone: '081234567890',
-    role: 'customer',
-    address: 'Jl. Sudirman No. 10, Jakarta Pusat',
-    createdAt: new Date().toISOString(),
+  const manualLoc: MarketplaceLocation = {
+    latitude: -6.2,
+    longitude: 106.8,
+    source: 'manual_pin',
+    status: 'success',
+    displayAddress: 'Kebayoran, Jakarta',
   };
-  const state4 = locationService.computeLocationState(false, addressedCustomer);
-  assert(state4.stateType === 'CUSTOMER_HAS_ADDRESS', 'Test 4: Customer with address resolves to CUSTOMER_HAS_ADDRESS');
-  assert(state4.headerLabel === 'LOKASI PENJEMPUTAN ANDA:', 'Test 4: Header label is "LOKASI PENJEMPUTAN ANDA:"');
-  assert(state4.displayLocation === 'Jl. Sudirman No. 10, Jakarta Pusat', 'Test 4: Displays real saved customer address');
-  assert(state4.ctaText === 'Ubah', 'Test 4: CTA text is "Ubah"');
-  assert(state4.isCustomerPickupAddress === true, 'Test 4: Marked as valid customer pickup address');
+  assert(locationService.formatMarketplaceLocationLabel(manualLoc) === '📍 Kebayoran, Jakarta', 'Test 3b: Manual pin formats with displayAddress');
 
-  // TEST 5: Default search location protection
-  assert(state1.pickupAddress === '', 'Test 5: Default search location is never copied into pickupAddress');
+  const deniedLoc: MarketplaceLocation = {
+    latitude: null,
+    longitude: null,
+    source: null,
+    status: 'denied',
+  };
+  assert(locationService.formatMarketplaceLocationLabel(deniedLoc) === '📍 Lokasi belum dipilih', 'Test 3c: Denied location formats as 📍 Lokasi belum dipilih');
 
-  // TEST 6: Checkout Safety
-  assert(state3.pickupAddress === '', 'Test 6: Unaddressed customer pickupAddress is empty, preventing accidental checkout with fake address');
+  // TEST 4: Progressive Radius & Location Required Blocking
+  const { marketplaceService } = require('../services/marketplaceService');
 
-  // TEST 7: Auth Loading
-  const state7 = locationService.computeLocationState(true, null);
-  assert(state7.stateType === 'AUTH_LOADING', 'Test 7: Auth loading state resolves to AUTH_LOADING');
-  assert(state7.isCustomerPickupAddress === false, 'Test 7: Auth loading does not display customer address prematurely');
+  // Test 4a: Null location returns empty array immediately
+  const nullResult = await marketplaceService.getNearbyLaundryPartnersAsync(null, null);
+  assert(nullResult.length === 0, 'Test 4a: Null coordinates return empty array (Location Required Blocking)');
+  assert((nullResult as any).hasLocation === false, 'Test 4a-2: Null coordinates have hasLocation === false');
+
+  // Test 4b: Coordinates fetch with Progressive Radius
+  // Cirebon center coordinates (-6.732, 108.5523)
+  const discoveryResult = await marketplaceService.getProgressiveDiscoveryResultAsync(-6.732, 108.5523);
+  assert(discoveryResult.hasLocation === true, 'Test 4b: Discovery result hasLocation === true');
+  assert([3, 5, 7, 10].includes(discoveryResult.activeRadiusKm), 'Test 4b-2: activeRadiusKm is a valid stage [3, 5, 7, 10]');
+  assert(
+    discoveryResult.items.every((item: any) => item.distanceKm !== undefined && item.distanceKm <= discoveryResult.activeRadiusKm),
+    'Test 4b-3: All returned items are within activeRadiusKm'
+  );
+  assert(
+    discoveryResult.items.every((item: any) => item.distanceKm <= 10),
+    'Test 4b-4: Hard max cutoff 10km strictly enforced (0 items > 10km)'
+  );
+
+  // Test 4c: Far location (>100km away, e.g. Papua lat: -2.5, lng: 140.7)
+  const farResult = await marketplaceService.getProgressiveDiscoveryResultAsync(-2.5, 140.7);
+  assert(farResult.items.length === 0, 'Test 4c: Far location >10km returns 0 items (Radius Empty State)');
+  assert(farResult.activeRadiusKm === 10, 'Test 4c-2: Empty state defaults activeRadiusKm to 10');
 
   console.log('\n==================================================');
-  console.log(`LOCATION STATE TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
+  console.log(`GPS-FIRST MARKETPLACE LOCATION TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('==================================================');
 
   if (failed > 0) {
@@ -95,3 +99,4 @@ async function runLocationStateTests() {
 }
 
 runLocationStateTests();
+

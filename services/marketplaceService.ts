@@ -143,7 +143,7 @@ export const marketplaceService = {
       });
     }
 
-    return laundries.map((laundry, index) => {
+    const allMappedItems: LaundryMarketplaceItem[] = laundries.map((laundry, index) => {
       const partnerServices = activeServicesMap[laundry.id] || [];
       const partnerPhotos = photosMap[laundry.id] || [];
       const primaryPhoto = partnerPhotos.find((p) => p.is_primary) || partnerPhotos[0];
@@ -176,7 +176,7 @@ export const marketplaceService = {
           ? laundry.logoUrl
           : DEFAULT_STOREFRONT_PHOTOS[index % DEFAULT_STOREFRONT_PHOTOS.length]);
 
-      return {
+      const item = {
         laundry,
         storefrontImageUrl,
         primaryPhoto,
@@ -189,6 +189,61 @@ export const marketplaceService = {
         isFavorite: false,
         badge: (laundry as any).badge || (index === 0 ? 'Pilihan terbaik' : undefined),
       };
+      return item;
     });
+
+    // RULE 1: Location Required Blocking - If coordinates are missing, return empty array
+    if (userLat === null || userLat === undefined || userLng === null || userLng === undefined) {
+      const emptyResult: LaundryMarketplaceItem[] = [];
+      (emptyResult as any).activeRadiusKm = 0;
+      (emptyResult as any).totalWithinRadius = 0;
+      (emptyResult as any).hasLocation = false;
+      return emptyResult;
+    }
+
+    // RULE 5: Hard Cutoff > 10km & Exclude missing distance
+    const validItemsWithin10Km = allMappedItems.filter(
+      (item) => item.distanceKm !== undefined && item.distanceKm <= 10
+    );
+
+    // Progressive Radius Algorithm (3km -> 5km -> 7km -> 10km)
+    const MIN_RESULTS = 3;
+    const stages = [3, 5, 7, 10];
+    let selectedRadius = 10;
+
+    for (const radius of stages) {
+      const count = validItemsWithin10Km.filter((item) => item.distanceKm! <= radius).length;
+      if (count >= MIN_RESULTS) {
+        selectedRadius = radius;
+        break;
+      }
+    }
+
+    const finalItems = validItemsWithin10Km.filter(
+      (item) => item.distanceKm! <= selectedRadius
+    );
+
+    (finalItems as any).activeRadiusKm = selectedRadius;
+    (finalItems as any).totalWithinRadius = finalItems.length;
+    (finalItems as any).hasLocation = true;
+
+    return finalItems;
+  },
+
+  /**
+   * Helper method to get detailed Progressive Radius discovery result metadata.
+   */
+  async getProgressiveDiscoveryResultAsync(
+    userLat?: number | null,
+    userLng?: number | null
+  ) {
+    const items = await this.getNearbyLaundryPartnersAsync(userLat, userLng);
+    return {
+      items,
+      activeRadiusKm: (items as any).activeRadiusKm ?? 0,
+      totalWithinRadius: items.length,
+      hasLocation: Boolean(userLat !== null && userLat !== undefined && userLng !== null && userLng !== undefined),
+    };
   },
 };
+

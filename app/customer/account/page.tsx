@@ -9,6 +9,7 @@ import { UserProfile } from '@/types/user';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { partnerApplicationService, PartnerApplicationRecord } from '@/services/partnerApplicationService';
 import {
   User,
   MapPin,
@@ -21,11 +22,13 @@ import {
   ShieldCheck,
   Phone,
   Mail,
+  Store,
 } from 'lucide-react';
 
 export default function CustomerAccountPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [partnerApp, setPartnerApp] = useState<PartnerApplicationRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -44,10 +47,14 @@ export default function CustomerAccountPage() {
             return;
           }
           if (isMounted) setUser(profile);
+          const app = await partnerApplicationService.getMyPartnerApplicationAsync();
+          if (isMounted) setPartnerApp(app);
         } else {
           const currentUser = authService.getCurrentUserSync();
           if (currentUser) {
             if (isMounted) setUser(currentUser);
+            const app = await partnerApplicationService.getMyPartnerApplicationAsync();
+            if (isMounted) setPartnerApp(app);
           } else {
             if (isMounted) router.push('/login');
           }
@@ -213,7 +220,39 @@ export default function CustomerAccountPage() {
           </div>
         </Card>
 
-        {/* Section 4: Logout CTA */}
+        {/* Section 4: Low-Priority Partner Conversion Card (Customer / Guest Only) */}
+        {(!user || user.role === 'customer') && (
+          <Card variant="white" className="p-4 border-slate-200 bg-slate-50/80 shadow-none space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-teal-100/70 text-teal-800 flex items-center justify-center shrink-0 mt-0.5">
+                <Store className="w-4 h-4" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs font-bold text-slate-800">🏪 Punya Usaha Laundry?</h4>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Daftarkan laundry Anda dan mulai menerima pesanan dari pelanggan FreshLaundry.
+                </p>
+              </div>
+            </div>
+            <div className="pt-1 flex justify-end">
+              {partnerApp?.status === 'pending' || partnerApp?.status === 'rejected' ? (
+                <Link href="/register/partner/status">
+                  <Button variant="outline" size="sm" className="text-xs font-semibold text-teal-800 border-teal-300 hover:bg-teal-50">
+                    Lihat Status Pengajuan
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/register/partner">
+                  <Button variant="outline" size="sm" className="text-xs font-semibold text-slate-700 border-slate-300 hover:bg-slate-100 hover:text-slate-900">
+                    Daftar sebagai Mitra
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Section 5: Logout CTA */}
         <Card variant="white" className="p-2 border-slate-200 shadow-sm">
           <button
             onClick={handleLogout}

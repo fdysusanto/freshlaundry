@@ -10,6 +10,7 @@ import {
   CreateAddressPayload,
 } from '@/types/address';
 import { customerAddressService } from '@/services/customerAddressService';
+import { MapLocationPicker } from '@/components/address/MapLocationPicker';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { AlertCircle, MapPin } from 'lucide-react';
@@ -34,6 +35,8 @@ export const CustomerAddressModal: React.FC<CustomerAddressModalProps> = ({
   const [addressDetail, setAddressDetail] = useState('');
   const [rt, setRt] = useState('');
   const [rw, setRw] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [isDefault, setIsDefault] = useState(false);
 
   // Region Cascading Dropdown States
@@ -162,6 +165,8 @@ export const CustomerAddressModal: React.FC<CustomerAddressModalProps> = ({
       setAddressDetail(initialAddress.addressDetail || '');
       setRt(initialAddress.rt || '');
       setRw(initialAddress.rw || '');
+      setLatitude(initialAddress.latitude ?? null);
+      setLongitude(initialAddress.longitude ?? null);
       setIsDefault(initialAddress.isDefault || false);
       setSelectedProvinceCode(initialAddress.provinceCode || '32');
       setSelectedCityCode(initialAddress.cityCode || '3274');
@@ -169,6 +174,8 @@ export const CustomerAddressModal: React.FC<CustomerAddressModalProps> = ({
       setSelectedVillageCode(initialAddress.villageCode || '3274041002');
       setPostalCode(initialAddress.postalCode || '45135');
     } else if (isOpen) {
+      setLatitude(null);
+      setLongitude(null);
       setFormError('');
     }
   }, [initialAddress, isOpen]);
@@ -212,6 +219,8 @@ export const CustomerAddressModal: React.FC<CustomerAddressModalProps> = ({
         addressDetail: addressDetail.trim(),
         rt: rt.trim() || undefined,
         rw: rw.trim() || undefined,
+        latitude: latitude ?? undefined,
+        longitude: longitude ?? undefined,
         isDefault,
       };
 
@@ -390,6 +399,17 @@ export const CustomerAddressModal: React.FC<CustomerAddressModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Interactive Map Pickup Location Picker */}
+        <MapLocationPicker
+          latitude={latitude}
+          longitude={longitude}
+          onLocationChange={(lat, lng) => {
+            setLatitude(lat);
+            setLongitude(lng);
+          }}
+          disabled={isSubmitting}
+        />
 
         {/* Address Detail Input */}
         <div className="space-y-1">

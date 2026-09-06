@@ -101,9 +101,43 @@ export interface CreateAddressPayload {
   addressDetail: string;
   rt?: string;
   rw?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   isDefault?: boolean;
 }
 
 export interface UpdateAddressPayload extends Partial<CreateAddressPayload> {
   isActive?: boolean;
 }
+
+export type MarketplaceLocationSource =
+  | 'current_gps'
+  | 'manual_pin'
+  | null;
+
+export type MarketplaceLocationStatus =
+  | 'idle'
+  | 'locating'
+  | 'success'
+  | 'denied'
+  | 'error';
+
+export interface MarketplaceLocation {
+  latitude: number | null;
+  longitude: number | null;
+  source: MarketplaceLocationSource;
+  status: MarketplaceLocationStatus;
+  displayAddress?: string;
+  errorMessage?: string;
+  updatedAt?: string;
+}
+
+export interface ProgressiveRadiusResult {
+  items: import('./laundry').LaundryMarketplaceItem[];
+  activeRadiusKm: number;
+  totalWithinRadius: number;
+  hasLocation: boolean;
+}
+
+
+

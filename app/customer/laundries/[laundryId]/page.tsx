@@ -157,10 +157,10 @@ export default function CustomerLaundryDetailPage() {
   // Compute distance from user location
   const distanceKm = useMemo(() => {
     if (!laundry) return undefined;
-    const userLat = locationState.user ? Number((locationState.user as any).latitude) : undefined;
-    const userLng = locationState.user ? Number((locationState.user as any).longitude) : undefined;
+    const userLat = locationState.marketplaceLocation.latitude;
+    const userLng = locationState.marketplaceLocation.longitude;
     return calculateHaversineDistance(userLat, userLng, laundry.latitude, laundry.longitude);
-  }, [laundry, locationState.user]);
+  }, [laundry, locationState.marketplaceLocation]);
 
   // Derive photo array for gallery slider
   const photoUrls = useMemo(() => {
