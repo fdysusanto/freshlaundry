@@ -82,6 +82,36 @@ export function resolveOrderCouriers(
   return { pickupCourier, deliveryCourier };
 }
 
+/**
+ * Defensive Coordinate Parser.
+ * Strictly verifies numeric bounds (-90 to 90 for lat, -180 to 180 for lng).
+ * Preserves 0 as a valid coordinate. Returns null for invalid / non-numeric values.
+ */
+export function parseDefensiveCoordinate(val: any, min: number, max: number): number | null {
+  if (val === null || val === undefined || val === '' || typeof val === 'boolean') {
+    return null;
+  }
+  if (typeof val === 'number') {
+    return Number.isFinite(val) && val >= min && val <= max ? val : null;
+  }
+  if (typeof val === 'string' && val.trim() !== '') {
+    const parsed = Number(val);
+    return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : null;
+  }
+  return null;
+}
+
+/**
+ * Defensive Address Parser.
+ * Returns trimmed non-empty string or null.
+ */
+export function parseDefensiveAddress(val: any): string | null {
+  if (typeof val === 'string' && val.trim().length > 0) {
+    return val.trim();
+  }
+  return null;
+}
+
 const ORDERS_STORAGE_KEY = 'fresh_laundry_orders_db';
 
 const INITIAL_MOCK_ORDERS: Order[] = [
@@ -650,7 +680,7 @@ export const orderService = {
     }
 
     const { data, error } = await (supabase.from('orders') as any)
-      .select('*, order_items(*), order_status_logs(*), laundries(name), profiles:customer_id(full_name, phone), courier:courier_id(full_name)')
+      .select('*, order_items(*), order_status_logs(*), laundries(name, address, latitude, longitude), profiles:customer_id(full_name, phone), courier:courier_id(full_name)')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -665,6 +695,9 @@ export const orderService = {
       customerPhone: o.profiles?.phone || '',
       laundryId: o.laundry_id,
       laundryName: o.laundries?.name || 'Mitra Laundry',
+      laundryLatitude: parseDefensiveCoordinate(o.laundries?.latitude, -90, 90),
+      laundryLongitude: parseDefensiveCoordinate(o.laundries?.longitude, -180, 180),
+      laundryAddress: parseDefensiveAddress(o.laundries?.address),
       courierId: o.courier_id || undefined,
       courierName: o.courier?.full_name || undefined,
       serviceType: o.service_type as ServiceType,
@@ -726,7 +759,7 @@ export const orderService = {
     }
 
     const { data, error } = await (supabase.from('orders') as any)
-      .select('*, order_items(*), order_status_logs(*), laundries(name), profiles:customer_id(full_name, phone), courier:courier_id(full_name)')
+      .select('*, order_items(*), order_status_logs(*), laundries(name, address, latitude, longitude), profiles:customer_id(full_name, phone), courier:courier_id(full_name)')
       .eq('laundry_id', laundryId)
       .order('created_at', { ascending: false });
 
@@ -743,6 +776,9 @@ export const orderService = {
       customerPhone: o.profiles?.phone || '',
       laundryId: o.laundry_id,
       laundryName: o.laundries?.name || 'Mitra Laundry',
+      laundryLatitude: parseDefensiveCoordinate(o.laundries?.latitude, -90, 90),
+      laundryLongitude: parseDefensiveCoordinate(o.laundries?.longitude, -180, 180),
+      laundryAddress: parseDefensiveAddress(o.laundries?.address),
       courierId: o.courier_id || undefined,
       courierName: o.courier?.full_name || undefined,
       serviceType: o.service_type as ServiceType,
@@ -823,7 +859,7 @@ export const orderService = {
     }
 
     const { data, error } = await (supabase.from('orders') as any)
-      .select('*, order_items(*), order_status_logs(*), laundries(name)')
+      .select('*, order_items(*), order_status_logs(*), laundries(name, address, latitude, longitude)')
       .eq('customer_id', targetUserId)
       .order('created_at', { ascending: false });
 
@@ -839,6 +875,9 @@ export const orderService = {
       customerPhone: '',
       laundryId: o.laundry_id,
       laundryName: o.laundries?.name || 'Mitra Laundry',
+      laundryLatitude: parseDefensiveCoordinate(o.laundries?.latitude, -90, 90),
+      laundryLongitude: parseDefensiveCoordinate(o.laundries?.longitude, -180, 180),
+      laundryAddress: parseDefensiveAddress(o.laundries?.address),
       courierId: o.courier_id || undefined,
       courierName: undefined,
       serviceType: o.service_type,
@@ -908,7 +947,7 @@ export const orderService = {
 
     if (isValidUuid(cleanId)) {
       const res = await (db.from('orders') as any)
-        .select('*, order_items(*), order_status_logs(*), laundries(name)')
+        .select('*, order_items(*), order_status_logs(*), laundries(name, address, latitude, longitude)')
         .eq('id', cleanId)
         .single();
       o = res.data;
@@ -916,7 +955,7 @@ export const orderService = {
     } else {
       // Query by tracking_number TEXT column for application order numbers (e.g. ord_..., LND-...)
       const res = await (db.from('orders') as any)
-        .select('*, order_items(*), order_status_logs(*), laundries(name)')
+        .select('*, order_items(*), order_status_logs(*), laundries(name, address, latitude, longitude)')
         .eq('tracking_number', cleanId.toUpperCase())
         .single();
       o = res.data;
@@ -924,7 +963,7 @@ export const orderService = {
 
       if (error || !o) {
         const res2 = await (db.from('orders') as any)
-          .select('*, order_items(*), order_status_logs(*), laundries(name)')
+          .select('*, order_items(*), order_status_logs(*), laundries(name, address, latitude, longitude)')
           .eq('tracking_number', cleanId)
           .single();
         if (!res2.error && res2.data) {
@@ -966,6 +1005,9 @@ export const orderService = {
       customerPhone: '',
       laundryId: o.laundry_id,
       laundryName: o.laundries?.name || 'Mitra Laundry',
+      laundryLatitude: parseDefensiveCoordinate(o.laundries?.latitude, -90, 90),
+      laundryLongitude: parseDefensiveCoordinate(o.laundries?.longitude, -180, 180),
+      laundryAddress: parseDefensiveAddress(o.laundries?.address),
       courierId: o.courier_id || undefined,
       courierName: (o.status === 'out_for_delivery' || o.status === 'delivered') ? deliveryCourier?.name : pickupCourier?.name,
       pickupCourier,
@@ -1202,13 +1244,13 @@ export const orderService = {
     if (!activeCourierId) return [];
 
     const { data: assignments } = await (supabase.from('courier_assignments') as any)
-      .select('*, orders(*, order_items(*), order_status_logs(*), laundries(name))')
+      .select('*, orders(*, order_items(*), order_status_logs(*), laundries(name, address, latitude, longitude))')
       .eq('courier_id', activeCourierId)
       .order('created_at', { ascending: false });
 
     if (!assignments || assignments.length === 0) {
       const { data: ordersData, error: ordersError } = await (supabase.from('orders') as any)
-        .select('*, order_items(*), order_status_logs(*), laundries(name)')
+        .select('*, order_items(*), order_status_logs(*), laundries(name, address, latitude, longitude)')
         .eq('courier_id', activeCourierId)
         .order('created_at', { ascending: false });
 
@@ -1222,6 +1264,9 @@ export const orderService = {
           customerPhone: '',
           laundryId: o.laundry_id,
           laundryName: o.laundries?.name || 'Mitra Laundry',
+          laundryLatitude: parseDefensiveCoordinate(o.laundries?.latitude, -90, 90),
+          laundryLongitude: parseDefensiveCoordinate(o.laundries?.longitude, -180, 180),
+          laundryAddress: parseDefensiveAddress(o.laundries?.address),
           courierId: o.courier_id,
           courierName: 'Kurir Driver',
           serviceType: o.service_type as ServiceType,
@@ -1276,6 +1321,9 @@ export const orderService = {
           customerPhone: '',
           laundryId: o.laundry_id || '',
           laundryName: o.laundries?.name || 'Mitra Laundry',
+          laundryLatitude: parseDefensiveCoordinate(o.laundries?.latitude, -90, 90),
+          laundryLongitude: parseDefensiveCoordinate(o.laundries?.longitude, -180, 180),
+          laundryAddress: parseDefensiveAddress(o.laundries?.address),
           courierId: asg.courier_id,
           courierName: 'Kurir Driver',
           serviceType: (o.service_type as ServiceType) || 'kiloan',

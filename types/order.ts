@@ -50,6 +50,9 @@ export interface Order {
   customerPhone: string;
   laundryId?: string;
   laundryName?: string;
+  laundryLatitude?: number | null;
+  laundryLongitude?: number | null;
+  laundryAddress?: string | null;
   courierId?: string;
   courierName?: string;
   pickupCourier?: CourierInfo | null;

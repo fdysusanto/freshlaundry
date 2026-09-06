@@ -17,6 +17,28 @@ interface CourierOrderCardProps {
   onWeighClick?: (order: Order) => void;
 }
 
+export function isValidLatitude(lat: unknown): lat is number {
+  return typeof lat === 'number' && Number.isFinite(lat) && lat >= -90 && lat <= 90;
+}
+
+export function isValidLongitude(lng: unknown): lng is number {
+  return typeof lng === 'number' && Number.isFinite(lng) && lng >= -180 && lng <= 180;
+}
+
+export function buildGoogleMapsDirectionUrl(
+  latitude?: number | null,
+  longitude?: number | null,
+  address?: string | null
+): string | null {
+  if (isValidLatitude(latitude) && isValidLongitude(longitude)) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+  }
+  if (typeof address === 'string' && address.trim().length > 0) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address.trim())}`;
+  }
+  return null;
+}
+
 export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
   order,
   onUpdateClick,
@@ -36,24 +58,36 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
   const isPickedUpFromCustomer = order.status === 'picked_up';
 
   const handleCustomerQuickAction = () => {
-    const snapshot = order.pickupAddressSnapshot;
-    if (snapshot?.latitude && snapshot?.longitude) {
-      window.open(
-        `https://www.google.com/maps/search/?api=1&query=${snapshot.latitude},${snapshot.longitude}`,
-        '_blank'
-      );
-    } else if (order.pickupAddress) {
-      window.open(
-        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.pickupAddress)}`,
-        '_blank'
-      );
+    let url: string | null = null;
+    if (isDelivery) {
+      const snapshot = order.deliveryAddressSnapshot;
+      const addr = order.deliveryAddress || order.pickupAddress;
+      url = buildGoogleMapsDirectionUrl(snapshot?.latitude, snapshot?.longitude, addr);
+    } else {
+      const snapshot = order.pickupAddressSnapshot;
+      const addr = order.pickupAddress;
+      url = buildGoogleMapsDirectionUrl(snapshot?.latitude, snapshot?.longitude, addr);
+    }
+
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
     } else {
       alert('Navigasi ke Customer belum memiliki alamat valid.');
     }
   };
 
   const handleLaundryQuickAction = () => {
-    alert('Navigasi ke Laundry akan segera tersedia.');
+    const url = buildGoogleMapsDirectionUrl(
+      order.laundryLatitude,
+      order.laundryLongitude,
+      order.laundryAddress
+    );
+
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } else {
+      alert('Lokasi Laundry belum tersedia. Silakan hubungi admin atau pemilik laundry.');
+    }
   };
 
   const handleWhatsAppQuickAction = () => {
