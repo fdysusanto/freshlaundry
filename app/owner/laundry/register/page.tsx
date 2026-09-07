@@ -372,7 +372,7 @@ function OwnerLaundryRegisterContent() {
     return (
       <div className="min-h-[80vh] flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto" />
+          <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full mx-auto" />
           <p className="text-xs font-semibold text-slate-600">Memuat formulir pendaftaran laundry...</p>
         </div>
       </div>
@@ -386,14 +386,14 @@ function OwnerLaundryRegisterContent() {
       {/* Top Back Navigation */}
       <Link
         href="/owner"
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-primary transition-colors"
       >
         <ArrowLeft className="w-4 h-4" /> Kembali ke Dashboard Owner
       </Link>
 
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl space-y-2 relative overflow-hidden">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-bold mb-1">
+      <div className="bg-gradient-to-r from-brand-primary via-slate-900 to-brand-secondary rounded-3xl p-6 sm:p-8 text-white shadow-xl space-y-2 relative overflow-hidden">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-primary/20 border border-brand-secondary/30 text-brand-secondary text-xs font-bold mb-1">
           <Sparkles className="w-3.5 h-3.5" />
           <span>{isRevising ? 'Revisi Pengajuan Outlet' : 'Form Pendaftaran Outlet Laundry Baru'}</span>
         </div>
@@ -435,7 +435,7 @@ function OwnerLaundryRegisterContent() {
         {/* Section 1: Identitas Pemilik & Outlet Laundry */}
         <Card variant="white" className="p-6 space-y-4 shadow-lg">
           <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
-            <Store className="w-4 h-4 text-teal-600" />
+            <Store className="w-4 h-4 text-brand-primary" />
             <span>1. Identitas Outlet &amp; Pemilik Usaha</span>
           </h2>
 
@@ -448,7 +448,7 @@ function OwnerLaundryRegisterContent() {
                 value={ownerFullName}
                 onChange={(e) => setOwnerFullName(e.target.value)}
                 placeholder="Contoh: Hendra Wijaya"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
               />
             </div>
 
@@ -460,7 +460,7 @@ function OwnerLaundryRegisterContent() {
                 value={ownerPhone}
                 onChange={(e) => setOwnerPhone(e.target.value)}
                 placeholder="Contoh: 081234567890"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
               />
             </div>
 
@@ -472,14 +472,14 @@ function OwnerLaundryRegisterContent() {
                 value={laundryName}
                 onChange={(e) => setLaundryName(e.target.value)}
                 placeholder="Contoh: FreshWash Express Kebayoran"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-semibold"
               />
             </div>
 
             {/* Master Wilayah Cascading Dropdowns */}
-            <div className="sm:col-span-2 p-4 rounded-2xl bg-teal-50/60 border border-teal-200/80 space-y-3">
-              <div className="flex items-center gap-1.5 text-teal-800 font-bold text-xs">
-                <MapPin className="w-4 h-4 text-teal-600" />
+            <div className="sm:col-span-2 p-4 rounded-2xl bg-brand-surface border border-brand-primary/20 space-y-3">
+              <div className="flex items-center gap-1.5 text-brand-primary font-bold text-xs">
+                <MapPin className="w-4 h-4 text-brand-primary" />
                 <span>Wilayah Lokasi Outlet Laundry (Master Wilayah V1 Kota Cirebon)</span>
               </div>
 
@@ -586,7 +586,7 @@ function OwnerLaundryRegisterContent() {
                 value={addressDetail}
                 onChange={(e) => setAddressDetail(e.target.value)}
                 placeholder="Nama jalan, nomor ruko/gedung, patokan lokasi..."
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
               />
             </div>
 
@@ -608,7 +608,7 @@ function OwnerLaundryRegisterContent() {
         {/* Section 2: Operasional */}
         <Card variant="white" className="p-6 space-y-4 shadow-lg">
           <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
-            <Clock className="w-4 h-4 text-teal-600" />
+            <Clock className="w-4 h-4 text-brand-primary" />
             <span>2. Jam Operasional Outlet</span>
           </h2>
 
@@ -620,7 +620,7 @@ function OwnerLaundryRegisterContent() {
                 required
                 value={openingTime}
                 onChange={(e) => setOpeningTime(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
               />
             </div>
 
@@ -631,7 +631,7 @@ function OwnerLaundryRegisterContent() {
                 required
                 value={closingTime}
                 onChange={(e) => setClosingTime(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
               />
             </div>
           </div>
@@ -641,7 +641,7 @@ function OwnerLaundryRegisterContent() {
         <Card variant="white" className="p-6 space-y-4 shadow-lg">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <Tag className="w-4 h-4 text-teal-600" />
+              <Tag className="w-4 h-4 text-brand-primary" />
               <span>3. Draf Katalog Layanan Laundry ({services.length})</span>
             </h2>
             <Button
@@ -649,7 +649,7 @@ function OwnerLaundryRegisterContent() {
               variant="outline"
               size="sm"
               onClick={handleAddService}
-              leftIcon={<Plus className="w-3.5 h-3.5 text-teal-600" />}
+              leftIcon={<Plus className="w-3.5 h-3.5 text-brand-primary" />}
               className="text-xs font-bold"
             >
               Tambah Layanan
@@ -683,7 +683,7 @@ function OwnerLaundryRegisterContent() {
                     step={500}
                     value={srv.price}
                     onChange={(e) => handleUpdateService(idx, 'price', parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-teal-800 focus:outline-hidden"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-brand-primary focus:outline-hidden"
                   />
                 </div>
 
@@ -722,7 +722,7 @@ function OwnerLaundryRegisterContent() {
         {/* Section 4: Rekening Pencairan Dana (Payout) */}
         <Card variant="white" className="p-6 space-y-4 shadow-lg">
           <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
-            <CreditCard className="w-4 h-4 text-teal-600" />
+            <CreditCard className="w-4 h-4 text-brand-primary" />
             <span>4. Rekening Pencairan Hasil Transaksi (Payout)</span>
           </h2>
 
@@ -732,7 +732,7 @@ function OwnerLaundryRegisterContent() {
               <select
                 value={payoutBank}
                 onChange={(e) => setPayoutBank(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-semibold"
               >
                 <option value="BCA">BCA (Bank Central Asia)</option>
                 <option value="Mandiri">Bank Mandiri</option>
@@ -750,7 +750,7 @@ function OwnerLaundryRegisterContent() {
                 value={payoutAccountHolder}
                 onChange={(e) => setPayoutAccountHolder(e.target.value)}
                 placeholder="Nama sesuai buku tabungan"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-semibold"
               />
             </div>
 
@@ -762,7 +762,7 @@ function OwnerLaundryRegisterContent() {
                 value={payoutAccountNumber}
                 onChange={(e) => setPayoutAccountNumber(e.target.value)}
                 placeholder="Contoh: 1234567890"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-mono font-bold"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-mono font-bold"
               />
             </div>
           </div>
@@ -781,7 +781,7 @@ function OwnerLaundryRegisterContent() {
             variant="primary"
             size="lg"
             disabled={isSubmitting}
-            className="w-full sm:w-auto bg-teal-600 hover:bg-teal-500 font-bold px-8 shadow-xl cursor-pointer"
+            className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 font-bold px-8 shadow-xl cursor-pointer"
           >
             {isSubmitting
               ? 'Mengirim Pendaftaran...'

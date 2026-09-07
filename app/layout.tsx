@@ -6,14 +6,25 @@ import 'leaflet/dist/leaflet.css';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { MobileNav } from '@/components/layout/MobileNav';
+import { BRAND } from '@/config/brand';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'FreshWash - Laundry Pickup & Delivery Cepat & Higienis',
-  description:
-    'Layanan laundry pickup dan delivery profesional. Pesan cuci kiloan, express 6 jam, dan dry clean dengan lacak status real-time dari HP Anda.',
-  keywords: ['laundry pickup', 'laundry delivery', 'cuci kiloan', 'express laundry', 'dry clean'],
+  title: `${BRAND.displayName} - ${BRAND.tagline}`,
+  description: `${BRAND.displayName}: ${BRAND.positioning}. Layanan laundry pickup dan delivery profesional. Pesan cuci kiloan, express 6 jam, dan dry clean dengan lacak status real-time dari HP Anda.`,
+  applicationName: BRAND.name,
+  keywords: ['cuciyan', 'laundry pickup', 'laundry delivery', 'cuci kiloan', 'express laundry', 'dry clean', 'super app laundry'],
+  icons: {
+    icon: '/brand/cuciyan/icon/icon.svg',
+    apple: '/brand/cuciyan/app-icon/apple-touch-icon.png',
+  },
+  openGraph: {
+    title: `${BRAND.displayName} - ${BRAND.tagline}`,
+    description: BRAND.positioning,
+    siteName: BRAND.displayName,
+    type: 'website',
+  },
 };
 
 export default function RootLayout({

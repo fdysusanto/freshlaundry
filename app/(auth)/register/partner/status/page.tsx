@@ -65,7 +65,7 @@ export default function PartnerApplicationStatusPage() {
     return (
       <div className="min-h-[85vh] flex items-center justify-center px-4 py-12">
         <div className="text-center space-y-3">
-          <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto" />
+          <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full mx-auto" />
           <p className="text-xs font-semibold text-slate-600">Memuat status pengajuan mitra...</p>
         </div>
       </div>
@@ -73,10 +73,10 @@ export default function PartnerApplicationStatusPage() {
   }
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-gradient-to-b from-teal-50/50 via-slate-50 to-white">
+    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-gradient-to-b from-brand-surface via-slate-50 to-white">
       <div className="w-full max-w-xl space-y-6">
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-teal-600 text-white shadow-lg shadow-teal-600/30 mb-2">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-brand-primary text-white shadow-lg shadow-brand-primary/30 mb-2">
             <Store className="w-6 h-6" />
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Status Pengajuan Mitra</h1>
@@ -140,7 +140,7 @@ export default function PartnerApplicationStatusPage() {
                 </div>
                 <button
                   onClick={loadStatus}
-                  className="p-2 text-slate-400 hover:text-teal-700 rounded-xl hover:bg-white transition-all cursor-pointer"
+                  className="p-2 text-slate-400 hover:text-brand-primary rounded-xl hover:bg-white transition-all cursor-pointer"
                   title="Muat Ulang Status"
                 >
                   <RefreshCw className="w-4 h-4" />
@@ -246,13 +246,13 @@ export default function PartnerApplicationStatusPage() {
                 {application.services && application.services.length > 0 && (
                   <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
                     <h4 className="font-bold text-slate-800 flex items-center gap-1.5">
-                      <Tag className="w-3.5 h-3.5 text-teal-600" /> Katalog Draf Layanan ({application.services.length})
+                      <Tag className="w-3.5 h-3.5 text-brand-primary" /> Katalog Draf Layanan ({application.services.length})
                     </h4>
                     <ul className="divide-y divide-slate-200/80">
                       {application.services.map((s) => (
                         <li key={s.id} className="py-1.5 flex justify-between">
                           <span className="text-slate-700 font-semibold">{s.name}</span>
-                          <span className="text-teal-800 font-bold">
+                          <span className="text-brand-primary font-bold">
                             Rp {s.price_per_unit.toLocaleString('id-ID')} / {s.unit}
                           </span>
                         </li>

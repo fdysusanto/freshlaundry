@@ -191,7 +191,7 @@ export default function EditOwnerServicePage() {
       {/* Top Back Navigation */}
       <button
         onClick={() => router.push('/owner/services')}
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 transition-colors cursor-pointer"
+        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-primary transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" />
         <span>Kembali ke Katalog Layanan</span>
@@ -201,7 +201,7 @@ export default function EditOwnerServicePage() {
       <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Edit className="w-6 h-6 text-teal-600" /> Edit Layanan #{targetService.code || serviceId.slice(0, 8)}
+            <Edit className="w-6 h-6 text-brand-primary" /> Edit Layanan #{targetService.code || serviceId.slice(0, 8)}
           </h1>
           <p className="text-xs text-slate-500 font-medium">
             Perbarui nama, tarif harga, deskripsi, atau status keaktifan layanan toko.
@@ -226,7 +226,7 @@ export default function EditOwnerServicePage() {
         <Card variant="white" className="space-y-5">
           <div className="border-b border-slate-100 pb-3">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-teal-600" /> Informasi Layanan Utam
+              <Layers className="w-4 h-4 text-brand-primary" /> Informasi Layanan Utam
             </h2>
           </div>
 
@@ -241,7 +241,7 @@ export default function EditOwnerServicePage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="mis. Cuci Komplit Kiloan, Cuci Sepatu Sneaker"
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-medium"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-medium"
               />
             </div>
 
@@ -252,7 +252,7 @@ export default function EditOwnerServicePage() {
               <select
                 value={code}
                 onChange={(e) => setCode(e.target.value as ServiceType)}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold bg-slate-50 cursor-pointer"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-semibold bg-slate-50 cursor-pointer"
               >
                 <option value="kiloan">kiloan — Cuci Kiloan Reguler</option>
                 <option value="express">express — Express Kilat</option>
@@ -272,7 +272,7 @@ export default function EditOwnerServicePage() {
                   setUnit(newUnit);
                   if (newUnit === 'pcs') setMinWeightInput('');
                 }}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-bold bg-slate-50 cursor-pointer"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-bold bg-slate-50 cursor-pointer"
               >
                 <option value="kg">Per Kilogram (kg)</option>
                 <option value="pcs">Per Pcs / Item (pcs)</option>
@@ -288,7 +288,7 @@ export default function EditOwnerServicePage() {
                 required
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
               />
             </div>
           </div>
@@ -297,7 +297,7 @@ export default function EditOwnerServicePage() {
         <Card variant="white" className="space-y-5">
           <div className="border-b border-slate-100 pb-3">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-teal-600" /> Tarif & Durasi Pengerjaan
+              <DollarSign className="w-4 h-4 text-brand-primary" /> Tarif & Durasi Pengerjaan
             </h2>
           </div>
 
@@ -313,7 +313,7 @@ export default function EditOwnerServicePage() {
                 step={500}
                 value={price}
                 onChange={(e) => setPrice(Number(e.target.value))}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-bold text-teal-700"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-bold text-brand-primary"
               />
               <p className="text-[10px] text-slate-400 mt-1">
                 Catatan: Perubahan tarif ini tidak akan merusak pesanan terdahulu yang sudah dibuat.
@@ -332,7 +332,7 @@ export default function EditOwnerServicePage() {
                   placeholder="Kosongkan jika tidak ada min. order"
                   value={minWeightInput}
                   onChange={(e) => setMinWeightInput(e.target.value)}
-                  className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                  className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-semibold"
                 />
                 <p className="text-[10px] text-slate-500 mt-1 font-medium leading-tight">
                   Kosongkan jika layanan tidak memiliki minimum order.
@@ -355,7 +355,7 @@ export default function EditOwnerServicePage() {
                   if (hrs <= 12) setEstimatedTime(`${hrs} Jam`);
                   else setEstimatedTime(`${Math.round(hrs / 24)} Hari`);
                 }}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-semibold"
               />
             </div>
 
@@ -367,7 +367,7 @@ export default function EditOwnerServicePage() {
                 type="text"
                 value={estimatedTime}
                 onChange={(e) => setEstimatedTime(e.target.value)}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-semibold"
               />
             </div>
 
@@ -379,7 +379,7 @@ export default function EditOwnerServicePage() {
                 type="text"
                 value={badge}
                 onChange={(e) => setBadge(e.target.value)}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-semibold"
               />
             </div>
 
@@ -389,7 +389,7 @@ export default function EditOwnerServicePage() {
                 id="isActiveToggle"
                 checked={isActive}
                 onChange={(e) => setIsActive(e.target.checked)}
-                className="w-4 h-4 text-teal-600 rounded-sm focus:ring-teal-500 cursor-pointer"
+                className="w-4 h-4 text-brand-primary rounded-sm focus:ring-brand-primary cursor-pointer"
               />
               <label htmlFor="isActiveToggle" className="text-xs font-bold text-slate-800 cursor-pointer">
                 Tampilkan Layanan Ini (Aktif)
@@ -413,7 +413,7 @@ export default function EditOwnerServicePage() {
             size="md"
             disabled={isSubmitting}
             leftIcon={<Edit className="w-4 h-4" />}
-            className="bg-teal-600 hover:bg-teal-500 text-white font-bold cursor-pointer"
+            className="bg-brand-primary hover:bg-brand-primary/90 text-white font-bold cursor-pointer"
           >
             Simpan Perubahan
           </Button>

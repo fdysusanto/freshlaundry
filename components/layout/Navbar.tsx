@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
-import { partnerApplicationService } from '@/services/partnerApplicationService';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { UserProfile, UserRole } from '@/types/user';
 import {
@@ -27,11 +26,13 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
 
+import Image from 'next/image';
+import { BRAND } from '@/config/brand';
+
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [partnerAppStatus, setPartnerAppStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
 
@@ -41,17 +42,6 @@ export const Navbar: React.FC = () => {
       if (isSupabaseConfigured) {
         const liveProfile = await authService.fetchCurrentProfile();
         if (isMounted) setCurrentUser(liveProfile);
-
-        if (liveProfile) {
-          try {
-            const partnerApp = await partnerApplicationService.getMyPartnerApplicationAsync();
-            if (isMounted && partnerApp) {
-              setPartnerAppStatus(partnerApp.status);
-            }
-          } catch (err) {
-            console.warn('Navbar partner app check warning:', err);
-          }
-        }
       } else {
         if (isMounted) setCurrentUser(authService.getCurrentUser());
       }
@@ -116,26 +106,23 @@ export const Navbar: React.FC = () => {
       <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-xs transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
           {/* Logo Brand */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-teal-600/30 group-hover:scale-105 transition-transform">
-              <Sparkles className="w-6 h-6 animate-pulse" />
-            </div>
-            <div>
-              <span className="text-lg sm:text-xl font-black bg-gradient-to-r from-teal-700 via-cyan-600 to-slate-900 bg-clip-text text-transparent tracking-tight">
-                FreshWash
-              </span>
-              <span className="hidden sm:inline-block text-[10px] uppercase font-bold tracking-widest text-teal-600 block -mt-1">
-                Pickup & Delivery
-              </span>
-            </div>
+          <Link href="/" className="flex items-center gap-2 group">
+            <Image
+              src="/brand/cuciyan/logo/logo-horizontal.svg"
+              alt={BRAND.displayName}
+              width={240}
+              height={64}
+              className="h-12 sm:h-16 w-auto shrink-0 object-contain transition-transform group-hover:scale-105"
+              priority
+            />
           </Link>
 
           {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
             <Link
               href="/"
-              className={`hover:text-teal-600 transition-colors ${
-                pathname === '/' ? 'text-teal-700 font-bold' : ''
+              className={`hover:text-brand-primary transition-colors ${
+                pathname === '/' ? 'text-brand-primary font-bold' : ''
               }`}
             >
               Beranda
@@ -144,8 +131,8 @@ export const Navbar: React.FC = () => {
             {(!currentUser || currentUser?.role === 'customer') && (
               <Link
                 href="/customer/laundries"
-                className={`hover:text-teal-600 transition-colors flex items-center gap-1.5 ${
-                  pathname.startsWith('/customer/laundries') ? 'text-teal-700 font-bold' : ''
+                className={`hover:text-brand-primary transition-colors flex items-center gap-1.5 ${
+                  pathname.startsWith('/customer/laundries') ? 'text-brand-primary font-bold' : ''
                 }`}
               >
                 <PackageCheck className="w-4 h-4" />
@@ -156,8 +143,8 @@ export const Navbar: React.FC = () => {
             {currentUser?.role === 'customer' && (
               <Link
                 href="/customer"
-                className={`hover:text-teal-600 transition-colors flex items-center gap-1.5 ${
-                  pathname === '/customer' ? 'text-teal-700 font-bold' : ''
+                className={`hover:text-brand-primary transition-colors flex items-center gap-1.5 ${
+                  pathname === '/customer' ? 'text-brand-primary font-bold' : ''
                 }`}
               >
                 <User className="w-4 h-4" />
@@ -168,8 +155,8 @@ export const Navbar: React.FC = () => {
             {currentUser?.role === 'courier' && (
               <Link
                 href="/courier"
-                className={`hover:text-teal-600 transition-colors flex items-center gap-1.5 ${
-                  pathname.startsWith('/courier') ? 'text-teal-700 font-bold' : ''
+                className={`hover:text-brand-primary transition-colors flex items-center gap-1.5 ${
+                  pathname.startsWith('/courier') ? 'text-brand-primary font-bold' : ''
                 }`}
               >
                 <Truck className="w-4 h-4" />
@@ -180,8 +167,8 @@ export const Navbar: React.FC = () => {
             {(currentUser?.role === 'laundry_owner' || currentUser?.role === 'laundry_staff') && (
               <Link
                 href="/owner"
-                className={`hover:text-teal-600 transition-colors flex items-center gap-1.5 ${
-                  pathname.startsWith('/owner') ? 'text-teal-700 font-bold' : ''
+                className={`hover:text-brand-primary transition-colors flex items-center gap-1.5 ${
+                  pathname.startsWith('/owner') ? 'text-brand-primary font-bold' : ''
                 }`}
               >
                 <Sparkles className="w-4 h-4 text-amber-500" />
@@ -251,10 +238,10 @@ export const Navbar: React.FC = () => {
                     }
                   }}
                   className={`flex items-center gap-2 p-1.5 sm:px-3 sm:py-2 rounded-xl border border-slate-200 bg-slate-50/80 transition-all text-left ${
-                    !isSupabaseConfigured ? 'hover:border-teal-400 hover:bg-teal-50/50 group cursor-pointer' : 'cursor-default'
+                    !isSupabaseConfigured ? 'hover:border-brand-secondary hover:bg-brand-surface group cursor-pointer' : 'cursor-default'
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-lg bg-teal-600 text-white font-bold flex items-center justify-center text-xs shadow-sm">
+                  <div className="w-8 h-8 rounded-lg bg-brand-primary text-white font-bold flex items-center justify-center text-xs shadow-sm">
                     {currentUser.fullName ? currentUser.fullName.charAt(0) : 'U'}
                   </div>
                   <div className="hidden sm:block">
@@ -304,7 +291,7 @@ export const Navbar: React.FC = () => {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 text-slate-600 hover:text-teal-600 rounded-xl hover:bg-slate-100 transition-colors"
+              className="md:hidden p-2 text-slate-600 hover:text-brand-primary rounded-xl hover:bg-slate-100 transition-colors"
             >
               {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -317,7 +304,7 @@ export const Navbar: React.FC = () => {
             <Link
               href="/"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-teal-50 hover:text-teal-700"
+              className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-brand-surface hover:text-brand-primary"
             >
               Beranda
             </Link>
@@ -325,7 +312,7 @@ export const Navbar: React.FC = () => {
               <Link
                 href="/customer/laundries"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-teal-50 hover:text-teal-700"
+                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-brand-surface hover:text-brand-primary"
               >
                 Cari Laundry
               </Link>
@@ -334,7 +321,7 @@ export const Navbar: React.FC = () => {
               <Link
                 href="/customer"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-teal-50 hover:text-teal-700"
+                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-brand-surface hover:text-brand-primary"
               >
                 Dashboard Pelanggan
               </Link>
@@ -343,7 +330,7 @@ export const Navbar: React.FC = () => {
               <Link
                 href="/customer/laundries"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-teal-700 font-bold bg-teal-50"
+                className="block px-3 py-2 rounded-lg text-brand-primary font-bold bg-brand-surface"
               >
                 + Pesan Laundry Pickup
               </Link>
@@ -353,7 +340,7 @@ export const Navbar: React.FC = () => {
               <Link
                 href="/courier"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-teal-50 hover:text-teal-700"
+                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-brand-surface hover:text-brand-primary"
               >
                 Courier Portal
               </Link>
@@ -363,7 +350,7 @@ export const Navbar: React.FC = () => {
               <Link
                 href="/owner"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-teal-50 hover:text-teal-700"
+                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-brand-surface hover:text-brand-primary"
               >
                 Owner Laundry
               </Link>
@@ -373,7 +360,7 @@ export const Navbar: React.FC = () => {
               <Link
                 href="/admin"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-teal-50 hover:text-teal-700"
+                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-brand-surface hover:text-brand-primary"
               >
                 Admin Portal
               </Link>
@@ -414,11 +401,11 @@ export const Navbar: React.FC = () => {
               onClick={() => handleRoleSwitch('customer')}
               className={`w-full p-4 rounded-xl border text-left flex items-center gap-3 transition-all ${
                 currentUser?.role === 'customer'
-                  ? 'border-teal-600 bg-teal-50/60 ring-2 ring-teal-500/20'
-                  : 'border-slate-200 hover:border-teal-300 bg-white'
+                  ? 'border-brand-primary bg-brand-surface ring-2 ring-brand-primary/20'
+                  : 'border-slate-200 hover:border-brand-secondary bg-white'
               }`}
             >
-              <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-brand-surface text-brand-primary flex items-center justify-center">
                 <User className="w-5 h-5" />
               </div>
               <div className="flex-1">

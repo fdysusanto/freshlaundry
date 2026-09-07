@@ -86,10 +86,10 @@ export const OwnerActionCenter: React.FC<OwnerActionCenterProps> = ({
       title: 'Sedang Dicuci',
       count: actionData.washingCount,
       icon: Sparkles,
-      color: 'teal',
-      badgeBg: 'bg-teal-100 text-teal-900 border-teal-300',
-      cardBg: 'bg-teal-50/40 border-teal-200 hover:border-teal-300',
-      iconBg: 'bg-teal-100 text-teal-700',
+      color: 'brand',
+      badgeBg: 'bg-brand-surface text-brand-primary border-brand-primary/30',
+      cardBg: 'bg-brand-surface/60 border-brand-primary/20 hover:border-brand-secondary',
+      iconBg: 'bg-brand-surface text-brand-primary',
       description: 'Pesanan sedang dalam proses laundry.',
       onClick: () => onNavigateToOrders('in_washing', false),
     },
@@ -143,13 +143,13 @@ export const OwnerActionCenter: React.FC<OwnerActionCenterProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <h4 className="font-extrabold text-sm text-slate-900 group-hover:text-teal-800 transition-colors">
+                  <h4 className="font-extrabold text-sm text-slate-900 group-hover:text-brand-primary transition-colors">
                     {card.title}
                   </h4>
                   <p className="text-[11px] text-slate-600 font-medium leading-snug">{card.description}</p>
                 </div>
 
-                <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-slate-700 group-hover:text-teal-700">
+                <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-slate-700 group-hover:text-brand-primary">
                   <span>Lihat Pesanan</span>
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </div>

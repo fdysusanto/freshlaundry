@@ -135,17 +135,17 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
               <button
                 type="button"
                 onClick={handleCustomerQuickAction}
-                className="w-9 h-9 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-teal-700 flex items-center justify-center shrink-0 shadow-2xs transition-colors cursor-pointer active:scale-95"
+                className="w-9 h-9 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-brand-primary flex items-center justify-center shrink-0 shadow-2xs transition-colors cursor-pointer active:scale-95"
                 title="Navigasi ke Customer"
               >
-                <Compass className="w-4 h-4 text-teal-600" />
+                <Compass className="w-4 h-4 text-brand-primary" />
               </button>
             </div>
 
             {/* Laundry Outlet Row (Pickup Task) */}
             <div className="flex items-start justify-between gap-3 min-w-0 p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
               <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                <Store className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                <Store className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-slate-800">Tujuan (Outlet Laundry):</p>
                   <p className="text-slate-600 font-medium break-words">{order.laundryName || 'FreshWash Partner Outlet'}</p>
@@ -166,7 +166,7 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
             {/* Laundry Outlet Row (Delivery Task) */}
             <div className="flex items-start justify-between gap-3 min-w-0 p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
               <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                <Store className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                <Store className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-slate-800">Asal (Outlet Laundry):</p>
                   <p className="text-slate-600 font-medium break-words">{order.laundryName || 'FreshWash Partner Outlet'}</p>
@@ -175,10 +175,10 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
               <button
                 type="button"
                 onClick={handleLaundryQuickAction}
-                className="w-9 h-9 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-teal-700 flex items-center justify-center shrink-0 shadow-2xs transition-colors cursor-pointer active:scale-95"
+                className="w-9 h-9 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-brand-primary flex items-center justify-center shrink-0 shadow-2xs transition-colors cursor-pointer active:scale-95"
                 title="Navigasi ke Laundry"
               >
-                <Navigation className="w-4 h-4 text-teal-600" />
+                <Navigation className="w-4 h-4 text-brand-primary" />
               </button>
             </div>
 
@@ -272,7 +272,7 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
 
       {/* Primary Action Buttons Footer */}
       <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
-        <Link href={`/orders/${order.id}`} className="text-xs font-bold text-slate-600 hover:text-teal-600 flex items-center gap-1">
+        <Link href={`/orders/${order.id}`} className="text-xs font-bold text-slate-600 hover:text-brand-primary flex items-center gap-1">
           Detail <ArrowRight className="w-3.5 h-3.5" />
         </Link>
 
@@ -294,7 +294,7 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
                 size="sm"
                 variant="primary"
                 onClick={() => onPickupClick && onPickupClick(order)}
-                className="bg-teal-600 hover:bg-teal-500 font-bold"
+                className="bg-brand-primary hover:bg-brand-primary/90 font-bold"
               >
                 Pickup dari Customer
               </Button>

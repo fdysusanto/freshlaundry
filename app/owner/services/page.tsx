@@ -104,16 +104,16 @@ export default function OwnerServicesListingPage() {
       <div className="flex items-center justify-between">
         <button
           onClick={() => router.push('/owner')}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-primary transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" /> Kembali ke Dashboard Mitra
         </button>
       </div>
 
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-brand-primary via-slate-900 to-brand-secondary rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
         <div className="space-y-2 relative z-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-bold">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-primary/20 border border-brand-secondary/30 text-brand-secondary text-xs font-bold">
             <Layers className="w-3.5 h-3.5" />
             <span>Katalog Layanan &amp; Tarif Marketplace</span>
           </div>
@@ -130,7 +130,7 @@ export default function OwnerServicesListingPage() {
           size="lg"
           onClick={() => router.push('/owner/services/create')}
           leftIcon={<Plus className="w-5 h-5" />}
-          className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold shadow-xl shrink-0 cursor-pointer"
+          className="bg-brand-secondary hover:bg-brand-secondary/90 text-slate-950 font-bold shadow-xl shrink-0 cursor-pointer"
         >
           + Tambah Layanan Baru
         </Button>
@@ -166,7 +166,7 @@ export default function OwnerServicesListingPage() {
       {/* Service Cards Grid */}
       {isLoading ? (
         <div className="text-center py-16 space-y-3">
-          <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto" />
+          <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full mx-auto" />
           <p className="text-xs text-slate-500 font-semibold">Memuat katalog layanan...</p>
         </div>
       ) : filteredServices.length > 0 ? (
@@ -175,7 +175,7 @@ export default function OwnerServicesListingPage() {
             <Card
               key={srv.id}
               variant="white"
-              className={`hover:border-teal-300 transition-all space-y-4 relative ${
+              className={`hover:border-brand-secondary transition-all space-y-4 relative ${
                 !srv.isActive ? 'opacity-65 bg-slate-50/80 border-dashed' : ''
               }`}
             >
@@ -214,12 +214,12 @@ export default function OwnerServicesListingPage() {
               <div className="p-3 bg-slate-50 rounded-xl space-y-2 text-xs">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Tarif per {srv.unit}:</span>
-                  <span className="font-black text-teal-700 text-sm">{formatIDR(srv.price)}</span>
+                  <span className="font-black text-brand-primary text-sm">{formatIDR(srv.price)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Estimasi Pengerjaan:</span>
                   <span className="font-bold text-slate-800 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-teal-600" />
+                    <Clock className="w-3.5 h-3.5 text-brand-primary" />
                     {srv.estimatedHours} Jam
                   </span>
                 </div>

@@ -72,7 +72,7 @@ export default function CustomerOrderHistoryPage() {
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-4">
-        <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto" />
+        <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full mx-auto" />
         <p className="text-xs font-semibold text-slate-600">Memuat riwayat pesanan Anda...</p>
       </div>
     );
@@ -82,14 +82,14 @@ export default function CustomerOrderHistoryPage() {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-6 pb-24 md:pb-12">
       {/* Back & Navigation Header */}
       <div className="flex items-center justify-between">
-        <Link href="/customer/account" className="text-xs font-bold text-slate-500 hover:text-teal-700 flex items-center gap-1.5">
+        <Link href="/customer/account" className="text-xs font-bold text-slate-500 hover:text-brand-primary flex items-center gap-1.5">
           <ArrowLeft className="w-4 h-4" /> Kembali ke Akun Saya
         </Link>
       </div>
 
       <div className="border-b border-slate-200 pb-4 space-y-1">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-800 text-xs font-bold mb-1">
-          <History className="w-3.5 h-3.5 text-teal-600" />
+          <History className="w-3.5 h-3.5 text-brand-primary" />
           <span>Arsip Pesanan Selesai</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Riwayat Pesanan</h1>
@@ -103,7 +103,7 @@ export default function CustomerOrderHistoryPage() {
           {pastOrders.map((o) => {
             const isDelivered = normalizeOrderStatus(o.status) === 'delivered';
             return (
-              <Card key={o.id} variant="white" className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-slate-200 hover:border-teal-300 transition-all text-xs">
+              <Card key={o.id} variant="white" className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-slate-200 hover:border-brand-secondary transition-all text-xs">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="font-black text-slate-900 text-sm">{o.trackingNumber}</span>
@@ -122,7 +122,7 @@ export default function CustomerOrderHistoryPage() {
                 <div className="flex items-center justify-between sm:justify-end gap-4 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                   <div className="sm:text-right">
                     <span className="text-[10px] text-slate-400 font-bold uppercase">Total Pembayaran</span>
-                    <p className="font-black text-teal-700 text-sm sm:text-base">{formatIDR(o.totalPrice)}</p>
+                    <p className="font-black text-brand-primary text-sm sm:text-base">{formatIDR(o.totalPrice)}</p>
                   </div>
                   <Button
                     variant="outline"
@@ -151,7 +151,7 @@ export default function CustomerOrderHistoryPage() {
             variant="primary"
             size="md"
             onClick={() => router.push('/customer/laundries')}
-            className="bg-teal-600 hover:bg-teal-500 text-white font-bold"
+            className="bg-brand-primary hover:bg-brand-primary/90 text-white font-bold"
           >
             Cari Laundry Sekarang
           </Button>

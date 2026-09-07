@@ -1,8 +1,46 @@
 @import "tailwindcss";
 
+:root {
+  /* Cuciyan Brand Design Tokens */
+  --brand-primary: #0B4D91;
+  --brand-secondary: #00B3E6;
+  --brand-accent: #14CBA8;
+  --brand-support: #7ED957;
+
+  --brand-background: #F8F7FF;
+  --brand-surface: #F4F9FF;
+
+  --brand-text: #1F2937;
+  --brand-text-secondary: #6B7280;
+}
+
+@theme {
+  --color-brand-primary: #0B4D91;
+  --color-brand-secondary: #00B3E6;
+  --color-brand-accent: #14CBA8;
+  --color-brand-support: #7ED957;
+
+  --color-brand-background: #F8F7FF;
+  --color-brand-surface: #F4F9FF;
+
+  --color-brand-text: #1F2937;
+  --color-brand-text-secondary: #6B7280;
+
+  --color-cuciyan-primary: #0B4D91;
+  --color-cuciyan-secondary: #00B3E6;
+  --color-cuciyan-accent: #14CBA8;
+  --color-cuciyan-support: #7ED957;
+
+  --color-cuciyan-background: #F8F7FF;
+  --color-cuciyan-surface: #F4F9FF;
+
+  --color-cuciyan-text: #1F2937;
+  --color-cuciyan-text-secondary: #6B7280;
+}
+
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 antialiased font-sans selection:bg-teal-500 selection:text-white;
+    @apply bg-slate-50 text-slate-900 antialiased font-sans selection:bg-brand-primary selection:text-white;
   }
 }
 

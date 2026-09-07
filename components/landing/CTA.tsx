@@ -9,10 +9,10 @@ export const CTA: React.FC = () => {
   const router = useRouter();
 
   return (
-    <section className="py-16 sm:py-20 bg-gradient-to-tr from-teal-900 via-teal-800 to-slate-900 text-white relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+    <section className="py-16 sm:py-20 bg-gradient-to-tr from-brand-primary via-slate-900 to-brand-secondary text-white relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-96 h-96 bg-brand-secondary/10 rounded-full blur-3xl pointer-events-none" />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6 relative z-10">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-bold">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-primary/20 border border-brand-secondary/30 text-brand-secondary text-xs font-bold">
           <Sparkles className="w-4 h-4" />
           <span>Solusi Terbaik Menghemat Waktu Anda</span>
         </div>
@@ -31,7 +31,7 @@ export const CTA: React.FC = () => {
             size="lg"
             onClick={() => router.push('/customer/create-order')}
             rightIcon={<ArrowRight className="w-5 h-5" />}
-            className="w-full sm:w-auto bg-teal-400 hover:bg-teal-300 text-slate-950 font-black shadow-lg shadow-teal-500/20"
+            className="w-full sm:w-auto bg-brand-secondary hover:bg-brand-secondary/90 text-slate-950 font-black shadow-lg shadow-brand-secondary/20"
           >
             Pesan Laundry Pickup Now
           </Button>
@@ -39,7 +39,7 @@ export const CTA: React.FC = () => {
             variant="outline"
             size="lg"
             onClick={() => router.push('/login')}
-            className="w-full sm:w-auto bg-slate-900/60 text-white border border-teal-400/40 hover:bg-teal-900/80 hover:text-white font-bold backdrop-blur-xs"
+            className="w-full sm:w-auto bg-slate-900/60 text-white border border-brand-secondary/40 hover:bg-brand-primary/80 hover:text-white font-bold backdrop-blur-xs"
           >
             Masuk Portal Akun
           </Button>

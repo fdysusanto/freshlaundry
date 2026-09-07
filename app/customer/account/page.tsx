@@ -86,7 +86,7 @@ export default function CustomerAccountPage() {
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-4">
-        <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto" />
+        <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full mx-auto" />
         <p className="text-xs font-semibold text-slate-600">Memuat profil akun Anda...</p>
       </div>
     );
@@ -97,7 +97,7 @@ export default function CustomerAccountPage() {
       {/* Title */}
       <div className="border-b border-slate-200 pb-4">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-800 text-xs font-bold mb-2">
-          <User className="w-3.5 h-3.5 text-teal-600" />
+          <User className="w-3.5 h-3.5 text-brand-primary" />
           <span>Personal Customer Center</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Akun Saya</h1>
@@ -109,7 +109,7 @@ export default function CustomerAccountPage() {
       {/* User Profile Card */}
       <Card variant="white" className="p-6 border-slate-200 shadow-sm space-y-4">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-teal-700 to-cyan-500 text-white font-black text-2xl flex items-center justify-center shrink-0 shadow-lg">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-brand-primary to-brand-secondary text-white font-black text-2xl flex items-center justify-center shrink-0 shadow-lg">
             {user?.fullName?.charAt(0)?.toUpperCase() || 'P'}
           </div>
           <div className="space-y-1">
@@ -138,17 +138,17 @@ export default function CustomerAccountPage() {
             className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-brand-surface text-brand-primary flex items-center justify-center shrink-0">
                 <MapPin className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 group-hover:text-teal-700 transition-colors">
+                <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-primary transition-colors">
                   📍 Alamat Saya
                 </h3>
                 <p className="text-[11px] text-slate-500">Kelola lokasi penjemputan &amp; pengantaran</p>
               </div>
             </div>
-            <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-teal-700 transition-colors" />
+            <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-brand-primary transition-colors" />
           </Link>
         </Card>
 
@@ -159,17 +159,17 @@ export default function CustomerAccountPage() {
             className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-700 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-brand-surface text-brand-primary flex items-center justify-center shrink-0">
                 <History className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 group-hover:text-teal-700 transition-colors">
+                <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand-primary transition-colors">
                   📜 Riwayat Pesanan
                 </h3>
                 <p className="text-[11px] text-slate-500">Arsip pesanan laundry selesai dan dibatalkan</p>
               </div>
             </div>
-            <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-teal-700 transition-colors" />
+            <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-brand-primary transition-colors" />
           </Link>
 
           <Link
@@ -224,7 +224,7 @@ export default function CustomerAccountPage() {
         {(!user || user.role === 'customer') && (
           <Card variant="white" className="p-4 border-slate-200 bg-slate-50/80 shadow-none space-y-3">
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-teal-100/70 text-teal-800 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-8 h-8 rounded-lg bg-brand-surface text-brand-primary flex items-center justify-center shrink-0 mt-0.5 border border-brand-primary/20">
                 <Store className="w-4 h-4" />
               </div>
               <div className="space-y-1">
@@ -237,7 +237,7 @@ export default function CustomerAccountPage() {
             <div className="pt-1 flex justify-end">
               {partnerApp?.status === 'pending' || partnerApp?.status === 'rejected' ? (
                 <Link href="/register/partner/status">
-                  <Button variant="outline" size="sm" className="text-xs font-semibold text-teal-800 border-teal-300 hover:bg-teal-50">
+                  <Button variant="outline" size="sm" className="text-xs font-semibold text-brand-primary border-brand-primary/30 hover:bg-brand-surface">
                     Lihat Status Pengajuan
                   </Button>
                 </Link>

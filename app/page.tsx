@@ -134,7 +134,7 @@ export default function LandingMarketplacePage() {
           className="bg-white p-3 sm:p-4 rounded-3xl border border-slate-200 shadow-md hover:shadow-lg transition-shadow flex flex-col sm:flex-row items-center gap-3"
         >
           <div className="flex-1 flex items-center gap-3 px-3 w-full">
-            <Search className="w-5 h-5 text-teal-600 shrink-0" />
+            <Search className="w-5 h-5 text-brand-primary shrink-0" />
             <input
               type="text"
               value={searchQuery}
@@ -149,7 +149,7 @@ export default function LandingMarketplacePage() {
             variant="primary"
             size="md"
             rightIcon={<ArrowRight className="w-4 h-4" />}
-            className="w-full sm:w-auto bg-teal-600 hover:bg-teal-500 font-bold shrink-0 cursor-pointer shadow-md"
+            className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 font-bold shrink-0 cursor-pointer shadow-md"
           >
             Cari Laundry
           </Button>
@@ -196,13 +196,13 @@ export default function LandingMarketplacePage() {
                       Mitra laundry terdekat
                     </h2>
                     {hasLocationAvailable && (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-teal-100 text-teal-800 border border-teal-200">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-brand-surface text-brand-primary border border-brand-primary/20">
                         Radius {activeRadiusKm} km
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mt-0.5">
-                    <MapPin className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-brand-primary shrink-0" />
                     <span>
                       {locationState.marketplaceLocation.source === 'current_gps'
                         ? `📍 Berdasarkan Lokasi GPS Perangkat Saat Ini (Radius ${activeRadiusKm} km)`
@@ -215,7 +215,7 @@ export default function LandingMarketplacePage() {
 
                 <Link
                   href="/customer/laundries"
-                  className="text-xs font-bold text-teal-700 hover:text-teal-600 hover:underline flex items-center gap-1 shrink-0"
+                  className="text-xs font-bold text-brand-primary hover:text-brand-primary/80 hover:underline flex items-center gap-1 shrink-0"
                 >
                   Lihat Semua ({marketplaceItems.length}) <ArrowRight className="w-4 h-4" />
                 </Link>
@@ -264,7 +264,7 @@ export default function LandingMarketplacePage() {
 
                   <Link
                     href="/customer/laundries?sort=rating"
-                    className="text-xs font-bold text-teal-700 hover:text-teal-600 hover:underline flex items-center gap-1 shrink-0"
+                    className="text-xs font-bold text-brand-primary hover:text-brand-primary/80 hover:underline flex items-center gap-1 shrink-0"
                   >
                     Lihat Urutan Rating <ArrowRight className="w-4 h-4" />
                   </Link>

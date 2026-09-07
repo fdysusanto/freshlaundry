@@ -492,7 +492,7 @@ function CheckoutContent() {
   if (isLoadingData) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-4">
-        <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto" />
+        <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full mx-auto" />
         <p className="text-sm font-semibold text-slate-600">Memuat data laundry &amp; alamat tersimpan...</p>
       </div>
     );
@@ -518,12 +518,12 @@ function CheckoutContent() {
       <div className="space-y-3">
         <button
           onClick={() => router.back()}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-primary transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" /> Kembali
         </button>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-100 text-teal-800 text-xs font-bold">
-          <Sparkles className="w-4 h-4 text-teal-600" />
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-surface text-brand-primary border border-brand-primary/30 text-xs font-bold">
+          <Sparkles className="w-4 h-4 text-brand-primary" />
           <span>Checkout Pemesanan Marketplace</span>
         </div>
         <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
@@ -542,7 +542,7 @@ function CheckoutContent() {
           <Card variant="white" className="space-y-4 border-slate-200 shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <ShoppingBag className="w-4 h-4 text-teal-600" />
+                <ShoppingBag className="w-4 h-4 text-brand-primary" />
                 Order Details
               </h2>
               <Badge variant="teal" size="sm">
@@ -552,13 +552,13 @@ function CheckoutContent() {
 
             {/* Laundry & Service Info Grid */}
             <div className="space-y-3 text-xs">
-              <div className="p-3.5 rounded-2xl bg-teal-50/50 border border-teal-100 space-y-2">
-                <span className="text-[10px] font-bold text-teal-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Store className="w-3.5 h-3.5 text-teal-600" />
+              <div className="p-3.5 rounded-2xl bg-brand-surface/60 border border-brand-primary/20 space-y-2">
+                <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider flex items-center gap-1.5">
+                  <Store className="w-3.5 h-3.5 text-brand-primary" />
                   Mitra Laundry Terpilih
                 </span>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-teal-700 text-white font-black text-base flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-brand-primary text-white font-black text-base flex items-center justify-center shrink-0">
                     {selectedLaundry?.name?.charAt(0) || 'L'}
                   </div>
                   <div>
@@ -579,7 +579,7 @@ function CheckoutContent() {
 
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Estimasi Kuantitas</span>
-                  <p className="font-bold text-teal-700 text-sm">
+                  <p className="font-bold text-brand-primary text-sm">
                     {selectedQty} {selectedService?.unit}
                   </p>
                   {selectedQty < minQtyThreshold ? (
@@ -603,11 +603,11 @@ function CheckoutContent() {
                 onClick={() => setActiveLogisticsTab('pickup')}
                 className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs transition-all duration-200 cursor-pointer min-h-[44px] w-full ${
                   activeLogisticsTab === 'pickup'
-                    ? 'bg-white text-teal-700 shadow-sm border border-slate-200/60 font-extrabold'
+                    ? 'bg-white text-brand-primary shadow-sm border border-slate-200/60 font-extrabold'
                     : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
                 }`}
               >
-                <Package className="w-4 h-4 text-teal-600" />
+                <Package className="w-4 h-4 text-brand-primary" />
                 <span>📦 Pickup</span>
                 {!isPickupValid && (
                   <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" title="Informasi Pickup belum lengkap" />
@@ -632,10 +632,10 @@ function CheckoutContent() {
             <div className="transition-all duration-200 ease-out">
               {activeLogisticsTab === 'pickup' ? (
                 /* PICKUP TAB CONTENT */
-                <Card variant="white" className="space-y-4 text-xs border-teal-200 bg-teal-50/10 shadow-sm">
-                  <div className="flex items-center justify-between border-b border-teal-100 pb-3">
+                <Card variant="white" className="space-y-4 text-xs border-brand-primary/30 bg-brand-surface/40 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-brand-primary/20 pb-3">
                     <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                      <Package className="w-4 h-4 text-teal-600" />
+                      <Package className="w-4 h-4 text-brand-primary" />
                       Pickup Details
                     </h3>
                     <Badge variant="teal" size="sm">
@@ -650,21 +650,21 @@ function CheckoutContent() {
                   <div className="space-y-2 pt-1">
                     <div className="flex items-center justify-between">
                       <label className="font-bold text-slate-800 uppercase flex items-center gap-1.5 text-xs">
-                        <MapPin className="w-3.5 h-3.5 text-teal-600" /> Alamat Penjemputan (Pickup Address):
+                        <MapPin className="w-3.5 h-3.5 text-brand-primary" /> Alamat Penjemputan (Pickup Address):
                       </label>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => setIsPickupSelectorOpen(true)}
-                        className="text-xs font-bold border-teal-200 text-teal-700 hover:bg-teal-50"
+                        className="text-xs font-bold border-brand-primary/30 text-brand-primary hover:bg-brand-surface"
                       >
                         Pilih Alamat Tersimpan
                       </Button>
                     </div>
 
                     {selectedPickupAddress ? (
-                      <div className="p-3.5 rounded-2xl border border-teal-300 bg-teal-50/60 space-y-1">
+                      <div className="p-3.5 rounded-2xl border border-brand-primary/40 bg-brand-surface/80 space-y-1">
                         <div className="flex items-center justify-between">
                           <span className="font-black text-slate-900">{selectedPickupAddress.label}</span>
                           {selectedPickupAddress.isDefault && (
@@ -690,7 +690,7 @@ function CheckoutContent() {
                           if (useSameAddress) setDeliveryAddress(e.target.value);
                         }}
                         placeholder="Alamat lengkap lokasi penjemputan pakaian..."
-                        className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500"
+                        className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
                       />
                     )}
                   </div>
@@ -699,26 +699,26 @@ function CheckoutContent() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-teal-600" /> Tanggal Pickup:
+                        <Calendar className="w-3.5 h-3.5 text-brand-primary" /> Tanggal Pickup:
                       </label>
                       <input
                         type="date"
                         required
                         value={pickupDate}
                         onChange={(e) => setPickupDate(e.target.value)}
-                        className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500 font-semibold"
+                        className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary font-semibold"
                       />
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-teal-600" /> Slot Waktu Pickup:
+                        <Clock className="w-3.5 h-3.5 text-brand-primary" /> Slot Waktu Pickup:
                       </label>
                       <select
                         value={pickupTimeSlot}
                         onChange={(e) => setPickupTimeSlot(e.target.value)}
                         disabled={availablePickupSlots.length === 0}
-                        className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-teal-500 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400"
+                        className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-brand-primary focus:border-brand-primary cursor-pointer disabled:bg-slate-100 disabled:text-slate-400"
                       >
                         {availablePickupSlots.length > 0 ? (
                           availablePickupSlots.map((slot) => (
@@ -748,7 +748,7 @@ function CheckoutContent() {
                       value={pickupNotes}
                       onChange={(e) => setPickupNotes(e.target.value)}
                       placeholder="Misal: Pakaian di dalam kantong plastik biru di depan pagar, pelembut lavender..."
-                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-teal-500"
+                      className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
                     />
                   </div>
                 </Card>
@@ -918,7 +918,7 @@ function CheckoutContent() {
         <div className="lg:col-span-5">
           <Card variant="slate" className="sticky top-24 space-y-6">
             <div className="border-b border-slate-800 pb-4">
-              <div className="flex items-center gap-2 text-teal-400 text-xs font-bold uppercase tracking-widest">
+              <div className="flex items-center gap-2 text-brand-secondary text-xs font-bold uppercase tracking-widest">
                 <CreditCard className="w-4 h-4" />
                 <span>Payment Summary</span>
               </div>
@@ -940,7 +940,7 @@ function CheckoutContent() {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Estimasi Pelanggan:</span>
-                <span className="font-bold text-teal-300">
+                <span className="font-bold text-brand-secondary">
                   {selectedQty} {selectedService?.unit}
                 </span>
               </div>
@@ -969,11 +969,11 @@ function CheckoutContent() {
 
             <div className="pt-4 border-t border-slate-800">
               <p className="text-xs text-slate-400">Total Tagihan Pemesanan:</p>
-              <p className="text-3xl font-black text-teal-300 mt-0.5">{formatIDR(totalPrice)}</p>
+              <p className="text-3xl font-black text-brand-secondary mt-0.5">{formatIDR(totalPrice)}</p>
             </div>
 
             <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700/60 text-[11px] text-slate-300 space-y-1.5">
-              <div className="flex items-center gap-1.5 text-teal-300 font-bold">
+              <div className="flex items-center gap-1.5 text-brand-secondary font-bold">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>Pembersihan Higienis Garansi 100%</span>
               </div>
@@ -998,7 +998,7 @@ function CheckoutContent() {
               variant="primary"
               size="lg"
               disabled={isLoading}
-              className="w-full bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold shadow-xl cursor-pointer"
+              className="w-full bg-brand-primary hover:bg-brand-primary/90 text-white font-bold shadow-xl cursor-pointer"
               rightIcon={<ArrowRight className="w-5 h-5" />}
             >
               {isLoading ? 'Memproses Order...' : 'Konfirmasi & Buat Pesanan'}

@@ -114,8 +114,8 @@ export const MobileOrdersView: React.FC<MobileOrdersViewProps> = ({
     }
 
     return (
-      <div className="p-6 text-center space-y-1.5 bg-teal-50/30 rounded-2xl border border-dashed border-teal-200">
-        <Package className="w-8 h-8 text-teal-600 mx-auto" />
+      <div className="p-6 text-center space-y-1.5 bg-brand-surface rounded-2xl border border-dashed border-brand-primary/20">
+        <Package className="w-8 h-8 text-brand-primary mx-auto" />
         <p className="font-bold text-xs text-slate-800">✨ Belum Ada Pesanan Aktif</p>
         <p className="text-[11px] text-slate-500">Pesanan baru yang masuk akan langsung muncul di sini.</p>
       </div>
@@ -140,7 +140,7 @@ export const MobileOrdersView: React.FC<MobileOrdersViewProps> = ({
               placeholder="Cari customer / resi..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-xs font-medium pl-8 pr-7 py-1.5 rounded-xl border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+              className="w-full text-xs font-medium pl-8 pr-7 py-1.5 rounded-xl border border-slate-300 bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
             />
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <button

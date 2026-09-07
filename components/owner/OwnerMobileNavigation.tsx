@@ -55,7 +55,7 @@ export const OwnerMobileNavigation: React.FC = () => {
             aria-label={item.label}
             className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-3 py-1 rounded-2xl transition-all ${
               item.isActive
-                ? 'text-teal-700 font-black bg-teal-50/80 shadow-xs'
+                ? 'text-brand-primary font-black bg-brand-surface shadow-xs'
                 : 'text-slate-500 font-medium hover:text-slate-800 active:scale-95'
             }`}
           >

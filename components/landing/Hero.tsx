@@ -16,23 +16,23 @@ export const Hero: React.FC = () => {
   };
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-teal-50/80 via-white to-white pt-12 pb-20 lg:pt-20 lg:pb-28">
+    <section className="relative overflow-hidden bg-gradient-to-b from-brand-surface/80 via-white to-white pt-12 pb-20 lg:pt-20 lg:pb-28">
       {/* Decorative Blur Background Orbs */}
-      <div className="absolute top-10 left-1/2 -translate-x-1/2 w-96 h-96 bg-teal-300/20 rounded-full blur-3xl -z-10 pointer-events-none" />
-      <div className="absolute top-40 right-10 w-72 h-72 bg-cyan-300/20 rounded-full blur-3xl -z-10 pointer-events-none" />
+      <div className="absolute top-10 left-1/2 -translate-x-1/2 w-96 h-96 bg-brand-primary/20 rounded-full blur-3xl -z-10 pointer-events-none" />
+      <div className="absolute top-40 right-10 w-72 h-72 bg-brand-secondary/20 rounded-full blur-3xl -z-10 pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           {/* Left Column: Headline & CTA */}
           <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-100/80 border border-teal-200 text-teal-800 text-xs font-bold shadow-xs">
-              <Sparkles className="w-4 h-4 text-teal-600 animate-spin" />
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-surface border border-brand-primary/20 text-brand-primary text-xs font-bold shadow-xs">
+              <Sparkles className="w-4 h-4 text-brand-primary animate-spin" />
               <span>Layanan Laundry Pickup & Delivery No. 1</span>
             </div>
 
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.15]">
               Laundry Bersih & Wangi,{' '}
-              <span className="bg-gradient-to-r from-teal-600 via-cyan-600 to-sky-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-brand-primary via-brand-secondary to-sky-600 bg-clip-text text-transparent">
                 Jemput Antar Gratis
               </span>{' '}
               Sampai Depan Rumah!
@@ -45,7 +45,7 @@ export const Hero: React.FC = () => {
             {/* Tracking Search Input Box */}
             <form
               onSubmit={handleTrackSubmit}
-              className="p-2 bg-white rounded-2xl border border-slate-200 shadow-xl shadow-teal-900/5 max-w-md mx-auto lg:mx-0 flex items-center gap-2"
+              className="p-2 bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-900/5 max-w-md mx-auto lg:mx-0 flex items-center gap-2"
             >
               <div className="pl-3 text-slate-400">
                 <Search className="w-5 h-5" />
@@ -86,21 +86,21 @@ export const Hero: React.FC = () => {
             {/* Key Value Badges */}
             <div className="pt-6 grid grid-cols-3 gap-4 border-t border-slate-200/60 max-w-lg mx-auto lg:mx-0">
               <div className="flex items-center gap-2 text-left">
-                <Truck className="w-5 h-5 text-teal-600 shrink-0" />
+                <Truck className="w-5 h-5 text-brand-primary shrink-0" />
                 <div>
                   <p className="text-xs font-bold text-slate-800">Gratis Pickup</p>
                   <p className="text-[10px] text-slate-500">Min. order 3 kg</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 text-left">
-                <Clock className="w-5 h-5 text-teal-600 shrink-0" />
+                <Clock className="w-5 h-5 text-brand-primary shrink-0" />
                 <div>
                   <p className="text-xs font-bold text-slate-800">Express 6 Jam</p>
                   <p className="text-[10px] text-slate-500">Selesai hari ini</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 text-left">
-                <ShieldCheck className="w-5 h-5 text-teal-600 shrink-0" />
+                <ShieldCheck className="w-5 h-5 text-brand-primary shrink-0" />
                 <div>
                   <p className="text-xs font-bold text-slate-800">Garansi Cuci</p>
                   <p className="text-[10px] text-slate-500">Cuci ulang 100%</p>
@@ -113,10 +113,10 @@ export const Hero: React.FC = () => {
           <div className="lg:col-span-5 relative">
             <div className="relative mx-auto max-w-sm lg:max-w-none">
               {/* Main Card Showcase */}
-              <div className="bg-gradient-to-tr from-slate-900 to-teal-950 p-6 rounded-3xl text-white shadow-2xl shadow-teal-900/30 border border-slate-800">
+              <div className="bg-gradient-to-tr from-brand-primary via-slate-900 to-brand-secondary p-6 rounded-3xl text-white shadow-2xl shadow-brand-primary/20 border border-slate-800">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300 font-bold">
+                    <div className="w-10 h-10 rounded-xl bg-brand-primary/20 border border-brand-secondary/30 flex items-center justify-center text-brand-secondary font-bold">
                       FW
                     </div>
                     <div>
@@ -124,7 +124,7 @@ export const Hero: React.FC = () => {
                       <p className="text-sm font-bold text-white">#LND-K89A2B</p>
                     </div>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 border border-teal-400/30 text-xs font-bold">
+                  <span className="px-3 py-1 rounded-full bg-brand-primary/20 text-brand-secondary border border-brand-secondary/30 text-xs font-bold">
                     Dalam Proses Cuci
                   </span>
                 </div>
@@ -140,18 +140,18 @@ export const Hero: React.FC = () => {
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-400">Estimasi Selesai:</span>
-                    <span className="font-semibold text-teal-300">Besok, 14:00 WIB</span>
+                    <span className="font-semibold text-brand-secondary">Besok, 14:00 WIB</span>
                   </div>
                 </div>
 
                 {/* Tracking Progress Mini Bar */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-teal-400">Proses Laundering</span>
+                    <span className="text-brand-secondary">Proses Laundering</span>
                     <span className="text-slate-400">Step 4 dari 7</span>
                   </div>
                   <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-teal-500 to-cyan-400 w-3/5 rounded-full animate-pulse" />
+                    <div className="h-full bg-gradient-to-r from-brand-primary to-brand-secondary w-3/5 rounded-full animate-pulse" />
                   </div>
                 </div>
               </div>

@@ -12,7 +12,7 @@ const variantStyles: Record<NonNullable<BadgeProps['variant']>, string> = {
   sky: 'bg-sky-50 text-sky-800 border-sky-200/80',
   indigo: 'bg-indigo-50 text-indigo-800 border-indigo-200/80',
   blue: 'bg-blue-50 text-blue-800 border-blue-200/80',
-  teal: 'bg-teal-50 text-teal-800 border-teal-200/80',
+  teal: 'bg-brand-surface text-brand-primary border-brand-primary/20',
   purple: 'bg-purple-50 text-purple-800 border-purple-200/80',
   emerald: 'bg-emerald-50 text-emerald-800 border-emerald-200/80',
   rose: 'bg-rose-50 text-rose-800 border-rose-200/80',

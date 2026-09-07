@@ -55,13 +55,13 @@ export const MarketplaceFilter: React.FC<MarketplaceFilterProps> = ({
       {/* Search Input Bar & Mobile Filter Trigger */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1 flex items-center">
-          <Search className="w-4 h-4 absolute left-3.5 text-teal-600 shrink-0 pointer-events-none" />
+          <Search className="w-4 h-4 absolute left-3.5 text-brand-primary shrink-0 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cari nama laundry, area, atau layanan..."
-            className="w-full pl-10 pr-9 py-2.5 sm:py-3 bg-slate-50 text-xs sm:text-sm font-semibold rounded-xl sm:rounded-2xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:bg-white transition-all placeholder:text-slate-400"
+            className="w-full pl-10 pr-9 py-2.5 sm:py-3 bg-slate-50 text-xs sm:text-sm font-semibold rounded-xl sm:rounded-2xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:bg-white transition-all placeholder:text-slate-400"
             aria-label="Cari nama laundry atau lokasi"
           />
           {searchQuery && (
@@ -82,10 +82,10 @@ export const MarketplaceFilter: React.FC<MarketplaceFilterProps> = ({
           onClick={() => setIsBottomSheetOpen(true)}
           className="sm:hidden px-3.5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer active:scale-95 transition-transform"
         >
-          <SlidersHorizontal className="w-3.5 h-3.5 text-teal-400" />
+          <SlidersHorizontal className="w-3.5 h-3.5 text-brand-secondary" />
           <span>Filter</span>
           {activeFilterCount > 0 && (
-            <span className="w-4 h-4 rounded-full bg-teal-500 text-slate-950 font-black text-[10px] flex items-center justify-center">
+            <span className="w-4 h-4 rounded-full bg-brand-primary text-white font-black text-[10px] flex items-center justify-center">
               {activeFilterCount}
             </span>
           )}
@@ -104,7 +104,7 @@ export const MarketplaceFilter: React.FC<MarketplaceFilterProps> = ({
           }}
           className={`px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer ${
             onlyNearby || sortBy === 'distance'
-              ? 'bg-teal-600 text-white shadow-xs'
+              ? 'bg-brand-primary text-white shadow-xs'
               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           }`}
         >
@@ -154,7 +154,7 @@ export const MarketplaceFilter: React.FC<MarketplaceFilterProps> = ({
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="text-xs font-bold bg-slate-50 text-slate-800 py-2 px-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 cursor-pointer"
+              className="text-xs font-bold bg-slate-50 text-slate-800 py-2 px-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary cursor-pointer"
             >
               <option value="recommended">Rekomendasi Utama</option>
               <option value="distance">Jarak Terdekat</option>
@@ -167,7 +167,7 @@ export const MarketplaceFilter: React.FC<MarketplaceFilterProps> = ({
             <button
               type="button"
               onClick={handleReset}
-              className="text-xs font-bold text-teal-700 hover:underline cursor-pointer flex items-center gap-1"
+              className="text-xs font-bold text-brand-primary hover:underline cursor-pointer flex items-center gap-1"
             >
               <X className="w-3.5 h-3.5" /> Reset Filter
             </button>
@@ -200,7 +200,7 @@ export const MarketplaceFilter: React.FC<MarketplaceFilterProps> = ({
                   onClick={() => setSortBy(opt.id as SortOption)}
                   className={`p-3 rounded-xl text-xs font-bold text-left border transition-all cursor-pointer ${
                     sortBy === opt.id
-                      ? 'border-teal-600 bg-teal-50 text-teal-900 ring-2 ring-teal-500/20'
+                      ? 'border-brand-primary bg-brand-surface text-brand-primary ring-2 ring-brand-primary/20'
                       : 'border-slate-200 bg-slate-50 text-slate-700'
                   }`}
                 >
@@ -268,7 +268,7 @@ export const MarketplaceFilter: React.FC<MarketplaceFilterProps> = ({
               variant="primary"
               size="md"
               onClick={() => setIsBottomSheetOpen(false)}
-              className="flex-1 bg-teal-600 hover:bg-teal-500 text-xs font-bold"
+              className="flex-1 bg-brand-primary hover:bg-brand-primary/90 text-xs font-bold"
             >
               Terapkan ({totalResults} Mitra)
             </Button>

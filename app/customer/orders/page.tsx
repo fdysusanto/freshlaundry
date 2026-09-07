@@ -73,7 +73,7 @@ export default function CustomerActiveOrdersPage() {
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-4">
-        <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto" />
+        <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full mx-auto" />
         <p className="text-xs font-semibold text-slate-600">Memuat pesanan aktif Anda...</p>
       </div>
     );
@@ -84,8 +84,8 @@ export default function CustomerActiveOrdersPage() {
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-100 text-teal-800 text-xs font-bold mb-2">
-            <Package className="w-3.5 h-3.5 text-teal-600" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-surface text-brand-primary border border-brand-primary/30 text-xs font-bold mb-2">
+            <Package className="w-3.5 h-3.5 text-brand-primary" />
             <span>Pusat Pesanan Aktif</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Pesanan Aktif</h1>
@@ -95,7 +95,7 @@ export default function CustomerActiveOrdersPage() {
         </div>
 
         <Link href="/customer/orders/history">
-          <Button variant="outline" size="sm" leftIcon={<History className="w-4 h-4 text-teal-600" />} className="font-bold border-slate-300">
+          <Button variant="outline" size="sm" leftIcon={<History className="w-4 h-4 text-brand-primary" />} className="font-bold border-slate-300">
             Riwayat Selesai
           </Button>
         </Link>
@@ -107,7 +107,7 @@ export default function CustomerActiveOrdersPage() {
           {activeOrders.map((o) => {
             const cfg = getStatusConfig(o.status);
             return (
-              <Card key={o.id} variant="white" className="hover:border-teal-300 transition-all space-y-4 shadow-sm">
+              <Card key={o.id} variant="white" className="hover:border-brand-secondary transition-all space-y-4 shadow-sm">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div>
                     <span className="text-[11px] font-bold text-slate-400 uppercase">Nomor Resi:</span>
@@ -141,13 +141,13 @@ export default function CustomerActiveOrdersPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Kurir Ditugaskan:</span>
-                    <span className="font-semibold text-teal-700">
+                    <span className="font-semibold text-brand-primary">
                       {o.courierName || 'Mencari Kurir Terdekat...'}
                     </span>
                   </div>
                   <div className="flex justify-between pt-2 border-t border-slate-100">
                     <span className="text-slate-500 font-bold">Total Biaya:</span>
-                    <span className="font-black text-teal-700 text-sm">{formatIDR(o.totalPrice)}</span>
+                    <span className="font-black text-brand-primary text-sm">{formatIDR(o.totalPrice)}</span>
                   </div>
 
                   {o.finalWeightKg && o.estimatedWeightKg && o.finalWeightKg > o.estimatedWeightKg && (
@@ -163,7 +163,7 @@ export default function CustomerActiveOrdersPage() {
                 <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100">
                   <Link
                     href={`/orders/track/${o.trackingNumber}`}
-                    className="text-xs font-bold text-teal-700 hover:underline flex items-center gap-1"
+                    className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1"
                   >
                     <Truck className="w-4 h-4" /> Live Tracking
                   </Link>
@@ -194,7 +194,7 @@ export default function CustomerActiveOrdersPage() {
             size="md"
             onClick={() => router.push('/customer/laundries')}
             leftIcon={<PlusCircle className="w-4 h-4" />}
-            className="bg-teal-600 hover:bg-teal-500 text-white font-bold"
+            className="bg-brand-primary hover:bg-brand-primary/90 text-white font-bold"
           >
             Cari Laundry &amp; Buat Pesanan
           </Button>

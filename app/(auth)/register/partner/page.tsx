@@ -522,11 +522,11 @@ function PartnerRegisterContent() {
   ];
 
   return (
-    <div className="min-h-[85vh] flex flex-col items-center justify-center px-4 py-8 bg-gradient-to-b from-teal-50/50 via-slate-50 to-white">
+    <div className="min-h-[85vh] flex flex-col items-center justify-center px-4 py-8 bg-gradient-to-b from-brand-surface via-slate-50 to-white">
       <div className="w-full max-w-2xl space-y-6">
         {/* Header Title */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-teal-600 text-white shadow-lg shadow-teal-600/30 mb-1">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-brand-primary text-white shadow-lg shadow-brand-primary/30 mb-1">
             <Store className="w-6 h-6" />
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
@@ -558,7 +558,7 @@ function PartnerRegisterContent() {
                         isCompleted
                           ? 'bg-emerald-500 text-white'
                           : isActive
-                          ? 'bg-teal-600 text-white ring-4 ring-teal-100 scale-110'
+                          ? 'bg-brand-primary text-white ring-4 ring-brand-primary/20 scale-110'
                           : 'bg-slate-100 text-slate-400'
                       }`}
                     >
@@ -566,7 +566,7 @@ function PartnerRegisterContent() {
                     </div>
                     <span
                       className={`text-[10px] font-bold tracking-tight ${
-                        isActive ? 'text-teal-700' : isCompleted ? 'text-emerald-700' : 'text-slate-400'
+                        isActive ? 'text-brand-primary' : isCompleted ? 'text-emerald-700' : 'text-slate-400'
                       }`}
                     >
                       {step.label}
@@ -593,7 +593,7 @@ function PartnerRegisterContent() {
               <span>{errorMessage}</span>
             </div>
             {(errorMessage.toLowerCase().includes('login') || errorMessage.toLowerCase().includes('terdaftar')) && (
-              <Link href="/login" className="shrink-0 font-bold text-teal-800 underline hover:text-teal-900">
+              <Link href="/login" className="shrink-0 font-bold text-brand-primary underline hover:text-brand-primary/80">
                 Ke Halaman Login
               </Link>
             )}
@@ -631,7 +631,7 @@ function PartnerRegisterContent() {
             <div className="space-y-4">
               <div className="border-b border-slate-100 pb-3">
                 <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <User className="w-4 h-4 text-teal-600" /> Step 1 — Data Pemilik Usaha
+                  <User className="w-4 h-4 text-brand-primary" /> Step 1 — Data Pemilik Usaha
                 </h2>
                 <p className="text-xs text-slate-500">
                   Lengkapi data identitas pemilik atau penanggung jawab mitra laundry.
@@ -651,7 +651,7 @@ function PartnerRegisterContent() {
                       placeholder="Budi Santoso"
                       value={ownerName}
                       onChange={(e) => setOwnerName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     />
                   </div>
                 </div>
@@ -668,7 +668,7 @@ function PartnerRegisterContent() {
                       placeholder="budi@example.com"
                       value={ownerEmail}
                       onChange={(e) => setOwnerEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     />
                   </div>
                 </div>
@@ -685,7 +685,7 @@ function PartnerRegisterContent() {
                       placeholder="081234567890"
                       value={ownerPhone}
                       onChange={(e) => setOwnerPhone(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     />
                   </div>
                 </div>
@@ -702,7 +702,7 @@ function PartnerRegisterContent() {
                       placeholder="Minimal 8 karakter..."
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     />
                   </div>
                 </div>
@@ -719,7 +719,7 @@ function PartnerRegisterContent() {
                       placeholder="Ketik ulang password..."
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     />
                   </div>
                 </div>
@@ -744,7 +744,7 @@ function PartnerRegisterContent() {
             <div className="space-y-4">
               <div className="border-b border-slate-100 pb-3">
                 <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Store className="w-4 h-4 text-teal-600" /> Step 2 — Data Toko Laundry
+                  <Store className="w-4 h-4 text-brand-primary" /> Step 2 — Data Toko Laundry
                 </h2>
                 <p className="text-xs text-slate-500">
                   Informasi fisik outlet laundry yang akan ditampilkan kepada pelanggan.
@@ -764,7 +764,7 @@ function PartnerRegisterContent() {
                       placeholder="Laundry Bersih Cirebon"
                       value={laundryName}
                       onChange={(e) => setLaundryName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     />
                   </div>
                 </div>
@@ -781,7 +781,7 @@ function PartnerRegisterContent() {
                       placeholder="Jl. Tuparev No. 100, Cirebon"
                       value={laundryAddress}
                       onChange={(e) => setLaundryAddress(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     />
                   </div>
                 </div>
@@ -797,7 +797,7 @@ function PartnerRegisterContent() {
                       placeholder="Cirebon"
                       value={laundryCity}
                       onChange={(e) => setLaundryCity(e.target.value)}
-                      className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     />
                   </div>
 
@@ -811,7 +811,7 @@ function PartnerRegisterContent() {
                       placeholder="Kedawung"
                       value={laundryDistrict}
                       onChange={(e) => setLaundryDistrict(e.target.value)}
-                      className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     />
                   </div>
                 </div>
@@ -828,7 +828,7 @@ function PartnerRegisterContent() {
                         required
                         value={openingTime}
                         onChange={(e) => setOpeningTime(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                        className="w-full pl-10 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                       />
                     </div>
                   </div>
@@ -844,17 +844,17 @@ function PartnerRegisterContent() {
                         required
                         value={closingTime}
                         onChange={(e) => setClosingTime(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                        className="w-full pl-10 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Interactive Map Location Picker Section */}
-                <div className="p-4 rounded-2xl bg-teal-50/60 border border-teal-200/80 space-y-3 pt-3">
+                <div className="p-4 rounded-2xl bg-brand-surface border border-brand-primary/20 space-y-3 pt-3">
                   <div className="space-y-1">
                     <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase">
-                      <MapPin className="w-4 h-4 text-teal-600 shrink-0" />
+                      <MapPin className="w-4 h-4 text-brand-primary shrink-0" />
                       📍 Lokasi Outlet Laundry
                     </h3>
                     <p className="text-[11px] text-slate-600 leading-relaxed">
@@ -864,7 +864,7 @@ function PartnerRegisterContent() {
                     <ul className="text-[11px] text-slate-600 list-disc list-inside pl-1 space-y-0.5 font-medium">
                       <li>Menekan lokasi pada peta</li>
                       <li>Menggeser pin untuk menentukan lokasi</li>
-                      <li>Menggunakan tombol <span className="font-bold text-teal-700">"Gunakan Lokasi Saya"</span></li>
+                      <li>Menggunakan tombol <span className="font-bold text-brand-primary">"Gunakan Lokasi Saya"</span></li>
                     </ul>
                   </div>
 
@@ -880,9 +880,9 @@ function PartnerRegisterContent() {
 
                   {/* Read-Only Coordinate Information Display */}
                   {latitude !== null && longitude !== null && (
-                    <div className="p-3 rounded-xl bg-white border border-teal-200 shadow-2xs space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-teal-800">
-                        <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                    <div className="p-3 rounded-xl bg-white border border-brand-primary/20 shadow-2xs space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-brand-primary">
+                        <CheckCircle2 className="w-4 h-4 text-brand-primary shrink-0" />
                         <span>✓ Lokasi outlet berhasil dipilih</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100">
@@ -917,7 +917,7 @@ function PartnerRegisterContent() {
               <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <Tag className="w-4 h-4 text-teal-600" /> Step 3 — Katalog Layanan Laundry
+                    <Tag className="w-4 h-4 text-brand-primary" /> Step 3 — Katalog Layanan Laundry
                   </h2>
                   <p className="text-xs text-slate-500">
                     Kelola daftar paket pencucian, tarif per kg/pcs, dan tipe unit.
@@ -938,22 +938,22 @@ function PartnerRegisterContent() {
 
               {/* Add New Service Inline Form */}
               {isAddingService && (
-                <form onSubmit={handleAddService} className="p-3 bg-teal-50/60 rounded-xl border border-teal-200 space-y-3">
-                  <h3 className="text-xs font-bold text-teal-900">Tambah Layanan Baru</h3>
+                <form onSubmit={handleAddService} className="p-3 bg-brand-surface rounded-xl border border-brand-primary/20 space-y-3">
+                  <h3 className="text-xs font-bold text-brand-primary">Tambah Layanan Baru</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <input
                       type="text"
                       placeholder="Nama Layanan (mis. Cuci Sepatu)"
                       value={newServiceName}
                       onChange={(e) => setNewServiceName(e.target.value)}
-                      className="px-3 py-2 text-xs bg-white rounded-lg border border-teal-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="px-3 py-2 text-xs bg-white rounded-lg border border-brand-primary/20 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     />
                     <input
                       type="number"
                       placeholder="Tarif (Rp)"
                       value={newServicePrice}
                       onChange={(e) => setNewServicePrice(e.target.value)}
-                      className="px-3 py-2 text-xs bg-white rounded-lg border border-teal-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="px-3 py-2 text-xs bg-white rounded-lg border border-brand-primary/20 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     />
                     <select
                       value={newServiceUnit}
@@ -962,13 +962,13 @@ function PartnerRegisterContent() {
                         setNewServiceUnit(nextUnit);
                         if (nextUnit === 'pcs') setNewServiceMinWeight('');
                       }}
-                      className="px-3 py-2 text-xs bg-white rounded-lg border border-teal-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="px-3 py-2 text-xs bg-white rounded-lg border border-brand-primary/20 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     >
                       <option value="kg">per Kg</option>
                       <option value="pcs">per Pcs / Satuan</option>
                     </select>
 
-                    <div className="sm:col-span-3 pt-1 border-t border-teal-100/80 mt-1">
+                    <div className="sm:col-span-3 pt-1 border-t border-brand-primary/10 mt-1">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {newServiceUnit === 'kg' && (
                           <div>
@@ -982,7 +982,7 @@ function PartnerRegisterContent() {
                               placeholder="misal 3 (Kosongkan jika tidak ada)"
                               value={newServiceMinWeight}
                               onChange={(e) => setNewServiceMinWeight(e.target.value)}
-                              className="w-full px-3 py-2 text-xs bg-white rounded-lg border border-teal-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                              className="w-full px-3 py-2 text-xs bg-white rounded-lg border border-brand-primary/20 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                             />
                           </div>
                         )}
@@ -1000,9 +1000,9 @@ function PartnerRegisterContent() {
                               placeholder="misal 24 (1 Hari) atau 6 (6 Jam)"
                               value={newServiceEstimatedHours}
                               onChange={(e) => setNewServiceEstimatedHours(e.target.value)}
-                              className="w-full px-3 py-2 text-xs bg-white rounded-lg border border-teal-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                              className="w-full px-3 py-2 text-xs bg-white rounded-lg border border-brand-primary/20 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                             />
-                            <span className="text-xs font-bold text-teal-800 shrink-0 bg-teal-100/80 px-2.5 py-1.5 rounded-lg border border-teal-200">
+                            <span className="text-xs font-bold text-brand-primary shrink-0 bg-brand-surface px-2.5 py-1.5 rounded-lg border border-brand-primary/20">
                               ⏱ {formatEstimatedTimeText(Number(newServiceEstimatedHours))}
                             </span>
                           </div>
@@ -1103,7 +1103,7 @@ function PartnerRegisterContent() {
                                   onChange={(e) => setEditEstimatedHours(e.target.value)}
                                   className="w-full px-2.5 py-1 text-xs bg-white rounded-lg border border-slate-300"
                                 />
-                                <span className="text-[10px] font-bold text-teal-800 shrink-0 bg-teal-50 px-2 py-1 rounded-md border border-teal-200">
+                                <span className="text-[10px] font-bold text-brand-primary shrink-0 bg-brand-surface px-2 py-1 rounded-md border border-brand-primary/20">
                                   ⏱ {formatEstimatedTimeText(Number(editEstimatedHours))}
                                 </span>
                               </div>
@@ -1114,14 +1114,14 @@ function PartnerRegisterContent() {
                         <>
                           <div className="space-y-0.5">
                             <p className="text-xs font-bold text-slate-800">{service.name}</p>
-                            <p className="text-[11px] font-semibold text-teal-700 flex items-center gap-1.5 flex-wrap">
+                            <p className="text-[11px] font-semibold text-brand-primary flex items-center gap-1.5 flex-wrap">
                               <span>Rp {service.price.toLocaleString('id-ID')} / {service.unit}</span>
                               {service.unit === 'kg' && service.minWeight && service.minWeight > 0 ? (
                                 <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">
                                   Min. order {service.minWeight} kg
                                 </span>
                               ) : null}
-                              <span className="text-[10px] font-bold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded-md border border-teal-200">
+                              <span className="text-[10px] font-bold text-brand-primary bg-brand-surface px-1.5 py-0.5 rounded-md border border-brand-primary/20">
                                 ⏱ Estimasi {formatEstimatedTimeText(service.estimatedHours || (service.code === 'express' ? 6 : service.unit === 'pcs' ? 48 : 24))}
                               </span>
                             </p>
@@ -1130,7 +1130,7 @@ function PartnerRegisterContent() {
                             <button
                               type="button"
                               onClick={() => startEditService(service)}
-                              className="p-1.5 text-slate-500 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 text-slate-500 hover:text-brand-primary hover:bg-brand-surface rounded-lg transition-colors cursor-pointer"
                               title="Edit Layanan"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -1167,7 +1167,7 @@ function PartnerRegisterContent() {
             <div className="space-y-4">
               <div className="border-b border-slate-100 pb-3">
                 <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-teal-600" /> Step 4 — Data Rekening Payout
+                  <CreditCard className="w-4 h-4 text-brand-primary" /> Step 4 — Data Rekening Payout
                 </h2>
                 <p className="text-xs text-slate-500">
                   Rekening bank untuk pencairan hasil transaksi laundry mitra secara berkala.
@@ -1187,7 +1187,7 @@ function PartnerRegisterContent() {
                       placeholder="Budi Santoso"
                       value={accountHolder}
                       onChange={(e) => setAccountHolder(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     />
                   </div>
                 </div>
@@ -1201,7 +1201,7 @@ function PartnerRegisterContent() {
                     <select
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 bg-white"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary bg-white"
                     >
                       <option value="BCA">Bank BCA</option>
                       <option value="Mandiri">Bank Mandiri</option>
@@ -1224,7 +1224,7 @@ function PartnerRegisterContent() {
                       placeholder="1234567890"
                       value={accountNumber}
                       onChange={(e) => setAccountNumber(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-mono"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-mono"
                     />
                   </div>
                 </div>
@@ -1246,7 +1246,7 @@ function PartnerRegisterContent() {
             <div className="space-y-4">
               <div className="border-b border-slate-100 pb-3">
                 <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-teal-600" /> Step 5 — Review & Konfirmasi Data
+                  <CheckCircle2 className="w-4 h-4 text-brand-primary" /> Step 5 — Review & Konfirmasi Data
                 </h2>
                 <p className="text-xs text-slate-500">
                   Periksa kembali ringkasan pengajuan sebelum dikirimkan ke tim verifikasi.
@@ -1258,12 +1258,12 @@ function PartnerRegisterContent() {
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
                   <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
                     <span className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5 text-teal-600" /> Data Pemilik
+                      <User className="w-3.5 h-3.5 text-brand-primary" /> Data Pemilik
                     </span>
                     <button
                       type="button"
                       onClick={() => setCurrentStep(1)}
-                      className="text-xs font-bold text-teal-700 hover:underline cursor-pointer"
+                      className="text-xs font-bold text-brand-primary hover:underline cursor-pointer"
                     >
                       Edit
                     </button>
@@ -1285,12 +1285,12 @@ function PartnerRegisterContent() {
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
                   <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
                     <span className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
-                      <Store className="w-3.5 h-3.5 text-teal-600" /> Data Toko Laundry
+                      <Store className="w-3.5 h-3.5 text-brand-primary" /> Data Toko Laundry
                     </span>
                     <button
                       type="button"
                       onClick={() => setCurrentStep(2)}
-                      className="text-xs font-bold text-teal-700 hover:underline cursor-pointer"
+                      className="text-xs font-bold text-brand-primary hover:underline cursor-pointer"
                     >
                       Edit
                     </button>
@@ -1318,12 +1318,12 @@ function PartnerRegisterContent() {
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
                   <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
                     <span className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
-                      <Tag className="w-3.5 h-3.5 text-teal-600" /> Katalog Layanan ({services.length})
+                      <Tag className="w-3.5 h-3.5 text-brand-primary" /> Katalog Layanan ({services.length})
                     </span>
                     <button
                       type="button"
                       onClick={() => setCurrentStep(3)}
-                      className="text-xs font-bold text-teal-700 hover:underline cursor-pointer"
+                      className="text-xs font-bold text-brand-primary hover:underline cursor-pointer"
                     >
                       Edit
                     </button>
@@ -1332,7 +1332,7 @@ function PartnerRegisterContent() {
                     {services.map((s) => (
                       <li key={s.id} className="py-1 flex justify-between">
                         <span className="font-semibold text-slate-700">{s.name}</span>
-                        <span className="font-bold text-teal-800">
+                        <span className="font-bold text-brand-primary">
                           Rp {s.price.toLocaleString('id-ID')} / {s.unit}
                         </span>
                       </li>
@@ -1344,12 +1344,12 @@ function PartnerRegisterContent() {
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
                   <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
                     <span className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
-                      <CreditCard className="w-3.5 h-3.5 text-teal-600" /> Rekening Payout
+                      <CreditCard className="w-3.5 h-3.5 text-brand-primary" /> Rekening Payout
                     </span>
                     <button
                       type="button"
                       onClick={() => setCurrentStep(4)}
-                      className="text-xs font-bold text-teal-700 hover:underline cursor-pointer"
+                      className="text-xs font-bold text-brand-primary hover:underline cursor-pointer"
                     >
                       Edit
                     </button>
@@ -1443,7 +1443,7 @@ export default function PartnerRegisterPage() {
     <Suspense
       fallback={
         <div className="min-h-[85vh] flex items-center justify-center">
-          <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full" />
+          <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full" />
         </div>
       }
     >

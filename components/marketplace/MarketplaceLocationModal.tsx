@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { MapLocationPicker, DEFAULT_MAP_CENTER } from '@/components/address/MapLocationPicker';
@@ -30,12 +30,14 @@ export const MarketplaceLocationModal: React.FC<MarketplaceLocationModalProps> =
   const [manualText, setManualText] = useState<string>('');
   const [showManualInput, setShowManualInput] = useState<boolean>(false);
 
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setLatitude(initialLat ?? DEFAULT_MAP_CENTER[0]);
       setLongitude(initialLng ?? DEFAULT_MAP_CENTER[1]);
     }
-  }, [isOpen, initialLat, initialLng]);
+  }
 
   const handleSavePin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,13 +62,13 @@ export const MarketplaceLocationModal: React.FC<MarketplaceLocationModalProps> =
     <Modal isOpen={isOpen} onClose={onClose} title="Atur Lokasi Pencarian Laundry" maxWidth="md">
       <div className="space-y-4 text-xs">
         {/* Option 1: Fast GPS Reset Button */}
-        <div className="p-3 bg-teal-50 rounded-2xl border border-teal-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-teal-900">
+        <div className="p-3 bg-brand-surface rounded-2xl border border-brand-primary/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-slate-900">
           <div className="space-y-0.5">
             <p className="font-black text-xs flex items-center gap-1.5">
-              <Navigation className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+              <Navigation className="w-3.5 h-3.5 text-brand-primary shrink-0" />
               <span>Gunakan Lokasi Perangkat (GPS)</span>
             </p>
-            <p className="text-[11px] text-teal-700 leading-snug">
+            <p className="text-[11px] text-slate-600 leading-snug">
               Temukan mitra laundry terdekat berdasarkan posisi GPS perangkat Anda saat ini.
             </p>
           </div>
@@ -77,8 +79,8 @@ export const MarketplaceLocationModal: React.FC<MarketplaceLocationModalProps> =
             onClick={handleUseGps}
             className={`text-xs font-bold shrink-0 ${
               isGpsActive
-                ? 'bg-teal-600 text-white'
-                : 'border-teal-300 text-teal-700 hover:bg-teal-100'
+                ? 'bg-brand-primary text-white'
+                : 'border-brand-primary/40 text-brand-primary hover:bg-brand-surface'
             }`}
           >
             {isGpsActive ? '✓ GPS Aktif' : '📍 Gunakan GPS Saya'}
@@ -96,7 +98,7 @@ export const MarketplaceLocationModal: React.FC<MarketplaceLocationModalProps> =
         {/* Option 2: Interactive Map Location Picker */}
         <form onSubmit={handleSavePin} className="space-y-3">
           <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs">
-            <MapPin className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+            <MapPin className="w-3.5 h-3.5 text-brand-primary shrink-0" />
             <span>Geser Pin atau Ketuk Titik di Peta:</span>
           </div>
 
@@ -116,7 +118,7 @@ export const MarketplaceLocationModal: React.FC<MarketplaceLocationModalProps> =
               <button
                 type="button"
                 onClick={() => setShowManualInput(true)}
-                className="text-[11px] font-bold text-teal-700 hover:text-teal-800 underline flex items-center gap-1 cursor-pointer"
+                className="text-[11px] font-bold text-brand-primary hover:text-brand-primary/80 underline flex items-center gap-1 cursor-pointer"
               >
                 <Search className="w-3.5 h-3.5" />
                 <span>Tambah nama patokan / area (Opsional)</span>
@@ -131,7 +133,7 @@ export const MarketplaceLocationModal: React.FC<MarketplaceLocationModalProps> =
                   value={manualText}
                   onChange={(e) => setManualText(e.target.value)}
                   placeholder="Misal: Kejaksan / Near Station..."
-                  className="w-full p-2.5 bg-slate-50 text-xs font-semibold rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 text-slate-900"
+                  className="w-full p-2.5 bg-slate-50 text-xs font-semibold rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary text-slate-900"
                 />
               </div>
             )}
@@ -146,7 +148,7 @@ export const MarketplaceLocationModal: React.FC<MarketplaceLocationModalProps> =
               type="submit"
               variant="primary"
               size="sm"
-              className="bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs"
+              className="bg-brand-primary hover:bg-brand-primary/90 text-white font-bold text-xs"
             >
               Gunakan Lokasi Ini
             </Button>

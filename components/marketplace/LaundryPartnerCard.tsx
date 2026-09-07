@@ -76,20 +76,20 @@ export const LaundryPartnerCard: React.FC<LaundryPartnerCardProps> = ({ item }) 
   };
 
   // Format short location
-  const shortLocation = useMemo(() => {
+  const shortLocation = (() => {
     if (!laundry.address) return 'Kota Cirebon';
     const parts = laundry.address.split(',');
     if (parts.length >= 2) {
       return `${parts[parts.length - 2].trim()}, ${parts[parts.length - 1].trim()}`;
     }
     return laundry.address.trim();
-  }, [laundry.address]);
+  })();
 
   const activePhotoUrl = photoUrls[currentPhotoIndex] || FALLBACK_STOREFRONT;
 
   return (
     <Link href={`/customer/laundries/${laundry.id}`} className="block group h-full">
-      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 p-2.5 sm:p-4 shadow-xs hover:shadow-xl hover:border-teal-400/80 transition-all duration-300 flex flex-col justify-between h-full overflow-hidden relative">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 p-2.5 sm:p-4 shadow-xs hover:shadow-xl hover:border-brand-secondary/80 transition-all duration-300 flex flex-col justify-between h-full overflow-hidden relative">
         
         {/* Top Image Container with Swipeable Photo Gallery */}
         <div
@@ -118,7 +118,7 @@ export const LaundryPartnerCard: React.FC<LaundryPartnerCardProps> = ({ item }) 
               </span>
             )}
             {laundry.verificationStatus === 'verified' && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-teal-600/90 backdrop-blur-md text-white text-[9px] sm:text-[10px] font-bold shadow-xs">
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-brand-primary/90 backdrop-blur-md text-white text-[9px] sm:text-[10px] font-bold shadow-xs">
                 <ShieldCheck className="w-3 h-3" />
                 <span className="hidden sm:inline">Terverifikasi</span>
               </span>
@@ -193,18 +193,18 @@ export const LaundryPartnerCard: React.FC<LaundryPartnerCardProps> = ({ item }) 
         <div className="flex-1 flex flex-col justify-between space-y-1.5 sm:space-y-2">
           <div className="space-y-0.5 sm:space-y-1">
             {/* Laundry Title */}
-            <h3 className="font-black text-slate-900 text-xs sm:text-base group-hover:text-teal-700 transition-colors line-clamp-1">
+            <h3 className="font-black text-slate-900 text-xs sm:text-base group-hover:text-brand-primary transition-colors line-clamp-1">
               {laundry.name}
             </h3>
 
             {/* Location & Distance */}
             <div className="flex items-center gap-1 text-[11px] sm:text-xs text-slate-500 font-medium">
-              <MapPin className="w-3 h-3 text-teal-600 shrink-0" />
+              <MapPin className="w-3 h-3 text-brand-primary shrink-0" />
               <span className="line-clamp-1">{shortLocation}</span>
             </div>
 
             {distanceKm !== undefined && (
-              <p className="text-[10px] sm:text-[11px] font-bold text-teal-700">
+              <p className="text-[10px] sm:text-[11px] font-bold text-brand-primary">
                 📍 {distanceKm} km dari Anda
               </p>
             )}
@@ -217,7 +217,7 @@ export const LaundryPartnerCard: React.FC<LaundryPartnerCardProps> = ({ item }) 
               {cheapestPrice !== undefined ? (
                 <div className="flex items-baseline gap-0.5 sm:gap-1">
                   <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-tight">Mulai</span>
-                  <span className="text-xs sm:text-sm font-black text-teal-800">
+                  <span className="text-xs sm:text-sm font-black text-brand-primary">
                     {formatIDR(cheapestPrice)}
                   </span>
                   <span className="text-[9px] sm:text-[10px] font-bold text-slate-500">/{cheapestUnit || 'kg'}</span>

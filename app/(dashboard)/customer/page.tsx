@@ -14,7 +14,7 @@ import { getStatusConfig } from '@/utils/helpers';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { PlusCircle, ShoppingBag, Truck, MapPin, Clock, ArrowRight, Eye, Search, History } from 'lucide-react';
+import { ShoppingBag, Truck, Eye, Search } from 'lucide-react';
 
 export default function CustomerDashboardPage() {
   const router = useRouter();
@@ -96,7 +96,7 @@ export default function CustomerDashboardPage() {
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 text-center space-y-4">
-        <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto" />
+        <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full mx-auto" />
         <p className="text-xs font-semibold text-slate-600">Memuat Customer Dashboard...</p>
       </div>
     );
@@ -105,9 +105,9 @@ export default function CustomerDashboardPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 pb-24 md:pb-12">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-teal-800 via-teal-700 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-brand-primary via-slate-900 to-brand-primary rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
         <div className="space-y-2 relative z-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-bold">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-secondary/20 border border-brand-secondary/30 text-brand-secondary text-xs font-bold">
             <ShoppingBag className="w-3.5 h-3.5" />
             <span>Customer Overview Dashboard</span>
           </div>
@@ -124,7 +124,7 @@ export default function CustomerDashboardPage() {
           size="lg"
           onClick={() => router.push('/customer/laundries')}
           leftIcon={<Search className="w-5 h-5" />}
-          className="bg-white hover:bg-teal-50 text-teal-900 shadow-xl shrink-0 font-bold"
+          className="bg-white hover:bg-brand-surface text-brand-primary shadow-xl shrink-0 font-bold"
         >
           Cari Laundry &amp; Pesan Baru
         </Button>
@@ -132,7 +132,7 @@ export default function CustomerDashboardPage() {
 
       {/* Partner Application Status Card / CTA Banner */}
       {user?.role === 'laundry_owner' ? (
-        <Card variant="white" className="bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <Card variant="white" className="bg-gradient-to-r from-emerald-50 to-brand-surface border-emerald-200 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Badge variant="emerald" className="font-bold">PEMILIK MITRA LAUNDRY</Badge>
@@ -186,7 +186,7 @@ export default function CustomerDashboardPage() {
             <h2 className="text-lg font-bold text-slate-900">📦 Pesanan Aktif Berjalan</h2>
             <p className="text-xs text-slate-500">Ringkasan pesanan yang sedang diproses atau ditugaskan kurir</p>
           </div>
-          <Link href="/customer/orders" className="text-xs font-bold text-teal-700 hover:underline flex items-center gap-1">
+          <Link href="/customer/orders" className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1">
             Lihat Semua Pesanan ({activeOrders.length}) →
           </Link>
         </div>
@@ -196,7 +196,7 @@ export default function CustomerDashboardPage() {
             {activeOrders.slice(0, 2).map((o) => {
               const cfg = getStatusConfig(o.status);
               return (
-                <Card key={o.id} variant="white" className="hover:border-teal-300 transition-all space-y-4">
+                <Card key={o.id} variant="white" className="hover:border-brand-secondary transition-all space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div>
                       <span className="text-[11px] font-bold text-slate-400">Nomor Resi:</span>
@@ -224,20 +224,20 @@ export default function CustomerDashboardPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Kurir Ditugaskan:</span>
-                      <span className="font-semibold text-teal-700">
+                      <span className="font-semibold text-brand-primary">
                         {o.courierName || 'Mencari Kurir Terdekat...'}
                       </span>
                     </div>
                     <div className="flex justify-between pt-2 border-t border-slate-100">
                       <span className="text-slate-500 font-bold">Total Biaya:</span>
-                      <span className="font-black text-teal-700 text-sm">{formatIDR(o.totalPrice)}</span>
+                      <span className="font-black text-brand-primary text-sm">{formatIDR(o.totalPrice)}</span>
                     </div>
                   </div>
 
                   <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100">
                     <Link
                       href={`/orders/track/${o.trackingNumber}`}
-                      className="text-xs font-bold text-teal-700 hover:underline flex items-center gap-1"
+                      className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1"
                     >
                       <Truck className="w-4 h-4" /> Live Tracking
                     </Link>
@@ -275,19 +275,19 @@ export default function CustomerDashboardPage() {
 
       {/* Quick Navigation Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-        <Card variant="white" className="p-4 flex items-center justify-between hover:border-teal-300 transition-all">
+        <Card variant="white" className="p-4 flex items-center justify-between hover:border-brand-secondary transition-all">
           <div className="space-y-0.5">
             <h3 className="font-bold text-slate-900 text-sm">🔍 Cari Laundry</h3>
             <p className="text-xs text-slate-500">Jelajahi mitra laundry terdekat</p>
           </div>
           <Link href="/customer/laundries">
-            <Button variant="outline" size="sm" className="font-bold border-teal-200 text-teal-700">
+            <Button variant="outline" size="sm" className="font-bold border-brand-secondary/40 text-brand-primary">
               Jelajahi →
             </Button>
           </Link>
         </Card>
 
-        <Card variant="white" className="p-4 flex items-center justify-between hover:border-teal-300 transition-all">
+        <Card variant="white" className="p-4 flex items-center justify-between hover:border-brand-secondary transition-all">
           <div className="space-y-0.5">
             <h3 className="font-bold text-slate-900 text-sm">📜 Riwayat Pesanan</h3>
             <p className="text-xs text-slate-500">Arsip pesanan laundry selesai</p>
@@ -299,7 +299,7 @@ export default function CustomerDashboardPage() {
           </Link>
         </Card>
 
-        <Card variant="white" className="p-4 flex items-center justify-between hover:border-teal-300 transition-all">
+        <Card variant="white" className="p-4 flex items-center justify-between hover:border-brand-secondary transition-all">
           <div className="space-y-0.5">
             <h3 className="font-bold text-slate-900 text-sm">📍 Alamat Saya</h3>
             <p className="text-xs text-slate-500">Atur lokasi penjemputan &amp; pengantaran</p>
@@ -317,7 +317,7 @@ export default function CustomerDashboardPage() {
         <div className="space-y-4 pt-4 border-t border-slate-200">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-slate-900">Riwayat Pesanan Selesai</h2>
-            <Link href="/customer/orders/history" className="text-xs font-bold text-teal-700 hover:underline">
+            <Link href="/customer/orders/history" className="text-xs font-bold text-brand-primary hover:underline">
               Lihat Semua Riwayat ({pastOrders.length}) →
             </Link>
           </div>
@@ -330,7 +330,7 @@ export default function CustomerDashboardPage() {
                     <p className="text-slate-500">{o.serviceName} • {formatDateIndo(o.createdAt)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-black text-teal-700">{formatIDR(o.totalPrice)}</p>
+                    <p className="font-black text-brand-primary">{formatIDR(o.totalPrice)}</p>
                     <Badge variant={normalizeOrderStatus(o.status) === 'delivered' ? 'emerald' : 'rose'} size="sm">
                       {normalizeOrderStatus(o.status) === 'delivered' ? 'Selesai' : 'Dibatalkan'}
                     </Badge>

@@ -209,7 +209,7 @@ export const AdminPhotoManagementModal: React.FC<AdminPhotoManagementModalProps>
                     className={`relative rounded-2xl border-2 p-2.5 transition-all bg-white flex flex-col justify-between ${
                       isOccupied
                         ? photo.is_primary
-                          ? 'border-teal-500 ring-2 ring-teal-500/20 shadow-sm'
+                          ? 'border-brand-primary ring-2 ring-brand-primary/20 shadow-sm'
                           : 'border-slate-200'
                         : 'border-dashed border-slate-300 bg-slate-50'
                     }`}
@@ -220,8 +220,8 @@ export const AdminPhotoManagementModal: React.FC<AdminPhotoManagementModalProps>
                         Slot {slotNum + 1} {slotNum === 0 && '(Foto Utama)'}
                       </span>
                       {isOccupied && photo.is_primary && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200">
-                          <Star className="w-3 h-3 fill-teal-600 text-teal-600" /> Utama
+                        <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-brand-primary bg-brand-surface px-2 py-0.5 rounded-full border border-brand-primary/20">
+                          <Star className="w-3 h-3 fill-brand-primary text-brand-primary" /> Utama
                         </span>
                       )}
                     </div>
@@ -245,7 +245,7 @@ export const AdminPhotoManagementModal: React.FC<AdminPhotoManagementModalProps>
                                 type="button"
                                 disabled={isProcessing}
                                 onClick={() => handleSetPrimary(photo.id)}
-                                className="px-2 py-1 bg-teal-50 text-teal-700 hover:bg-teal-100 rounded-lg text-[10px] font-bold border border-teal-200 transition-colors cursor-pointer"
+                                className="px-2 py-1 bg-brand-surface text-brand-primary hover:bg-brand-surface/80 rounded-lg text-[10px] font-bold border border-brand-primary/20 transition-colors cursor-pointer"
                                 title="Jadikan foto utama"
                               >
                                 ★ Utama

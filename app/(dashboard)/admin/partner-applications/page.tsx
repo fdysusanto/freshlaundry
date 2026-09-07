@@ -144,7 +144,7 @@ export default function AdminPartnerApplicationsPage() {
       </div>
 
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-purple-900 via-slate-900 to-teal-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-brand-primary via-slate-900 to-brand-secondary rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
         <div className="space-y-2 relative z-10">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-300 text-xs font-bold">
             <ShieldCheck className="w-3.5 h-3.5" />
@@ -293,7 +293,7 @@ export default function AdminPartnerApplicationsPage() {
                     <td className="py-3 px-4 font-mono text-slate-600">
                       {app.owner_phone}
                     </td>
-                    <td className="py-3 px-4 text-center font-bold text-teal-700">
+                    <td className="py-3 px-4 text-center font-bold text-brand-primary">
                       {app.services?.length || 0} layanan
                     </td>
                     <td className="py-3 px-4">

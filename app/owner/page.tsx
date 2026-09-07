@@ -351,7 +351,7 @@ function OwnerDashboardContent() {
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
-        <div className="w-10 h-10 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="w-10 h-10 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto" />
         <p className="text-xs font-semibold text-slate-500">Memuat Dashboard Partner FreshLaundry...</p>
       </div>
     );
@@ -364,7 +364,7 @@ function OwnerDashboardContent() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Dashboard Mitra Laundry</h1>
-            <span className="text-xs font-extrabold px-3 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200">
+            <span className="text-xs font-extrabold px-3 py-0.5 rounded-full bg-brand-surface text-brand-primary border border-brand-primary/20">
               Partner Portal
             </span>
           </div>
@@ -380,7 +380,7 @@ function OwnerDashboardContent() {
             <select
               value={selectedLaundryId || ''}
               onChange={(e) => setSelectedLaundryId(e.target.value)}
-              className="text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:ring-2 focus:ring-teal-500 cursor-pointer"
+              className="text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary cursor-pointer"
             >
               {ownerLaundries.map((lnd) => (
                 <option key={lnd.id} value={lnd.id}>
@@ -415,7 +415,7 @@ function OwnerDashboardContent() {
             </div>
           ) : (
             <Link href="/register/partner">
-              <Button variant="primary" size="md" className="bg-teal-600 hover:bg-teal-500 font-bold text-xs">
+              <Button variant="primary" size="md" className="bg-brand-primary hover:bg-brand-primary/90 font-bold text-xs">
                 Daftarkan Mitra Laundry Baru
               </Button>
             </Link>
@@ -620,7 +620,7 @@ function OwnerDashboardContent() {
                                 <Button
                                   variant="primary"
                                   size="sm"
-                                  className="bg-teal-600 hover:bg-teal-500 font-bold flex items-center gap-1"
+                                  className="bg-brand-primary hover:bg-brand-primary/90 font-bold flex items-center gap-1"
                                   disabled={processingOrderId === order.id}
                                   onClick={async () => {
                                     if (processingOrderId) return;
@@ -747,7 +747,7 @@ function OwnerDashboardContent() {
                     </div>
 
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                      <span className="text-sm font-black text-teal-700">
+                      <span className="text-sm font-black text-brand-primary">
                         {formatIDR(service.price)} / {service.unit}
                       </span>
                       <Link href={`/owner/services/${service.id}/edit`}>
@@ -771,7 +771,7 @@ function OwnerDashboardContent() {
                 <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                   <div>
                     <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                      <Store className="w-5 h-5 text-teal-600" />
+                      <Store className="w-5 h-5 text-brand-primary" />
                       <span>Galeri Foto Storefront Mitra (5 Foto)</span>
                     </h3>
                     <p className="text-xs text-slate-500">Foto fisik tampak depan toko mitra yang tampil pada marketplace FreshLaundry.</p>
@@ -790,7 +790,7 @@ function OwnerDashboardContent() {
                         <div key={p.id} className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-slate-200 border-2 border-slate-200 shadow-xs">
                           <img src={p.public_url} alt={`Storefront ${idx + 1}`} className="w-full h-full object-cover" />
                           {p.is_primary && (
-                            <div className="absolute top-1.5 left-1.5 bg-teal-800 text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <div className="absolute top-1.5 left-1.5 bg-brand-primary text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
                               <Star className="w-3 h-3 fill-amber-300 text-amber-300" /> Utama
                             </div>
                           )}
@@ -851,7 +851,7 @@ function OwnerDashboardContent() {
                         value={profileForm.name}
                         onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
                         required
-                        className="w-full text-xs font-medium p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                        className="w-full text-xs font-medium p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
                       />
                     </div>
 
@@ -862,7 +862,7 @@ function OwnerDashboardContent() {
                         value={profileForm.phone}
                         onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
                         required
-                        className="w-full text-xs font-medium p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                        className="w-full text-xs font-medium p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
                       />
                     </div>
                   </div>
@@ -874,7 +874,7 @@ function OwnerDashboardContent() {
                       onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
                       required
                       rows={2}
-                      className="w-full text-xs font-medium p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="w-full text-xs font-medium p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
                     />
                   </div>
 
@@ -884,14 +884,14 @@ function OwnerDashboardContent() {
                       value={profileForm.description}
                       onChange={(e) => setProfileForm({ ...profileForm, description: e.target.value })}
                       rows={2}
-                      className="w-full text-xs font-medium p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="w-full text-xs font-medium p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
                     />
                   </div>
 
                   {/* JAM OPERASIONAL INSIDE PROFIL MITRA */}
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
                     <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-teal-600" />
+                      <Clock className="w-4 h-4 text-brand-primary" />
                       <span>Jam Operasional Toko</span>
                     </h4>
 
@@ -923,7 +923,7 @@ function OwnerDashboardContent() {
                         id="isOpenCheck"
                         checked={profileForm.isOpen}
                         onChange={(e) => setProfileForm({ ...profileForm, isOpen: e.target.checked })}
-                        className="rounded text-teal-600 focus:ring-teal-500"
+                        className="rounded text-brand-primary focus:ring-brand-primary"
                       />
                       <label htmlFor="isOpenCheck" className="text-xs font-bold text-slate-800 cursor-pointer">
                         Status Toko Buka Menerima Pesanan Customer
@@ -937,7 +937,7 @@ function OwnerDashboardContent() {
                       variant="primary"
                       size="md"
                       disabled={isSavingProfile}
-                      className="bg-teal-600 hover:bg-teal-500 font-bold"
+                      className="bg-brand-primary hover:bg-brand-primary/90 font-bold"
                     >
                       {isSavingProfile ? 'Menyimpan...' : 'Simpan Informasi Profil'}
                     </Button>
@@ -976,7 +976,7 @@ export default function OwnerDashboardPage() {
     <Suspense
       fallback={
         <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
-          <div className="w-10 h-10 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="w-10 h-10 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-xs font-semibold text-slate-500">Memuat Dashboard Partner FreshLaundry...</p>
         </div>
       }

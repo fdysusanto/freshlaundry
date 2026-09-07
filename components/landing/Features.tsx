@@ -9,7 +9,7 @@ export const Features: React.FC = () => {
       title: 'Gratis Pickup & Delivery',
       description:
         'Kurir kami langsung datang ke rumah/apartemen Anda sesuai jam slot pilihan tanpa biaya tambahan.',
-      color: 'bg-teal-50 text-teal-600',
+      color: 'bg-brand-surface text-brand-primary',
     },
     {
       icon: Clock,
@@ -52,7 +52,7 @@ export const Features: React.FC = () => {
     <section className="py-16 sm:py-24 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-teal-600">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-brand-primary">
             Mengapa Memilih FreshWash?
           </h2>
           <p className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
@@ -70,14 +70,14 @@ export const Features: React.FC = () => {
               <Card
                 key={i}
                 variant="white"
-                className="hover:-translate-y-1 hover:border-teal-300 transition-all duration-300 group"
+                className="hover:-translate-y-1 hover:border-brand-secondary transition-all duration-300 group"
               >
                 <div
                   className={`w-12 h-12 rounded-2xl ${f.color} flex items-center justify-center mb-6 font-bold group-hover:scale-110 transition-transform`}
                 >
                   <Icon className="w-6 h-6" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-teal-700 transition-colors">
+                <h3 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-brand-primary transition-colors">
                   {f.title}
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">

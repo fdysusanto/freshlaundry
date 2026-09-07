@@ -262,7 +262,7 @@ export const CustomerAddressModal: React.FC<CustomerAddressModalProps> = ({
             <select
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-teal-500"
+              className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
             >
               <option value="Rumah">Rumah</option>
               <option value="Kantor">Kantor</option>
@@ -278,7 +278,7 @@ export const CustomerAddressModal: React.FC<CustomerAddressModalProps> = ({
               value={recipientName}
               onChange={(e) => setRecipientName(e.target.value)}
               placeholder="Contoh: Budi Santoso"
-              className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-teal-500"
+              className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
             />
           </div>
           <div className="space-y-1">
@@ -289,15 +289,15 @@ export const CustomerAddressModal: React.FC<CustomerAddressModalProps> = ({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="Contoh: 081234567890"
-              className="w-full p-2.5 rounded-xl border border-slate-200 font-mono focus:ring-2 focus:ring-teal-500"
+              className="w-full p-2.5 rounded-xl border border-slate-200 font-mono focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
             />
           </div>
         </div>
 
         {/* Cascading Region Selection */}
-        <div className="p-3 rounded-2xl bg-teal-50/60 border border-teal-200/80 space-y-3">
-          <div className="flex items-center gap-1.5 text-teal-800 font-bold text-xs">
-            <MapPin className="w-4 h-4 text-teal-600" />
+        <div className="p-3 rounded-2xl bg-brand-surface/60 border border-brand-primary/30 space-y-3">
+          <div className="flex items-center gap-1.5 text-brand-primary font-bold text-xs">
+            <MapPin className="w-4 h-4 text-brand-primary" />
             <span>Master Wilayah Administratif (V1 Kota Cirebon)</span>
           </div>
 
@@ -420,7 +420,7 @@ export const CustomerAddressModal: React.FC<CustomerAddressModalProps> = ({
             value={addressDetail}
             onChange={(e) => setAddressDetail(e.target.value)}
             placeholder="Masukkan nama jalan, nomor rumah/blok, warna pagar, atau patokan lokasi..."
-            className="w-full p-2.5 rounded-xl border border-slate-200 font-medium focus:ring-2 focus:ring-teal-500"
+            className="w-full p-2.5 rounded-xl border border-slate-200 font-medium focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
           />
         </div>
 
@@ -431,7 +431,7 @@ export const CustomerAddressModal: React.FC<CustomerAddressModalProps> = ({
             id="isDefaultAddress"
             checked={isDefault}
             onChange={(e) => setIsDefault(e.target.checked)}
-            className="w-4 h-4 accent-teal-600 rounded-sm cursor-pointer"
+            className="w-4 h-4 accent-brand-primary rounded-sm cursor-pointer"
           />
           <label htmlFor="isDefaultAddress" className="font-bold text-slate-800 cursor-pointer">
             Jadikan sebagai Alamat Utama (Default)
@@ -447,7 +447,7 @@ export const CustomerAddressModal: React.FC<CustomerAddressModalProps> = ({
             variant="primary"
             size="sm"
             disabled={isSubmitting}
-            className="bg-teal-600 hover:bg-teal-500 text-white font-bold"
+            className="bg-brand-primary hover:bg-brand-primary/90 text-white font-bold"
           >
             {isSubmitting ? 'Memproses...' : 'Simpan Alamat'}
           </Button>

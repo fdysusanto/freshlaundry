@@ -107,12 +107,12 @@ export const MobileNav: React.FC = () => {
             <Link
               key={item.id}
               href={item.href}
-              className="flex flex-col items-center justify-center text-teal-600 font-extrabold -mt-6 group focus:outline-hidden"
+              className="flex flex-col items-center justify-center text-brand-primary font-extrabold -mt-6 group focus:outline-hidden"
             >
-              <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-teal-700 via-teal-600 to-cyan-500 text-white flex items-center justify-center shadow-lg shadow-teal-600/40 ring-4 ring-white active:scale-95 transition-transform">
+              <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-brand-primary via-brand-secondary to-brand-accent text-white flex items-center justify-center shadow-lg shadow-brand-primary/30 ring-4 ring-white active:scale-95 transition-transform">
                 <Icon className="w-6 h-6" />
               </div>
-              <span className="text-[10px] mt-1 text-teal-800 font-extrabold tracking-tight">{item.label}</span>
+              <span className="text-[10px] mt-1 text-brand-primary font-extrabold tracking-tight">{item.label}</span>
             </Link>
           );
         }
@@ -123,7 +123,7 @@ export const MobileNav: React.FC = () => {
             href={item.href}
             className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-2.5 py-1 rounded-2xl transition-all ${
               isActive
-                ? 'text-teal-700 font-black bg-teal-50/80'
+                ? 'text-brand-primary font-black bg-brand-surface'
                 : 'text-slate-500 font-medium hover:text-slate-800 active:scale-95'
             }`}
           >

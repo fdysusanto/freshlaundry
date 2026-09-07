@@ -152,7 +152,7 @@ export const PartnerApplicationDetailModal: React.FC<PartnerApplicationDetailMod
         {/* Section 1: Data Pemilik Usaha */}
         <div className="space-y-2">
           <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1">
-            <User className="w-3.5 h-3.5 text-teal-600" /> Data Pemilik Usaha
+            <User className="w-3.5 h-3.5 text-brand-primary" /> Data Pemilik Usaha
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200/80">
             <div>
@@ -179,7 +179,7 @@ export const PartnerApplicationDetailModal: React.FC<PartnerApplicationDetailMod
         {/* Section 2: Data Outlet Laundry */}
         <div className="space-y-2">
           <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1">
-            <Store className="w-3.5 h-3.5 text-teal-600" /> Data Outlet Laundry
+            <Store className="w-3.5 h-3.5 text-brand-primary" /> Data Outlet Laundry
           </h3>
           <div className="space-y-2 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200/80">
             <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
@@ -212,7 +212,7 @@ export const PartnerApplicationDetailModal: React.FC<PartnerApplicationDetailMod
         {/* Section 3: Katalog Layanan */}
         <div className="space-y-2">
           <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1">
-            <Tag className="w-3.5 h-3.5 text-teal-600" /> Katalog Draf Layanan ({application.services?.length || 0})
+            <Tag className="w-3.5 h-3.5 text-brand-primary" /> Katalog Draf Layanan ({application.services?.length || 0})
           </h3>
           {application.services && application.services.length > 0 ? (
             <div className="bg-slate-50 rounded-xl border border-slate-200/80 overflow-hidden text-xs">
@@ -229,7 +229,7 @@ export const PartnerApplicationDetailModal: React.FC<PartnerApplicationDetailMod
                     <tr key={s.id}>
                       <td className="py-2 px-3 font-semibold text-slate-800">{s.name}</td>
                       <td className="py-2 px-3 font-mono text-slate-500">{s.code}</td>
-                      <td className="py-2 px-3 text-right font-bold text-teal-800">
+                      <td className="py-2 px-3 text-right font-bold text-brand-primary">
                         Rp {s.price_per_unit.toLocaleString('id-ID')} / {s.unit}
                       </td>
                     </tr>
@@ -245,7 +245,7 @@ export const PartnerApplicationDetailModal: React.FC<PartnerApplicationDetailMod
         {/* Section 4: Rekening Payout (Masked UI with Toggle) */}
         <div className="space-y-2">
           <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-1">
-            <CreditCard className="w-3.5 h-3.5 text-teal-600" /> Rekening Pencairan Dana (Payout)
+            <CreditCard className="w-3.5 h-3.5 text-brand-primary" /> Rekening Pencairan Dana (Payout)
           </h3>
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs space-y-1.5">
             <div className="flex justify-between items-center">
@@ -267,7 +267,7 @@ export const PartnerApplicationDetailModal: React.FC<PartnerApplicationDetailMod
                 <button
                   type="button"
                   onClick={() => setShowFullAccount(!showFullAccount)}
-                  className="text-slate-400 hover:text-teal-700 p-1 rounded-md hover:bg-white cursor-pointer"
+                  className="text-slate-400 hover:text-brand-primary p-1 rounded-md hover:bg-white cursor-pointer"
                   title={showFullAccount ? 'Sembunyikan Rekening' : 'Tampilkan Rekening'}
                 >
                   {showFullAccount ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}

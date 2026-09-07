@@ -5,7 +5,10 @@ import Link from 'next/link';
 import { authService } from '@/services/authService';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Sparkles, Mail, ArrowLeft, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Mail, ArrowLeft, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+
+import Image from 'next/image';
+import { BRAND } from '@/config/brand';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -33,8 +36,9 @@ export default function ForgotPasswordPage() {
     try {
       await authService.resetPasswordForEmailAsync(cleanEmail);
       setIsSuccess(true);
-    } catch (err: any) {
-      console.warn('Reset password request error:', err?.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Gagal mengirim email reset password.';
+      console.warn('Reset password request error:', message);
       // To prevent email enumeration, always show generic success view for user
       setIsSuccess(true);
     } finally {
@@ -43,12 +47,17 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-gradient-to-b from-teal-50/50 via-slate-50 to-white">
+    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-gradient-to-b from-brand-surface via-slate-50 to-white">
       <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-teal-600 text-white shadow-lg shadow-teal-600/30 mb-2">
-            <Sparkles className="w-6 h-6 animate-pulse" />
-          </div>
+        <div className="text-center space-y-3">
+          <Image
+            src="/brand/cuciyan/logo/logo-horizontal.svg"
+            alt={BRAND.displayName}
+            width={300}
+            height={96}
+            className="h-20 sm:h-24 w-auto mx-auto object-contain mb-3"
+            priority
+          />
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Lupa Password?</h1>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
             Masukkan email yang terdaftar. Kami akan mengirimkan link untuk membuat password baru.
@@ -100,7 +109,7 @@ export default function ForgotPasswordPage() {
                       placeholder="nama@email.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                     />
                   </div>
                 </div>
@@ -120,7 +129,7 @@ export default function ForgotPasswordPage() {
               <div className="mt-6 pt-4 border-t border-slate-100 text-center">
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-primary transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4" /> Kembali ke Login
                 </Link>

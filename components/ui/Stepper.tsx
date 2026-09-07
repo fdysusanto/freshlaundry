@@ -30,7 +30,7 @@ export const Stepper: React.FC<StepperProps> = ({ currentStatus }) => {
         <div className="absolute top-5 left-8 right-8 h-1 bg-slate-100 -z-0 rounded-full" />
         {/* Active Connecting Line */}
         <div
-          className="absolute top-5 left-8 h-1 bg-teal-500 -z-0 rounded-full transition-all duration-500"
+          className="absolute top-5 left-8 h-1 bg-brand-primary -z-0 rounded-full transition-all duration-500"
           style={{
             width: `${(currentStepIndex / (ORDER_TIMELINE_STEPS.length - 1)) * 90}%`,
           }}
@@ -45,7 +45,7 @@ export const Stepper: React.FC<StepperProps> = ({ currentStatus }) => {
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${
                   isCompleted
-                    ? 'bg-teal-600 text-white shadow-md shadow-teal-600/30 ring-4 ring-white'
+                    ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/30 ring-4 ring-white'
                     : isCurrent
                     ? 'bg-amber-500 text-white ring-4 ring-amber-100 animate-pulse shadow-md shadow-amber-500/30'
                     : 'bg-slate-100 text-slate-400 border border-slate-200'
@@ -64,7 +64,7 @@ export const Stepper: React.FC<StepperProps> = ({ currentStatus }) => {
                   isCurrent
                     ? 'text-amber-600 font-bold'
                     : isCompleted
-                    ? 'text-teal-700'
+                    ? 'text-brand-primary'
                     : 'text-slate-400'
                 }`}
               >
@@ -86,7 +86,7 @@ export const Stepper: React.FC<StepperProps> = ({ currentStatus }) => {
               <div
                 className={`absolute -left-[27px] top-0.5 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                   isCompleted
-                    ? 'bg-teal-600 text-white'
+                    ? 'bg-brand-primary text-white'
                     : isCurrent
                     ? 'bg-amber-500 text-white ring-4 ring-amber-100 animate-pulse'
                     : 'bg-slate-200 text-slate-500'
@@ -100,7 +100,7 @@ export const Stepper: React.FC<StepperProps> = ({ currentStatus }) => {
                     isCurrent
                       ? 'text-amber-600 font-bold'
                       : isCompleted
-                      ? 'text-teal-800'
+                      ? 'text-brand-primary'
                       : 'text-slate-400'
                   }`}
                 >

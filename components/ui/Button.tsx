@@ -27,10 +27,10 @@ export const Button: React.FC<ButtonProps> = ({
   const hasCustomText = /\btext-/.test(className);
 
   const variants = {
-    primary: `${hasCustomBg ? '' : 'bg-teal-600 hover:bg-teal-700'} ${hasCustomText ? '' : 'text-white'} shadow-md hover:shadow-lg shadow-teal-600/20 focus:ring-teal-500`,
+    primary: `${hasCustomBg ? '' : 'bg-brand-primary hover:bg-brand-primary/90'} ${hasCustomText ? '' : 'text-white'} shadow-md hover:shadow-lg shadow-brand-primary/20 focus:ring-brand-primary`,
     secondary: `${hasCustomBg ? '' : 'bg-slate-900 hover:bg-slate-800'} ${hasCustomText ? '' : 'text-white'} shadow-md hover:shadow-lg shadow-slate-900/10 focus:ring-slate-800`,
-    outline: `border border-slate-200 hover:border-teal-500 ${hasCustomBg ? '' : 'bg-white hover:bg-teal-50/50'} ${hasCustomText ? '' : 'text-slate-700 hover:text-teal-700'} focus:ring-teal-500`,
-    ghost: `${hasCustomText ? '' : 'text-slate-600 hover:text-teal-700'} ${hasCustomBg ? '' : 'hover:bg-teal-50/60'} focus:ring-teal-500`,
+    outline: `border border-slate-200 hover:border-brand-secondary ${hasCustomBg ? '' : 'bg-white hover:bg-brand-surface'} ${hasCustomText ? '' : 'text-slate-700 hover:text-brand-primary'} focus:ring-brand-primary`,
+    ghost: `${hasCustomText ? '' : 'text-slate-600 hover:text-brand-primary'} ${hasCustomBg ? '' : 'hover:bg-brand-surface'} focus:ring-brand-primary`,
     danger: `${hasCustomBg ? '' : 'bg-rose-600 hover:bg-rose-700'} ${hasCustomText ? '' : 'text-white'} shadow-md shadow-rose-600/20 focus:ring-rose-500`,
   };
 

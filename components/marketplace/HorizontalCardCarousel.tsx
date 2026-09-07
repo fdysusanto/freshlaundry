@@ -46,7 +46,7 @@ export const HorizontalCardCarousel: React.FC<HorizontalCardCarouselProps> = ({
           type="button"
           onClick={() => handleScroll('left')}
           aria-label="Scroll Kiri"
-          className="hidden md:flex absolute -left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-700 hover:text-teal-700 shadow-xl items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-30 cursor-pointer active:scale-95"
+          className="hidden md:flex absolute -left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-700 hover:text-brand-primary shadow-xl items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-30 cursor-pointer active:scale-95"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -78,7 +78,7 @@ export const HorizontalCardCarousel: React.FC<HorizontalCardCarouselProps> = ({
           type="button"
           onClick={() => handleScroll('right')}
           aria-label="Scroll Kanan"
-          className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-700 hover:text-teal-700 shadow-xl items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-30 cursor-pointer active:scale-95"
+          className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-700 hover:text-brand-primary shadow-xl items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-30 cursor-pointer active:scale-95"
         >
           <ChevronRight className="w-5 h-5" />
         </button>

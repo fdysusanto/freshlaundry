@@ -55,11 +55,11 @@ export const GuestLocationModal: React.FC<GuestLocationModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Atur Lokasi Pencarian Laundry" maxWidth="md">
       <form onSubmit={handleSave} className="space-y-4 text-xs">
         {/* Info Banner */}
-        <div className="p-3 bg-teal-50 rounded-xl border border-teal-200 text-teal-900 flex items-start gap-2.5">
-          <MapPin className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+        <div className="p-3 bg-brand-surface rounded-xl border border-brand-primary/20 text-slate-900 flex items-start gap-2.5">
+          <MapPin className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
           <div className="space-y-0.5">
             <p className="font-bold text-xs">Pilih Titik Lokasi Anda pada Peta</p>
-            <p className="text-[11px] text-teal-700 leading-snug">
+            <p className="text-[11px] text-slate-600 leading-snug">
               Ketuk titik lokasi pada peta atau gunakan tombol GPS untuk menemukan mitra laundry di sekitar Anda.
             </p>
           </div>
@@ -82,7 +82,7 @@ export const GuestLocationModal: React.FC<GuestLocationModalProps> = ({
             <button
               type="button"
               onClick={() => setShowManualInput(true)}
-              className="text-[11px] font-bold text-teal-700 hover:text-teal-800 underline flex items-center gap-1 cursor-pointer"
+              className="text-[11px] font-bold text-brand-primary hover:text-brand-primary/80 underline flex items-center gap-1 cursor-pointer"
             >
               <Search className="w-3.5 h-3.5" />
               <span>Punya patokan area tertentu? Tulis nama jalan/kecamatan</span>
@@ -97,7 +97,7 @@ export const GuestLocationModal: React.FC<GuestLocationModalProps> = ({
                 value={manualText}
                 onChange={(e) => setManualText(e.target.value)}
                 placeholder="Misal: Kejaksan / Jl. Siliwangi..."
-                className="w-full p-2.5 bg-slate-50 text-xs font-semibold rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 text-slate-900"
+                className="w-full p-2.5 bg-slate-50 text-xs font-semibold rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary text-slate-900"
               />
             </div>
           )}
@@ -108,7 +108,7 @@ export const GuestLocationModal: React.FC<GuestLocationModalProps> = ({
           <Button type="button" variant="outline" size="sm" onClick={onClose} className="text-xs">
             Batal
           </Button>
-          <Button type="submit" variant="primary" size="sm" className="bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs">
+          <Button type="submit" variant="primary" size="sm" className="bg-brand-primary hover:bg-brand-primary/90 text-white font-bold text-xs">
             Simpan Lokasi
           </Button>
         </div>

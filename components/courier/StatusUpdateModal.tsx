@@ -41,7 +41,7 @@ export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
           <p className="text-slate-500 font-medium">Pelanggan: <strong className="text-slate-800">{order.customerName}</strong></p>
-          <p className="text-slate-500 font-medium">Status Saat Ini: <strong className="text-teal-700">{currentCfg.label}</strong></p>
+          <p className="text-slate-500 font-medium">Status Saat Ini: <strong className="text-brand-primary">{currentCfg.label}</strong></p>
         </div>
 
         <div>
@@ -60,7 +60,7 @@ export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
                     onClick={() => setSelectedStatus(st)}
                     className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
                       isSelected
-                        ? 'border-teal-600 bg-teal-50/70 ring-2 ring-teal-500/20 font-bold text-teal-800'
+                        ? 'border-brand-primary bg-brand-surface ring-2 ring-brand-primary/20 font-bold text-brand-primary'
                         : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
                     }`}
                   >
@@ -68,7 +68,7 @@ export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
                       <p className="text-sm">{cfg.label}</p>
                       <p className="text-xs text-slate-500 font-normal">{cfg.description}</p>
                     </div>
-                    {isSelected && <span className="text-teal-600 font-bold text-sm">✓</span>}
+                    {isSelected && <span className="text-brand-primary font-bold text-sm">✓</span>}
                   </button>
                 );
               })
@@ -89,7 +89,7 @@ export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Misal: Paket diterima oleh Ybs di teras depan..."
-            className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+            className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
           />
         </div>
 

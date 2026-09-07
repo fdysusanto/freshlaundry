@@ -17,7 +17,7 @@ export function LocationRequiredCard({
 }: LocationRequiredCardProps) {
   return (
     <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-10 shadow-sm text-center space-y-6 max-w-2xl mx-auto my-6">
-      <div className="w-16 h-16 rounded-3xl bg-teal-50 border border-teal-100 text-teal-600 flex items-center justify-center mx-auto shadow-inner">
+      <div className="w-16 h-16 rounded-3xl bg-brand-surface border border-brand-primary/20 text-brand-primary flex items-center justify-center mx-auto shadow-inner">
         <MapPin className="w-8 h-8 animate-bounce" />
       </div>
 
@@ -41,7 +41,7 @@ export function LocationRequiredCard({
           onClick={onRequestGps}
           isLoading={isLocating}
           leftIcon={<Navigation className="w-4 h-4" />}
-          className="w-full sm:w-auto bg-teal-600 hover:bg-teal-500 font-bold px-6 cursor-pointer shadow-md"
+          className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 font-bold px-6 cursor-pointer shadow-md"
         >
           Aktifkan GPS Perangkat
         </Button>

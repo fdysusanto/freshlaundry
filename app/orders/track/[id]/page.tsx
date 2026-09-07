@@ -186,8 +186,8 @@ export default function OrderTrackingPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
       {/* Header */}
       <div className="text-center space-y-3 max-w-xl mx-auto">
-        <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-teal-100 text-teal-800 text-xs font-bold">
-          <Sparkles className="w-4 h-4 text-teal-600 animate-spin" />
+        <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-brand-surface text-brand-primary border border-brand-primary/30 text-xs font-bold">
+          <Sparkles className="w-4 h-4 text-brand-primary animate-spin" />
           <span>Real-time Order Tracker</span>
         </div>
         <h1 className="text-3xl font-black text-slate-900 tracking-tight">
@@ -206,7 +206,7 @@ export default function OrderTrackingPage() {
               placeholder="Nomor Resi (mis. LND-K89A2B)..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white text-xs font-bold text-slate-800 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 shadow-xs"
+              className="w-full pl-10 pr-4 py-2.5 bg-white text-xs font-bold text-slate-800 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary shadow-xs"
             />
           </div>
           <Button type="submit" variant="primary" size="md">
@@ -264,13 +264,13 @@ export default function OrderTrackingPage() {
               </div>
             </div>
           ) : (
-            <div className="p-4 bg-teal-50/80 rounded-2xl border border-teal-200 flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold shrink-0 shadow-md">
+            <div className="p-4 bg-brand-surface rounded-2xl border border-brand-primary/20 flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-brand-primary text-white flex items-center justify-center font-bold shrink-0 shadow-md">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
               <div className="space-y-0.5">
-                <p className="text-sm font-bold text-teal-900">{statusCfg?.label}</p>
-                <p className="text-xs text-teal-700 leading-relaxed">{statusCfg?.description}</p>
+                <p className="text-sm font-bold text-brand-primary">{statusCfg?.label}</p>
+                <p className="text-xs text-brand-primary/80 leading-relaxed">{statusCfg?.description}</p>
               </div>
             </div>
           )}
@@ -281,7 +281,7 @@ export default function OrderTrackingPage() {
               <p className="font-bold text-slate-700">Detail Pelanggan:</p>
               <p className="text-slate-600">Nama: <strong>{order.customerName}</strong></p>
               <p className="text-slate-600">Layanan: <strong>{order.serviceName}</strong></p>
-              <p className="text-slate-600">Total Biaya: <strong className="text-teal-700">{formatIDR(order.totalPrice)}</strong></p>
+              <p className="text-slate-600">Total Biaya: <strong className="text-brand-primary">{formatIDR(order.totalPrice)}</strong></p>
             </div>
 
             <div className="p-3.5 bg-slate-50 rounded-xl space-y-1.5">
@@ -296,7 +296,7 @@ export default function OrderTrackingPage() {
           <div className="pt-2 flex justify-between items-center border-t border-slate-100">
             <button
               onClick={() => router.push('/customer')}
-              className="text-xs font-bold text-slate-500 hover:text-teal-700 flex items-center gap-1"
+              className="text-xs font-bold text-slate-500 hover:text-brand-primary flex items-center gap-1"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Dashboard Customer
             </button>

@@ -119,15 +119,15 @@ export default function CreateOwnerServicePage() {
       {/* Top Back Navigation */}
       <button
         onClick={() => router.push('/owner/services')}
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 transition-colors cursor-pointer"
+        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-primary transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" /> Kembali ke Daftar Layanan
       </button>
 
       {/* Header Banner */}
       <div className="space-y-2">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-100 text-teal-800 text-xs font-bold">
-          <Sparkles className="w-4 h-4 text-teal-600" />
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-surface text-brand-primary border border-brand-primary/20 text-xs font-bold">
+          <Sparkles className="w-4 h-4 text-brand-primary" />
           <span>Form Tambah Layanan Baru</span>
         </div>
         <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
@@ -150,7 +150,7 @@ export default function CreateOwnerServicePage() {
         <Card variant="white" className="space-y-5">
           <div className="border-b border-slate-100 pb-3">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <Store className="w-4 h-4 text-teal-600" /> Informasi Utama Layanan
+              <Store className="w-4 h-4 text-brand-primary" /> Informasi Utama Layanan
             </h2>
           </div>
 
@@ -165,7 +165,7 @@ export default function CreateOwnerServicePage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Misal: Cuci Komplit Kiloan Premium, Dry Clean Jas Sutra..."
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary font-semibold"
               />
             </div>
 
@@ -176,7 +176,7 @@ export default function CreateOwnerServicePage() {
               <select
                 value={code}
                 onChange={(e) => setCode(e.target.value as ServiceType)}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-bold bg-slate-50 cursor-pointer"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary font-bold bg-slate-50 cursor-pointer"
               >
                 <option value="kiloan">kiloan — Cuci Kiloan Reguler</option>
                 <option value="express">express — Express Kilat</option>
@@ -196,7 +196,7 @@ export default function CreateOwnerServicePage() {
                   setUnit(newUnit);
                   if (newUnit === 'pcs') setMinWeightInput('');
                 }}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-bold bg-slate-50 cursor-pointer"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary font-bold bg-slate-50 cursor-pointer"
               >
                 <option value="kg">Per Kilogram (kg)</option>
                 <option value="pcs">Per Pcs / Item (pcs)</option>
@@ -213,7 +213,7 @@ export default function CreateOwnerServicePage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Jelaskan proses pengerjaan, pelembut wangi yang digunakan, atau perlakuan khusus..."
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
               />
             </div>
           </div>
@@ -222,7 +222,7 @@ export default function CreateOwnerServicePage() {
         <Card variant="white" className="space-y-5">
           <div className="border-b border-slate-100 pb-3">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-teal-600" /> Tarif & Durasi Pengerjaan
+              <DollarSign className="w-4 h-4 text-brand-primary" /> Tarif & Durasi Pengerjaan
             </h2>
           </div>
 
@@ -238,7 +238,7 @@ export default function CreateOwnerServicePage() {
                 step={500}
                 value={price}
                 onChange={(e) => setPrice(Number(e.target.value))}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-bold text-teal-700"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary font-bold text-brand-primary"
               />
             </div>
 
@@ -254,7 +254,7 @@ export default function CreateOwnerServicePage() {
                   placeholder="Kosongkan jika tidak ada min. order"
                   value={minWeightInput}
                   onChange={(e) => setMinWeightInput(e.target.value)}
-                  className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                  className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary font-semibold"
                 />
                 <p className="text-[10px] text-slate-500 mt-1 font-medium leading-tight">
                   Kosongkan jika layanan tidak memiliki minimum order.
@@ -277,7 +277,7 @@ export default function CreateOwnerServicePage() {
                   if (hrs <= 12) setEstimatedTime(`${hrs} Jam`);
                   else setEstimatedTime(`${Math.round(hrs / 24)} Hari`);
                 }}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary font-semibold"
               />
             </div>
 
@@ -290,7 +290,7 @@ export default function CreateOwnerServicePage() {
                 value={estimatedTime}
                 onChange={(e) => setEstimatedTime(e.target.value)}
                 placeholder="Misal: 2-3 Hari, 6 Jam..."
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary font-semibold"
               />
             </div>
 
@@ -303,7 +303,7 @@ export default function CreateOwnerServicePage() {
                 value={badge}
                 onChange={(e) => setBadge(e.target.value)}
                 placeholder="Misal: Paling Laris, Super Cepat..."
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 font-semibold"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary font-semibold"
               />
             </div>
 
@@ -313,7 +313,7 @@ export default function CreateOwnerServicePage() {
                 id="isActiveToggle"
                 checked={isActive}
                 onChange={(e) => setIsActive(e.target.checked)}
-                className="w-4 h-4 text-teal-600 rounded-sm focus:ring-teal-500 cursor-pointer"
+                className="w-4 h-4 text-brand-primary rounded-sm focus:ring-brand-primary cursor-pointer"
               />
               <label htmlFor="isActiveToggle" className="text-xs font-bold text-slate-800 cursor-pointer">
                 Tampilkan Layanan Ini (Aktif)
@@ -337,7 +337,7 @@ export default function CreateOwnerServicePage() {
             size="md"
             disabled={isSubmitting}
             leftIcon={<Plus className="w-4 h-4" />}
-            className="bg-teal-600 hover:bg-teal-500 text-white font-bold cursor-pointer"
+            className="bg-brand-primary hover:bg-brand-primary/90 text-white font-bold cursor-pointer"
           >
             Simpan Layanan Baru
           </Button>

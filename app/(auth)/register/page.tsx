@@ -4,10 +4,12 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
-import { UserRole } from '@/types/user';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Sparkles, User, Mail, Lock, Phone, MapPin, ArrowRight } from 'lucide-react';
+import { User, Mail, Lock, Phone, MapPin, ArrowRight, AlertCircle } from 'lucide-react';
+
+import Image from 'next/image';
+import { BRAND } from '@/config/brand';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -26,27 +28,40 @@ export default function RegisterPage() {
     setErrorMessage('');
     try {
       // Self-registration is strictly locked to 'customer' role
-      const user = await authService.registerAsync(fullName, email, password, phone, address);
+      await authService.registerAsync(fullName, email, password, phone, address);
       router.push('/customer');
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Pendaftaran akun gagal.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Pendaftaran akun gagal.';
+      setErrorMessage(message);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-gradient-to-b from-teal-50/50 via-slate-50 to-white">
+    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-gradient-to-b from-brand-surface via-slate-50 to-white">
       <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-teal-600 text-white shadow-lg shadow-teal-600/30 mb-2">
-            <Sparkles className="w-6 h-6 animate-pulse" />
-          </div>
+        <div className="text-center space-y-3">
+          <Image
+            src="/brand/cuciyan/logo/logo-horizontal.svg"
+            alt={BRAND.displayName}
+            width={300}
+            height={96}
+            className="h-20 sm:h-24 w-auto mx-auto object-contain mb-3"
+            priority
+          />
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Daftar Akun Baru</h1>
-          <p className="text-xs text-slate-500">Bergabunglah dengan FreshWash untuk kemudahan laundry pickup.</p>
+          <p className="text-xs text-slate-500">Bergabunglah dengan {BRAND.displayName} untuk kemudahan laundry pickup.</p>
         </div>
 
         <Card variant="white" className="shadow-xl">
+          {errorMessage && (
+            <div className="p-3.5 mb-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
 
             <div>
@@ -61,7 +76,7 @@ export default function RegisterPage() {
                   placeholder="Budi Santoso"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                 />
               </div>
             </div>
@@ -78,7 +93,7 @@ export default function RegisterPage() {
                   placeholder="budi@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                 />
               </div>
             </div>
@@ -95,7 +110,7 @@ export default function RegisterPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                 />
               </div>
             </div>
@@ -112,7 +127,7 @@ export default function RegisterPage() {
                   placeholder="081234567890"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                 />
               </div>
             </div>
@@ -128,7 +143,7 @@ export default function RegisterPage() {
                   placeholder="Jl. Melati No. 45, Kebayoran Baru, Jakarta Selatan..."
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                 />
               </div>
             </div>
@@ -137,23 +152,24 @@ export default function RegisterPage() {
               type="submit"
               variant="primary"
               size="lg"
-              className="w-full mt-2"
+              disabled={isLoading}
+              className="w-full mt-2 cursor-pointer disabled:opacity-50"
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
-              Daftar Akun
+              {isLoading ? 'Memproses Pendaftaran...' : 'Daftar Akun'}
             </Button>
           </form>
 
           <div className="mt-6 pt-4 border-t border-slate-100 text-center space-y-2">
             <p className="text-xs text-slate-500">
               Sudah memiliki akun?{' '}
-              <Link href="/login" className="font-bold text-teal-700 hover:underline">
+              <Link href="/login" className="font-bold text-brand-primary hover:underline">
                 Masuk di Sini
               </Link>
             </p>
             <p className="text-xs text-slate-500">
               Punya usaha laundry?{' '}
-              <Link href="/register/partner" className="font-bold text-teal-700 hover:underline">
+              <Link href="/register/partner" className="font-bold text-brand-primary hover:underline">
                 Daftar sebagai Mitra Laundry
               </Link>
             </p>

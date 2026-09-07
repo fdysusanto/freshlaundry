@@ -260,7 +260,7 @@ function CreateOrderContent() {
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-4">
-        <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto" />
+        <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full mx-auto" />
         <p className="text-sm font-semibold text-slate-600">Memuat data marketplace dari Supabase...</p>
       </div>
     );
@@ -286,12 +286,12 @@ function CreateOrderContent() {
       <div className="space-y-2">
         <button
           onClick={() => router.push('/customer/laundries')}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 transition-colors mb-2 cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-primary transition-colors mb-2 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" /> Cari Laundry di Marketplace
         </button>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-100 text-teal-800 text-xs font-bold">
-          <Sparkles className="w-4 h-4 text-teal-600" />
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-surface text-brand-primary border border-brand-primary/30 text-xs font-bold">
+          <Sparkles className="w-4 h-4 text-brand-primary" />
           <span>Formulir Pesanan Laundry Marketplace</span>
         </div>
         <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
@@ -314,7 +314,7 @@ function CreateOrderContent() {
           {/* Step 1: Select Laundry Partner */}
           <Card variant="white" className="space-y-4">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">
+              <span className="w-6 h-6 rounded-full bg-brand-primary text-white text-xs flex items-center justify-center font-bold">
                 1
               </span>
               Pilih Mitra Laundry
@@ -324,7 +324,7 @@ function CreateOrderContent() {
               <select
                 value={selectedLaundryId}
                 onChange={(e) => setSelectedLaundryId(e.target.value)}
-                className="w-full text-xs font-bold p-3 rounded-2xl border border-slate-200 bg-slate-50 focus:outline-hidden focus:ring-2 focus:ring-teal-500 cursor-pointer"
+                className="w-full text-xs font-bold p-3 rounded-2xl border border-slate-200 bg-slate-50 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary cursor-pointer"
               >
                 {laundries.map((l) => (
                   <option key={l.id} value={l.id}>
@@ -340,7 +340,7 @@ function CreateOrderContent() {
           {/* Step 2: Catalog Picker */}
           <Card variant="white" className="space-y-4">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">
+              <span className="w-6 h-6 rounded-full bg-brand-primary text-white text-xs flex items-center justify-center font-bold">
                 2
               </span>
               Layanan {selectedLaundry?.name || ''}
@@ -361,13 +361,13 @@ function CreateOrderContent() {
                       }}
                       className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                         isSelected
-                          ? 'border-teal-600 bg-teal-50/50 ring-2 ring-teal-500/20'
+                          ? 'border-brand-primary bg-brand-surface ring-2 ring-brand-primary/20'
                           : 'border-slate-200 hover:border-slate-300 bg-white'
                       }`}
                     >
                       <p className="font-bold text-xs text-slate-800">{s.name}</p>
                       <p className="text-[11px] text-slate-500 line-clamp-1">{s.description}</p>
-                      <p className="text-xs font-bold text-teal-700 mt-1">
+                      <p className="text-xs font-bold text-brand-primary mt-1">
                         {formatIDR(s.price)} / {s.unit}
                       </p>
                     </button>
@@ -384,7 +384,7 @@ function CreateOrderContent() {
                   <span className="text-slate-600">
                     Estimasi Jumlah ({activeCatalog.unit === 'kg' ? 'Kiloan' : 'Jumlah Pcs'}):
                   </span>
-                  <span className="font-bold text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-lg border border-teal-200">
+                  <span className="font-bold text-brand-primary bg-brand-surface px-2.5 py-0.5 rounded-lg border border-brand-primary/30">
                     {estimatedWeightKg} {activeCatalog.unit}
                   </span>
                 </div>
@@ -394,7 +394,7 @@ function CreateOrderContent() {
                   max={activeCatalog.unit === 'kg' ? 30 : 15}
                   value={estimatedWeightKg}
                   onChange={(e) => setEstimatedWeightKg(Number(e.target.value))}
-                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand-primary"
                 />
               </div>
             )}
@@ -403,7 +403,7 @@ function CreateOrderContent() {
           {/* Step 3: Location Addresses */}
           <Card variant="white" className="space-y-4">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">
+              <span className="w-6 h-6 rounded-full bg-brand-primary text-white text-xs flex items-center justify-center font-bold">
                 3
               </span>
               Lokasi Pickup &amp; Delivery
@@ -411,7 +411,7 @@ function CreateOrderContent() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-teal-600" /> Alamat Penjemputan (Pickup):
+                <MapPin className="w-3.5 h-3.5 text-brand-primary" /> Alamat Penjemputan (Pickup):
               </label>
               <textarea
                 rows={2}
@@ -419,7 +419,7 @@ function CreateOrderContent() {
                 value={pickupAddress}
                 onChange={(e) => setPickupAddress(e.target.value)}
                 placeholder="Alamat lengkap lokasi jemput pakaian..."
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
               />
             </div>
 
@@ -433,7 +433,7 @@ function CreateOrderContent() {
                 value={deliveryAddress}
                 onChange={(e) => setDeliveryAddress(e.target.value)}
                 placeholder="Alamat lengkap lokasi kirim pakaian bersih..."
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
               />
             </div>
           </Card>
@@ -441,7 +441,7 @@ function CreateOrderContent() {
           {/* Step 4: Pickup Schedule */}
           <Card variant="white" className="space-y-4">
             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">
+              <span className="w-6 h-6 rounded-full bg-brand-primary text-white text-xs flex items-center justify-center font-bold">
                 4
               </span>
               Jadwal Penjemputan (Pickup)
@@ -450,26 +450,26 @@ function CreateOrderContent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-teal-600" /> Tanggal Pickup:
+                  <Calendar className="w-3.5 h-3.5 text-brand-primary" /> Tanggal Pickup:
                 </label>
                 <input
                   type="date"
                   required
                   value={pickupDate}
                   onChange={(e) => setPickupDate(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-teal-600" /> Slot Waktu Pickup:
+                  <Clock className="w-3.5 h-3.5 text-brand-primary" /> Slot Waktu Pickup:
                 </label>
                 <select
                   value={pickupTimeSlot}
                   onChange={(e) => setPickupTimeSlot(e.target.value)}
                   disabled={availablePickupSlots.length === 0}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-medium focus:outline-hidden focus:ring-2 focus:ring-teal-500 disabled:bg-slate-100 disabled:text-slate-400"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-medium focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary disabled:bg-slate-100 disabled:text-slate-400"
                 >
                   {availablePickupSlots.length > 0 ? (
                     availablePickupSlots.map((slot) => (
@@ -498,7 +498,7 @@ function CreateOrderContent() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Misal: Harap gunakan pelembut lavender, atau hubungi sebelum tiba..."
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
               />
             </div>
           </Card>
@@ -554,7 +554,7 @@ function CreateOrderContent() {
         <div className="lg:col-span-5">
           <Card variant="slate" className="sticky top-24 space-y-6">
             <div className="border-b border-slate-800 pb-4">
-              <p className="text-xs font-bold text-teal-400 uppercase tracking-widest">
+              <p className="text-xs font-bold text-brand-secondary uppercase tracking-widest">
                 Rincian Pemesanan Marketplace
               </p>
               <h3 className="text-lg font-bold text-white mt-1">{activeCatalog?.name || 'Pilih Layanan'}</h3>
@@ -592,7 +592,7 @@ function CreateOrderContent() {
 
             <div className="pt-4 border-t border-slate-800">
               <p className="text-xs text-slate-400">Total Tagihan:</p>
-              <p className="text-3xl font-black text-teal-300 mt-0.5">{formatIDR(totalPrice)}</p>
+              <p className="text-3xl font-black text-brand-secondary mt-0.5">{formatIDR(totalPrice)}</p>
             </div>
 
             <Button
@@ -600,7 +600,7 @@ function CreateOrderContent() {
               variant="primary"
               size="lg"
               disabled={isSubmitting || !activeCatalog || !selectedLaundry}
-              className="w-full bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold shadow-xl cursor-pointer disabled:opacity-50"
+              className="w-full bg-brand-primary hover:bg-brand-primary/90 text-white font-bold shadow-xl cursor-pointer disabled:opacity-50"
               rightIcon={<ArrowRight className="w-5 h-5" />}
             >
               {isSubmitting ? 'Memproses Order...' : 'Konfirmasi & Buat Pesanan'}

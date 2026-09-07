@@ -190,7 +190,7 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
       {/* Header Info Bar */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-          <MapPin className="w-4 h-4 text-teal-600 shrink-0" />
+          <MapPin className="w-4 h-4 text-brand-primary shrink-0" />
           <span>📍 Titik Lokasi Penjemputan (Pin Peta)</span>
         </div>
         <Button
@@ -199,16 +199,16 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
           size="sm"
           disabled={isLocating || props.disabled}
           onClick={handleGetCurrentLocation}
-          className="text-xs font-bold text-teal-700 border-teal-300 hover:bg-teal-50 shrink-0 h-8 px-2.5 py-0"
+          className="text-xs font-bold text-brand-primary border-brand-primary/30 hover:bg-brand-surface shrink-0 h-8 px-2.5 py-0"
         >
           {isLocating ? (
             <>
-              <Loader2 className="w-3.5 h-3.5 text-teal-600 animate-spin mr-1" />
+              <Loader2 className="w-3.5 h-3.5 text-brand-primary animate-spin mr-1" />
               <span>Mencari Lokasi...</span>
             </>
           ) : (
             <>
-              <Navigation className="w-3.5 h-3.5 text-teal-600 mr-1" />
+              <Navigation className="w-3.5 h-3.5 text-brand-primary mr-1" />
               <span>Gunakan Lokasi Saya</span>
             </>
           )}
@@ -219,7 +219,7 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
       <div className={`relative w-full ${props.compact ? 'h-[180px] sm:h-[210px]' : 'h-[220px] sm:h-[260px]'} rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shadow-xs`}>
         {!isMounted ? (
           <div className="w-full h-full flex flex-col items-center justify-center space-y-2 text-slate-400">
-            <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+            <Loader2 className="w-6 h-6 animate-spin text-brand-primary" />
             <span className="text-xs font-semibold">Memuat peta...</span>
           </div>
         ) : (
@@ -228,7 +228,7 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
 
         {/* Pin Helper Overlay Badge */}
         <div className="absolute top-2 left-2 z-10 bg-white/95 backdrop-blur-xs px-2.5 py-1 rounded-lg border border-slate-200 shadow-xs text-[10px] font-bold text-slate-700 pointer-events-none flex items-center gap-1">
-          <MapPin className="w-3 h-3 text-teal-600" />
+          <MapPin className="w-3 h-3 text-brand-primary" />
           <span>Ketuk peta atau geser pin untuk menentukan titik pickup</span>
         </div>
       </div>
@@ -242,8 +242,8 @@ export function MapLocationPicker(props: MapLocationPickerProps) {
               : 'Status: Belum memilih titik lokasi (opsional)'}
           </span>
           {hasCoords && (
-            <span className="text-teal-700 font-bold flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" /> Tersimpan
+            <span className="text-brand-primary font-bold flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-brand-primary" /> Tersimpan
             </span>
           )}
         </div>

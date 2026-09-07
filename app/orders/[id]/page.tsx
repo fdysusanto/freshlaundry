@@ -370,7 +370,7 @@ export default function OrderDetailPage() {
       <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-primary transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" /> Kembali
         </button>
@@ -401,20 +401,20 @@ export default function OrderDetailPage() {
         </div>
 
         {/* Selected Laundry Store Info */}
-        <div className="p-4 bg-teal-50/60 rounded-2xl border border-teal-200 flex items-center justify-between gap-4">
+        <div className="p-4 bg-brand-surface/60 rounded-2xl border border-brand-primary/20 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-700 text-white font-black text-base flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-brand-primary text-white font-black text-base flex items-center justify-center shrink-0">
               <Store className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-[10px] uppercase font-bold text-teal-800 tracking-widest block">
+              <span className="text-[10px] uppercase font-bold text-brand-primary tracking-widest block">
                 Mitra Laundry Pengolah:
               </span>
               <p className="text-sm font-bold text-slate-900">{order.laundryName || 'FreshWash Laundry Partner'}</p>
             </div>
           </div>
           <Link href={`/customer/laundries/${order.laundryId || 'lnd_001'}`}>
-            <span className="text-xs font-bold text-teal-700 hover:underline">
+            <span className="text-xs font-bold text-brand-primary hover:underline">
               Lihat Profil Mitra →
             </span>
           </Link>
@@ -546,13 +546,13 @@ export default function OrderDetailPage() {
             </h3>
             <div className="p-3 bg-slate-50 rounded-xl space-y-2 text-xs">
               <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-teal-600 shrink-0" />
+                <User className="w-4 h-4 text-brand-primary shrink-0" />
                 <span>
                   Pemesan: <strong>{order.customerName}</strong>
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-teal-600 shrink-0" />
+                <Phone className="w-4 h-4 text-brand-primary shrink-0" />
                 <span>
                   WhatsApp: <strong>{order.customerPhone}</strong>
                 </span>
@@ -579,7 +579,7 @@ export default function OrderDetailPage() {
 
             <div className="p-3 bg-slate-50 rounded-xl space-y-2 text-xs">
               <div className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                <MapPin className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
                 <div>
                   <p className="font-bold text-slate-700">Alamat Penjemputan:</p>
                   <p className="text-slate-600">{order.pickupAddress}</p>
@@ -604,7 +604,7 @@ export default function OrderDetailPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Berat Aktual Timbangan:</span>
-                <span className={order.finalWeightKg ? 'font-bold text-teal-700' : 'font-medium text-amber-600 italic'}>
+                <span className={order.finalWeightKg ? 'font-bold text-brand-primary' : 'font-medium text-amber-600 italic'}>
                   {order.finalWeightKg ? `${order.finalWeightKg} kg (Sudah Diverifikasi)` : 'Belum Ditimbang'}
                 </span>
               </div>
@@ -621,7 +621,7 @@ export default function OrderDetailPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => openRescheduleModal('pickup')}
-                      className="text-teal-700 border-teal-200 hover:bg-teal-50 shrink-0 font-bold cursor-pointer"
+                      className="text-brand-primary border-brand-primary/30 hover:bg-brand-surface shrink-0 font-bold cursor-pointer"
                     >
                       <Edit3 className="w-3 h-3 mr-1" /> Ubah Jadwal
                     </Button>
@@ -674,7 +674,7 @@ export default function OrderDetailPage() {
                 </div>
                 <div className="flex justify-between pt-2 border-t border-slate-200 text-sm font-bold">
                   <span className="text-slate-900">Total Tagihan (Aktual):</span>
-                  <span className="font-black text-teal-700">{formatIDR(order.totalPrice)}</span>
+                  <span className="font-black text-brand-primary">{formatIDR(order.totalPrice)}</span>
                 </div>
               </div>
             </div>
@@ -721,7 +721,7 @@ export default function OrderDetailPage() {
           {(rescheduleTarget === 'pickup' || rescheduleTarget === 'both') && (
             <div className="space-y-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
               <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-teal-600" /> Jadwal Penjemputan Baru
+                <Calendar className="w-3.5 h-3.5 text-brand-primary" /> Jadwal Penjemputan Baru
               </h4>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Tanggal Pickup</label>
@@ -729,7 +729,7 @@ export default function OrderDetailPage() {
                   type="date"
                   value={pickupDate}
                   onChange={(e) => setPickupDate(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white font-medium"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white font-medium"
                   disabled={isSubmittingReschedule}
                 />
               </div>
@@ -738,7 +738,7 @@ export default function OrderDetailPage() {
                 <select
                   value={pickupTimeSlot}
                   onChange={(e) => setPickupTimeSlot(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white font-medium"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary bg-white font-medium"
                   disabled={isSubmittingReschedule}
                 >
                   {TIME_SLOTS.map((slot) => (
@@ -833,7 +833,7 @@ export default function OrderDetailPage() {
               variant="primary"
               size="sm"
               disabled={isSubmittingReschedule}
-              className="bg-teal-700 hover:bg-teal-600 text-white font-bold cursor-pointer"
+              className="bg-brand-primary hover:bg-brand-primary/90 text-white font-bold cursor-pointer"
             >
               {isSubmittingReschedule ? 'Menyimpan...' : 'Simpan Perubahan'}
             </Button>

@@ -57,7 +57,7 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({
       <Card variant="white" className="p-4 sm:p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-teal-600" />
+            <ShoppingBag className="w-5 h-5 text-brand-primary" />
             <span>Pesanan Aktif</span>
           </h3>
         </div>
@@ -75,7 +75,7 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({
       {/* Card Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-          <ShoppingBag className="w-5 h-5 text-teal-600" />
+          <ShoppingBag className="w-5 h-5 text-brand-primary" />
           <span>Pesanan Aktif ({sortedHomeOrders.length})</span>
         </h3>
         <Button variant="outline" size="sm" onClick={onViewAllOrders} rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
@@ -85,7 +85,7 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({
 
       {sortedHomeOrders.length === 0 ? (
         <div className="text-center py-6 text-xs text-slate-500 font-semibold space-y-1 bg-slate-50 rounded-2xl p-4 border border-dashed border-slate-200">
-          <Sparkles className="w-7 h-7 text-teal-500 mx-auto" />
+          <Sparkles className="w-7 h-7 text-brand-secondary mx-auto" />
           <p className="font-bold text-slate-800">✨ Belum Ada Pesanan Aktif</p>
           <p className="text-[11px] text-slate-500">Pesanan baru yang membutuhkan penanganan akan muncul di sini.</p>
         </div>

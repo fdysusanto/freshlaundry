@@ -218,7 +218,7 @@ export default function CustomerLaundryDetailPage() {
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center space-y-4">
-        <div className="w-10 h-10 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="w-10 h-10 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto" />
         <p className="text-xs font-semibold text-slate-500">Memuat profil mitra laundry...</p>
       </div>
     );
@@ -282,7 +282,7 @@ export default function CustomerLaundryDetailPage() {
       <div className="flex items-center justify-between">
         <button
           onClick={() => router.back()}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-primary transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" /> Kembali
         </button>
@@ -364,7 +364,7 @@ export default function CustomerLaundryDetailPage() {
                   onClick={() => setActivePhotoIndex(idx)}
                   className={`relative w-16 aspect-[4/3] rounded-xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
                     activePhotoIndex === idx
-                      ? 'border-teal-600 ring-2 ring-teal-500/30'
+                      ? 'border-brand-primary ring-2 ring-brand-primary/30'
                       : 'border-slate-200 opacity-70 hover:opacity-100'
                   }`}
                 >
@@ -382,8 +382,8 @@ export default function CustomerLaundryDetailPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight">{laundry.name}</h1>
                 {laundry.verificationStatus === 'verified' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
-                    <ShieldCheck className="w-3.5 h-3.5 text-teal-600" /> Terverifikasi
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-primary bg-brand-surface px-2.5 py-0.5 rounded-full border border-brand-primary/30">
+                    <ShieldCheck className="w-3.5 h-3.5 text-brand-primary" /> Terverifikasi
                   </span>
                 )}
               </div>
@@ -396,7 +396,7 @@ export default function CustomerLaundryDetailPage() {
             </div>
 
             <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1.5 font-medium">
-              <MapPin className="w-4 h-4 text-teal-600 shrink-0" />
+              <MapPin className="w-4 h-4 text-brand-primary shrink-0" />
               <span>{laundry.address}</span>
             </p>
 
@@ -408,13 +408,13 @@ export default function CustomerLaundryDetailPage() {
               </span>
 
               {distanceKm !== undefined && (
-                <span className="font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-xl border border-teal-200">
+                <span className="font-bold text-brand-primary bg-brand-surface px-2.5 py-1 rounded-xl border border-brand-primary/30">
                   📍 {distanceKm} km dari Anda
                 </span>
               )}
 
               <span className="flex items-center gap-1 text-slate-600 font-medium">
-                <Clock className="w-3.5 h-3.5 text-teal-600" />
+                <Clock className="w-3.5 h-3.5 text-brand-primary" />
                 <span>Buka: {laundry.openingTime || '08:00'} - {laundry.closingTime || '20:00'}</span>
               </span>
             </div>
@@ -432,7 +432,7 @@ export default function CustomerLaundryDetailPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
           <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-teal-600" />
+            <Sparkles className="w-5 h-5 text-brand-primary" />
             <span>Katalog Layanan Laundry</span>
           </h2>
           <span className="text-xs text-slate-500 font-bold">{filteredServices.length} jenis layanan</span>
@@ -445,7 +445,7 @@ export default function CustomerLaundryDetailPage() {
             onClick={() => setActiveCategoryTab('all')}
             className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
               activeCategoryTab === 'all'
-                ? 'bg-teal-700 text-white shadow-xs'
+                ? 'bg-brand-primary text-white shadow-xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
@@ -457,7 +457,7 @@ export default function CustomerLaundryDetailPage() {
               onClick={() => setActiveCategoryTab('kiloan')}
               className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
                 activeCategoryTab === 'kiloan'
-                  ? 'bg-teal-700 text-white shadow-xs'
+                  ? 'bg-brand-primary text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -470,7 +470,7 @@ export default function CustomerLaundryDetailPage() {
               onClick={() => setActiveCategoryTab('satuan')}
               className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
                 activeCategoryTab === 'satuan'
-                  ? 'bg-teal-700 text-white shadow-xs'
+                  ? 'bg-brand-primary text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -483,7 +483,7 @@ export default function CustomerLaundryDetailPage() {
               onClick={() => setActiveCategoryTab('express')}
               className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
                 activeCategoryTab === 'express'
-                  ? 'bg-teal-700 text-white shadow-xs'
+                  ? 'bg-brand-primary text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -510,7 +510,7 @@ export default function CustomerLaundryDetailPage() {
                     onClick={() => handleServiceSelect(service.id)}
                     className={`p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 bg-white ${
                       isSelected && hasQuantity && qty > 0
-                        ? 'border-teal-600 ring-2 ring-teal-500/20 shadow-sm'
+                        ? 'border-brand-primary ring-2 ring-brand-primary/20 shadow-sm bg-brand-surface/40'
                         : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
@@ -518,7 +518,7 @@ export default function CustomerLaundryDetailPage() {
                       <div className="flex items-start justify-between gap-2">
                         <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
                           <span>{service.name}</span>
-                          {isSelected && hasQuantity && qty > 0 && <CheckCircle2 className="w-4 h-4 text-teal-600" />}
+                          {isSelected && hasQuantity && qty > 0 && <CheckCircle2 className="w-4 h-4 text-brand-primary" />}
                         </h3>
                         {srvMinQty !== null && (
                           <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 shrink-0">
@@ -532,7 +532,7 @@ export default function CustomerLaundryDetailPage() {
                     {/* Processing time estimate info */}
                     <div className="flex items-center justify-between gap-1 text-[11px] font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-150">
                       <span className="flex items-center gap-1">
-                        <Timer className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                        <Timer className="w-3.5 h-3.5 text-brand-primary shrink-0" />
                         <span>
                           Estimasi pengerjaan: {service.estimatedHours <= 12 ? `${service.estimatedHours} jam` : `1–${estDays} hari`}
                         </span>
@@ -550,7 +550,7 @@ export default function CustomerLaundryDetailPage() {
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                       <div>
                         <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-tight">Tarif</span>
-                        <span className="text-sm sm:text-base font-black text-teal-800">
+                        <span className="text-sm sm:text-base font-black text-brand-primary">
                           {formatIDR(service.price)}
                           <span className="text-xs text-slate-500 font-normal"> / {service.unit}</span>
                         </span>
@@ -564,9 +564,9 @@ export default function CustomerLaundryDetailPage() {
                             onClick={() => {
                               handleServiceSelect(service.id);
                             }}
-                            className="px-3.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 font-bold text-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                            className="px-3.5 py-1.5 rounded-xl bg-brand-surface hover:bg-brand-surface/80 text-brand-primary border border-brand-primary/30 font-bold text-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
                           >
-                            <Plus className="w-4 h-4 text-teal-600" />
+                            <Plus className="w-4 h-4 text-brand-primary" />
                             <span>Pilih</span>
                           </button>
                         ) : (
@@ -584,7 +584,7 @@ export default function CustomerLaundryDetailPage() {
                             <button
                               type="button"
                               onClick={() => handleQuantityChange(service.id, qty + 1)}
-                              className="w-7 h-7 rounded-lg bg-teal-600 text-white font-bold flex items-center justify-center hover:bg-teal-500 cursor-pointer active:scale-90"
+                              className="w-7 h-7 rounded-lg bg-brand-primary text-white font-bold flex items-center justify-center hover:bg-brand-primary/90 cursor-pointer active:scale-90"
                             >
                               <Plus className="w-3.5 h-3.5" />
                             </button>
@@ -600,7 +600,7 @@ export default function CustomerLaundryDetailPage() {
             {/* CUSTOMER REVIEWS SECTION */}
             <div className="pt-6 border-t border-slate-200 space-y-4">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-teal-600" />
+                <MessageSquare className="w-4 h-4 text-brand-primary" />
                 <span>Ulasan & Ratings Customer ({reviews.length})</span>
               </h3>
 
@@ -622,10 +622,10 @@ export default function CustomerLaundryDetailPage() {
 
           {/* DESKTOP STICKY CHECKOUT SUMMARY CARD (Hidden on Mobile) */}
           <div className="hidden lg:block lg:col-span-4 sticky top-24">
-            <Card variant="white" className="p-6 space-y-6 shadow-xl border-teal-100">
+            <Card variant="white" className="p-6 space-y-6 shadow-xl border-brand-primary/20">
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                  <ShoppingBag className="w-5 h-5 text-teal-600" />
+                  <ShoppingBag className="w-5 h-5 text-brand-primary" />
                   <span>Ringkasan Pesanan</span>
                 </h3>
               </div>
@@ -658,7 +658,7 @@ export default function CustomerLaundryDetailPage() {
 
                   <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
                     <span className="font-bold text-slate-800 text-sm">Subtotal Estimasian</span>
-                    <span className="font-black text-teal-800 text-lg">{formatIDR(subtotal)}</span>
+                    <span className="font-black text-brand-primary text-lg">{formatIDR(subtotal)}</span>
                   </div>
 
                   <Button
@@ -667,7 +667,7 @@ export default function CustomerLaundryDetailPage() {
                     disabled={!laundry.isOpen || currentQuantity <= 0}
                     onClick={handleProceedToCheckout}
                     rightIcon={<ChevronRight className="w-4 h-4" />}
-                    className="w-full mt-4 bg-teal-600 hover:bg-teal-500 font-bold py-3 text-sm"
+                    className="w-full mt-4 bg-brand-primary hover:bg-brand-primary/90 font-bold py-3 text-sm"
                   >
                     {laundry.isOpen ? 'Lanjut Pilih Alamat Pickup' : 'Toko Sedang Tutup'}
                   </Button>
@@ -710,7 +710,7 @@ export default function CustomerLaundryDetailPage() {
           disabled={!laundry.isOpen || !activeService || currentQuantity <= 0}
           onClick={handleProceedToCheckout}
           rightIcon={<ChevronRight className="w-4 h-4" />}
-          className="bg-teal-600 hover:bg-teal-500 font-bold text-xs px-5 py-2.5 shrink-0 disabled:opacity-50"
+          className="bg-brand-primary hover:bg-brand-primary/90 font-bold text-xs px-5 py-2.5 shrink-0 disabled:opacity-50"
         >
           {laundry.isOpen ? 'Lanjut' : 'Tutup'}
         </Button>

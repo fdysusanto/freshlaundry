@@ -75,7 +75,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               </div>
             </div>
             <div className="flex items-start gap-2.5">
-              <Store className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+              <Store className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-slate-800">Tujuan (Outlet Laundry):</p>
                 <p className="text-slate-600 font-medium">{order.laundryName || 'FreshWash Partner Outlet'}</p>
@@ -85,7 +85,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         ) : (
           <>
             <div className="flex items-start gap-2.5">
-              <Store className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+              <Store className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-slate-800">Asal (Outlet Laundry):</p>
                 <p className="text-slate-600 font-medium">{order.laundryName || 'FreshWash Partner Outlet'}</p>
@@ -152,7 +152,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
       {/* Action Buttons Footer */}
       <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-        <Link href={`/orders/${order.id}`} className="text-xs font-bold text-slate-600 hover:text-teal-600 flex items-center gap-1">
+        <Link href={`/orders/${order.id}`} className="text-xs font-bold text-slate-600 hover:text-brand-primary flex items-center gap-1">
           Detail <ArrowRight className="w-3.5 h-3.5" />
         </Link>
 
@@ -171,7 +171,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               size="sm"
               variant="primary"
               onClick={() => onPickupClick && onPickupClick(order)}
-              className="bg-teal-600 hover:bg-teal-500 font-bold"
+              className="bg-brand-primary hover:bg-brand-primary/90 font-bold"
             >
               Pickup dari Customer
             </Button>

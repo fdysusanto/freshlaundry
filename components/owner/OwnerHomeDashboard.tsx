@@ -43,7 +43,7 @@ export const OwnerHomeDashboard: React.FC<OwnerHomeDashboardProps> = ({
               Kelola operasional laundry <strong className="text-slate-800">{selectedLaundry?.name || 'FreshLaundry'}</strong> hari ini.
             </p>
           </div>
-          <span className="self-start sm:self-auto text-xs font-extrabold px-3 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200">
+          <span className="self-start sm:self-auto text-xs font-extrabold px-3 py-1 rounded-full bg-brand-surface text-brand-primary border border-brand-primary/20">
             Partner Portal
           </span>
         </div>

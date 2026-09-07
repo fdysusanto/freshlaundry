@@ -57,7 +57,7 @@ export const MobileOrderCard: React.FC<MobileOrderCardProps> = ({
         <Button
           variant="primary"
           size="sm"
-          className="bg-teal-600 hover:bg-teal-500 text-white font-extrabold text-[11px] px-3 py-1.5 rounded-xl shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
+          className="bg-brand-primary hover:bg-brand-primary/90 text-white font-extrabold text-[11px] px-3 py-1.5 rounded-xl shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
           disabled={isProcessing}
           onClick={(e) => {
             e.preventDefault();
@@ -127,13 +127,13 @@ export const MobileOrderCard: React.FC<MobileOrderCardProps> = ({
 
   return (
     <Link href={`/orders/${order.id}`} className="block focus:outline-hidden">
-      <div className="p-3.5 rounded-2xl border border-slate-200/90 bg-white hover:border-teal-400 hover:shadow-xs transition-all space-y-2 group">
+      <div className="p-3.5 rounded-2xl border border-slate-200/90 bg-white hover:border-brand-secondary hover:shadow-xs transition-all space-y-2 group">
         {/* ROW 1: Customer Name & Chevron */}
         <div className="flex items-center justify-between">
-          <h4 className="font-extrabold text-sm text-slate-900 truncate group-hover:text-teal-700 transition-colors">
+          <h4 className="font-extrabold text-sm text-slate-900 truncate group-hover:text-brand-primary transition-colors">
             {order.customerName || 'Customer'}
           </h4>
-          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-teal-600 transition-colors shrink-0" />
+          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand-secondary transition-colors shrink-0" />
         </div>
 
         {/* ROW 2: Tracking Number */}

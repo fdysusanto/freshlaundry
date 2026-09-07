@@ -8,7 +8,10 @@ import { partnerApplicationService } from '@/services/partnerApplicationService'
 import { isValidUuid } from '@/utils/formatters';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Sparkles, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+
+import Image from 'next/image';
+import { BRAND } from '@/config/brand';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -54,22 +57,28 @@ export default function LoginPage() {
       } else {
         router.push('/admin');
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Login gagal. Periksa kembali email dan kata sandi Anda.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Login gagal. Periksa kembali email dan kata sandi Anda.';
+      setErrorMessage(message);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-gradient-to-b from-teal-50/50 via-slate-50 to-white">
+    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-gradient-to-b from-brand-surface via-slate-50 to-white">
       <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-teal-600 text-white shadow-lg shadow-teal-600/30 mb-2">
-            <Sparkles className="w-6 h-6 animate-pulse" />
-          </div>
+        <div className="text-center space-y-3">
+          <Image
+            src="/brand/cuciyan/logo/logo-horizontal.svg"
+            alt={BRAND.displayName}
+            width={300}
+            height={96}
+            className="h-20 sm:h-24 w-auto mx-auto object-contain mb-3"
+            priority
+          />
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Selamat Datang Kembali</h1>
-          <p className="text-xs text-slate-500">Masuk ke portal FreshWash untuk mengelola pesanan Anda.</p>
+          <p className="text-xs text-slate-500">Masuk ke portal {BRAND.displayName} untuk mengelola pesanan Anda.</p>
         </div>
 
         <Card variant="white" className="shadow-xl">
@@ -93,7 +102,7 @@ export default function LoginPage() {
                   placeholder="nama@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                 />
               </div>
             </div>
@@ -103,7 +112,7 @@ export default function LoginPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase">
                   Kata Sandi:
                 </label>
-                <Link href="/forgot-password" className="text-xs font-bold text-teal-700 hover:underline">
+                <Link href="/forgot-password" className="text-xs font-bold text-brand-primary hover:underline">
                   Lupa password?
                 </Link>
               </div>
@@ -115,7 +124,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
                 />
               </div>
             </div>
@@ -135,13 +144,13 @@ export default function LoginPage() {
           <div className="mt-6 pt-4 border-t border-slate-100 text-center space-y-2">
             <p className="text-xs text-slate-500">
               Belum punya akun?{' '}
-              <Link href="/register" className="font-bold text-teal-700 hover:underline">
+              <Link href="/register" className="font-bold text-brand-primary hover:underline">
                 Daftar sebagai Customer
               </Link>
             </p>
             <p className="text-xs text-slate-500">
               Punya usaha laundry?{' '}
-              <Link href="/register/partner" className="font-bold text-teal-700 hover:underline">
+              <Link href="/register/partner" className="font-bold text-brand-primary hover:underline">
                 Daftar sebagai Mitra Laundry
               </Link>
             </p>

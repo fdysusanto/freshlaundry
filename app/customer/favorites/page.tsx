@@ -59,7 +59,7 @@ export default function CustomerFavoritesPage() {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-6 pb-24 md:pb-12">
       {/* Navigation Header */}
       <div className="flex items-center justify-between">
-        <Link href="/customer/account" className="text-xs font-bold text-slate-500 hover:text-teal-700 flex items-center gap-1.5">
+        <Link href="/customer/account" className="text-xs font-bold text-slate-500 hover:text-brand-primary flex items-center gap-1.5">
           <ArrowLeft className="w-4 h-4" /> Kembali ke Akun Saya
         </Link>
       </div>
@@ -96,7 +96,7 @@ export default function CustomerFavoritesPage() {
             size="md"
             onClick={() => router.push('/customer/laundries')}
             leftIcon={<Search className="w-4 h-4" />}
-            className="bg-teal-600 hover:bg-teal-500 text-white font-bold"
+            className="bg-brand-primary hover:bg-brand-primary/90 text-white font-bold"
           >
             Jelajahi Marketplace Laundry
           </Button>

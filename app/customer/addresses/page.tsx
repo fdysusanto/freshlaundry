@@ -105,7 +105,7 @@ export default function CustomerAddressBookPage() {
     return (
       <div className="min-h-[85vh] flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="animate-spin w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full mx-auto" />
+          <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full mx-auto" />
           <p className="text-xs font-semibold text-slate-600">Memuat Alamat Saya...</p>
         </div>
       </div>
@@ -118,21 +118,21 @@ export default function CustomerAddressBookPage() {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Navigation Header */}
       <div className="flex items-center justify-between">
-        <Link href="/customer" className="text-xs font-bold text-slate-500 hover:text-teal-700 flex items-center gap-1.5">
+        <Link href="/customer" className="text-xs font-bold text-slate-500 hover:text-brand-primary flex items-center gap-1.5">
           <ArrowLeft className="w-4 h-4" /> Kembali ke Dashboard Pelanggan
         </Link>
         <button
           onClick={loadAddresses}
-          className="text-xs font-bold text-teal-700 hover:text-teal-900 flex items-center gap-1.5 cursor-pointer"
+          className="text-xs font-bold text-brand-primary hover:text-brand-primary/80 flex items-center gap-1.5 cursor-pointer"
         >
           <RefreshCw className="w-3.5 h-3.5" /> Refresh Data
         </button>
       </div>
 
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-cyan-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-brand-primary via-slate-900 to-brand-secondary rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
         <div className="space-y-2 relative z-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-bold">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-primary/20 border border-brand-secondary/30 text-brand-secondary text-xs font-bold">
             <MapPin className="w-3.5 h-3.5" />
             <span>Customer Address Book Engine</span>
           </div>
@@ -147,7 +147,7 @@ export default function CustomerAddressBookPage() {
           size="md"
           onClick={handleOpenAddModal}
           leftIcon={<Plus className="w-4 h-4" />}
-          className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold shrink-0 shadow-lg cursor-pointer relative z-10"
+          className="bg-brand-secondary hover:bg-brand-secondary/90 text-slate-950 font-bold shrink-0 shadow-lg cursor-pointer relative z-10"
         >
           + Tambah Alamat Baru
         </Button>
@@ -194,7 +194,7 @@ export default function CustomerAddressBookPage() {
             size="md"
             onClick={handleOpenAddModal}
             leftIcon={<Plus className="w-4 h-4" />}
-            className="bg-teal-600 hover:bg-teal-500 text-white font-bold"
+            className="bg-brand-primary hover:bg-brand-primary/90 text-white font-bold"
           >
             + Tambah Alamat Sekarang
           </Button>
@@ -207,8 +207,8 @@ export default function CustomerAddressBookPage() {
               variant="white"
               className={`p-6 transition-all border ${
                 address.isDefault
-                  ? 'border-teal-500 ring-2 ring-teal-500/10 shadow-lg'
-                  : 'border-slate-200 hover:border-teal-300'
+                  ? 'border-brand-primary ring-2 ring-brand-primary/20 shadow-lg'
+                  : 'border-slate-200 hover:border-brand-secondary'
               }`}
             >
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -227,7 +227,7 @@ export default function CustomerAddressBookPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleSetDefault(address)}
-                      className="text-xs font-bold border-teal-200 text-teal-700 hover:bg-teal-50"
+                      className="text-xs font-bold border-brand-primary/30 text-brand-primary hover:bg-brand-surface"
                     >
                       Jadikan Utama
                     </Button>

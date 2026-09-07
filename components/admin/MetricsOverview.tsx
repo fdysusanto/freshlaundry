@@ -23,7 +23,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ orders }) => {
       value: totalOrders.toString(),
       subtext: `${pendingAssignment} belum dapat kurir`,
       icon: ShoppingBag,
-      color: 'bg-teal-50 text-teal-600',
+      color: 'bg-brand-surface text-brand-primary',
     },
     {
       label: 'Total Estimasi Omset',

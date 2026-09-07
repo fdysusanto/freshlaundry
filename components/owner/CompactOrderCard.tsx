@@ -45,14 +45,14 @@ export const CompactOrderCard: React.FC<CompactOrderCardProps> = ({ order, onCli
   };
 
   const cardContent = (
-    <div className="p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-teal-400 hover:shadow-xs transition-all space-y-2 group cursor-pointer">
+    <div className="p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-brand-secondary hover:shadow-xs transition-all space-y-2 group cursor-pointer">
       {/* Top Row: Order Tracking Number & Price */}
       <div className="flex items-center justify-between">
-        <span className="font-extrabold text-xs font-mono text-slate-900 tracking-tight group-hover:text-teal-700 transition-colors">
+        <span className="font-extrabold text-xs font-mono text-slate-900 tracking-tight group-hover:text-brand-primary transition-colors">
           #{order.trackingNumber}
         </span>
         {order.totalPrice ? (
-          <span className="font-black text-xs text-teal-800">{formatIDR(order.totalPrice)}</span>
+          <span className="font-black text-xs text-brand-primary">{formatIDR(order.totalPrice)}</span>
         ) : null}
       </div>
 
@@ -81,7 +81,7 @@ export const CompactOrderCard: React.FC<CompactOrderCardProps> = ({ order, onCli
           <span className="text-[10px] font-medium text-slate-500 truncate">{renderRelevantTime()}</span>
         </div>
 
-        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-teal-600 transition-colors shrink-0" />
+        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand-secondary transition-colors shrink-0" />
       </div>
     </div>
   );

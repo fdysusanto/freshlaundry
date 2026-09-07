@@ -62,7 +62,7 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
               size="sm"
               onClick={() => setIsAddModalOpen(true)}
               leftIcon={<Plus className="w-3.5 h-3.5" />}
-              className="text-xs font-bold border-teal-200 text-teal-700 hover:bg-teal-50"
+              className="text-xs font-bold border-brand-primary/30 text-brand-primary hover:bg-brand-surface"
             >
               + Tambah Baru
             </Button>
@@ -70,7 +70,7 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
 
           {isLoading ? (
             <div className="py-8 text-center space-y-2">
-              <div className="animate-spin w-6 h-6 border-2 border-teal-600 border-t-transparent rounded-full mx-auto" />
+              <div className="animate-spin w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full mx-auto" />
               <p className="text-slate-500 font-medium">Memuat alamat...</p>
             </div>
           ) : addresses.length === 0 ? (
@@ -81,7 +81,7 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
                 variant="primary"
                 size="sm"
                 onClick={() => setIsAddModalOpen(true)}
-                className="bg-teal-600 hover:bg-teal-500 text-white font-bold"
+                className="bg-brand-primary hover:bg-brand-primary/90 text-white font-bold"
               >
                 + Tambah Alamat Sekarang
               </Button>
@@ -97,8 +97,8 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
                     onClick={() => handleSelect(address)}
                     className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer ${
                       isSelected
-                        ? 'border-teal-500 bg-teal-50/60 ring-2 ring-teal-500/20'
-                        : 'border-slate-200 hover:border-teal-300 bg-white'
+                        ? 'border-brand-primary bg-brand-surface ring-2 ring-brand-primary/20'
+                        : 'border-slate-200 hover:border-brand-primary/40 bg-white'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 mb-1">
@@ -111,7 +111,7 @@ export const AddressSelectorModal: React.FC<AddressSelectorModalProps> = ({
                         )}
                       </div>
                       {isSelected && (
-                        <div className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center">
+                        <div className="w-5 h-5 rounded-full bg-brand-primary text-white flex items-center justify-center">
                           <Check className="w-3.5 h-3.5" />
                         </div>
                       )}

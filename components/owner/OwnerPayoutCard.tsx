@@ -18,15 +18,15 @@ export const OwnerPayoutCard: React.FC<OwnerPayoutCardProps> = ({
   onViewDetails,
 }) => {
   return (
-    <Card variant="white" className="p-5 sm:p-6 border-slate-200/80 bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 text-white shadow-xl rounded-3xl relative overflow-hidden">
+    <Card variant="white" className="p-5 sm:p-6 border-slate-200/80 bg-gradient-to-br from-brand-primary via-slate-900 to-brand-secondary text-white shadow-xl rounded-3xl relative overflow-hidden">
       {/* Subtle Background Glow */}
-      <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-teal-500/10 rounded-full blur-2xl pointer-events-none" />
+      <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-brand-secondary/10 rounded-full blur-2xl pointer-events-none" />
 
       <div className="space-y-4 relative z-10">
         {/* Header Label */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-teal-500/20 text-teal-300 border border-teal-400/20">
+            <div className="p-2 rounded-xl bg-brand-primary/20 text-brand-secondary border border-brand-secondary/20">
               <Wallet className="w-4 h-4" />
             </div>
             <div>
@@ -34,7 +34,7 @@ export const OwnerPayoutCard: React.FC<OwnerPayoutCardProps> = ({
               <p className="text-[11px] text-slate-400 font-medium">Berdasarkan pesanan selesai</p>
             </div>
           </div>
-          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-400/30">
+          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-brand-primary/20 text-brand-secondary border border-brand-secondary/30">
             Bruto Selesai
           </span>
         </div>
@@ -67,14 +67,14 @@ export const OwnerPayoutCard: React.FC<OwnerPayoutCardProps> = ({
           {onViewDetails ? (
             <button
               onClick={onViewDetails}
-              className="inline-flex items-center gap-1 text-xs font-extrabold text-teal-300 hover:text-teal-200 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 text-xs font-extrabold text-brand-secondary hover:text-brand-secondary/80 transition-colors cursor-pointer"
             >
               Lihat Detail Pesanan <ArrowRight className="w-3.5 h-3.5" />
             </button>
           ) : (
             <Link
               href="/owner?tab=orders"
-              className="inline-flex items-center gap-1 text-xs font-extrabold text-teal-300 hover:text-teal-200 transition-colors"
+              className="inline-flex items-center gap-1 text-xs font-extrabold text-brand-secondary hover:text-brand-secondary/80 transition-colors"
             >
               Lihat Detail Pesanan <ArrowRight className="w-3.5 h-3.5" />
             </Link>

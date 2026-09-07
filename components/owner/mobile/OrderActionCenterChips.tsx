@@ -68,7 +68,7 @@ export const OrderActionCenterChips: React.FC<OrderActionCenterChipsProps> = ({
             {chip.count > 0 && (
               <span
                 className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                  isActive ? 'bg-teal-500 text-white' : 'bg-slate-100 text-slate-800'
+                  isActive ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-800'
                 }`}
               >
                 {chip.count}
