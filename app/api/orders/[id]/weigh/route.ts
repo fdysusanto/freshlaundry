@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { orderService } from '@/services/orderService';
+import { orderService, hasOrderArrivedAtLaundry } from '@/services/orderService';
 import { createAuthenticatedClient, createServiceRoleClient, isSupabaseConfigured, supabase } from '@/services/supabase';
 import { UserRole } from '@/types/user';
 
@@ -89,6 +89,14 @@ export async function POST(
     }
 
     if (action === 'preliminary' || userRole === 'courier') {
+      const isArrived = hasOrderArrivedAtLaundry(order);
+      if (isArrived || ['in_washing', 'ready_for_delivery', 'out_for_delivery', 'delivered', 'cancelled'].includes(order.status)) {
+        return NextResponse.json(
+          { success: false, message: 'Akses Ditolak: Tugas pickup telah selesai. Pesanan ini kini dikelola oleh outlet laundry.' },
+          { status: 403 }
+        );
+      }
+
       if (order.status !== 'assigned' && order.status !== 'picked_up') {
         return NextResponse.json(
           { success: false, message: 'Berat awal kurir belum dapat dicatat pada status pesanan saat ini.' },

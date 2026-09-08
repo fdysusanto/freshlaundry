@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { authService } from '@/services/authService';
 import { supabase } from '@/services/supabase';
-import { orderService } from '@/services/orderService';
+import { orderService, hasOrderArrivedAtLaundry } from '@/services/orderService';
 import { courierJobPoolService, CourierJobPoolResponse, getWibTodayDateString } from '@/services/courierJobPoolService';
 import { Order } from '@/types/order';
 import { UserProfile } from '@/types/user';
@@ -158,14 +158,16 @@ export default function CourierDashboardPage() {
   };
 
   const activeClaimedTasks = claimedOrders.filter(
-    (o) => o.status === 'assigned' || o.status === 'picked_up' || o.status === 'out_for_delivery'
+    (o) => o.status === 'assigned' || (o.status === 'picked_up' && !hasOrderArrivedAtLaundry(o)) || o.status === 'out_for_delivery'
   );
 
   const completedTasks = claimedOrders.filter(
-    (o) => o.status === 'delivered' || o.status === 'in_washing'
+    (o) => (o.status === 'picked_up' && hasOrderArrivedAtLaundry(o)) || ['in_washing', 'ready_for_delivery', 'delivered'].includes(o.status)
   );
 
-  const pickupActiveTasks = activeClaimedTasks.filter((o) => o.status === 'assigned' || o.status === 'picked_up');
+  const pickupActiveTasks = activeClaimedTasks.filter(
+    (o) => o.status === 'assigned' || (o.status === 'picked_up' && !hasOrderArrivedAtLaundry(o))
+  );
   const deliveryActiveTasks = activeClaimedTasks.filter((o) => o.status === 'out_for_delivery');
 
   const totalAvailableInPool = jobPool

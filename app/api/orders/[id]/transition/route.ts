@@ -61,9 +61,14 @@ export async function POST(
 
     return NextResponse.json({ success: true, order: updatedOrder });
   } catch (error: any) {
+    const isAuthError = error.message && (
+      error.message.includes('Akses Ditolak') ||
+      error.message.includes('Pickup Ditolak') ||
+      error.message.includes('Tugas pickup telah selesai')
+    );
     return NextResponse.json(
       { success: false, message: error.message || 'Gagal memproses transisi status order.' },
-      { status: 400 }
+      { status: isAuthError ? 403 : 400 }
     );
   }
 }

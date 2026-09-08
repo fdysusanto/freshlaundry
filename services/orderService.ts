@@ -19,6 +19,21 @@ import { pricingService, PricingInputItem } from './pricingService';
 import { supabase, isSupabaseConfigured } from './supabase';
 
 /**
+ * Canonical Arrival Detection.
+ * Checks whether the order has physically arrived at the laundry outlet based on order status logs.
+ */
+export function hasOrderArrivedAtLaundry(order?: Order | null): boolean {
+  if (!order || !order.logs) return false;
+  return order.logs.some(
+    (l) =>
+      l.notes?.includes('courier_arrived_at_laundry') ||
+      l.notes?.includes('courier_arrived') ||
+      l.notes?.includes('Tiba di Outlet') ||
+      l.notes?.includes('sampai di outlet')
+  );
+}
+
+/**
  * Canonical Two-Leg Courier Resolver.
  * Resolves pickupCourier and deliveryCourier from assignment history and order status.
  */
@@ -1142,9 +1157,24 @@ export const orderService = {
       }
     }
 
-    // 4. Courier Isolation Check
+    // 4. Courier Isolation Check & Ownership Boundary
     if (actorRole && actorRole.toLowerCase() === 'courier') {
-      if (actorId && currentOrder.courierId && actorId !== currentOrder.courierId) {
+      const isArrived = hasOrderArrivedAtLaundry(currentOrder);
+      if (currentStatus === 'picked_up' && isArrived) {
+        throw new Error('Akses Ditolak: Tugas pickup telah selesai. Pesanan ini kini dikelola oleh outlet laundry.');
+      }
+      if (currentStatus === 'picked_up' && !isArrived && targetStatus === 'in_washing') {
+        throw new Error('Akses Ditolak: Hanya outlet laundry yang berhak memulai proses cuci.');
+      }
+      if (['in_washing'].includes(currentStatus)) {
+        throw new Error('Akses Ditolak: Tugas pickup telah selesai. Pesanan ini kini dikelola oleh outlet laundry.');
+      }
+      if (currentStatus === 'ready_for_delivery') {
+        const assignedDeliveryCourierId = currentOrder.deliveryCourier?.id || currentOrder.courierId;
+        if (actorId && assignedDeliveryCourierId && actorId !== assignedDeliveryCourierId) {
+          throw new Error('Akses Ditolak: Kurir ini tidak berhak mengelola pengantaran order yang ditugaskan kepada kurir lain.');
+        }
+      } else if (actorId && currentOrder.courierId && actorId !== currentOrder.courierId) {
         throw new Error(`Akses Ditolak: Kurir ini tidak berhak mengelola order yang ditugaskan kepada kurir lain.`);
       }
     }
@@ -1939,10 +1969,27 @@ export const orderService = {
       }
     }
 
-    // Courier Isolation Check (Applies strictly when actor is a courier)
+    // Courier Isolation Check & Ownership Boundary (Applies strictly when actor is a courier)
     const isCourierActor = actorRole ? actorRole.toLowerCase() === 'courier' : actorId?.includes('courier');
-    if (isCourierActor && actorId && targetOrder.courierId && actorId !== targetOrder.courierId) {
-      throw new Error(`Akses Ditolak: Kurir ini tidak berhak mengelola order yang ditugaskan kepada kurir lain.`);
+    if (isCourierActor) {
+      const isArrived = hasOrderArrivedAtLaundry(targetOrder);
+      if (currentStatus === 'picked_up' && isArrived) {
+        throw new Error('Akses Ditolak: Tugas pickup telah selesai. Pesanan ini kini dikelola oleh outlet laundry.');
+      }
+      if (currentStatus === 'picked_up' && !isArrived && targetStatus === 'in_washing') {
+        throw new Error('Akses Ditolak: Hanya outlet laundry yang berhak memulai proses cuci.');
+      }
+      if (['in_washing'].includes(currentStatus)) {
+        throw new Error('Akses Ditolak: Tugas pickup telah selesai. Pesanan ini kini dikelola oleh outlet laundry.');
+      }
+      if (currentStatus === 'ready_for_delivery') {
+        const assignedDeliveryCourierId = targetOrder.deliveryCourier?.id || targetOrder.courierId;
+        if (actorId && assignedDeliveryCourierId && actorId !== assignedDeliveryCourierId) {
+          throw new Error('Akses Ditolak: Kurir ini tidak berhak mengelola pengantaran order yang ditugaskan kepada kurir lain.');
+        }
+      } else if (actorId && targetOrder.courierId && actorId !== targetOrder.courierId) {
+        throw new Error(`Akses Ditolak: Kurir ini tidak berhak mengelola order yang ditugaskan kepada kurir lain.`);
+      }
     }
 
     // Courier Pickup Gate Enforcement (Assigned -> Picked Up)
@@ -1954,6 +2001,9 @@ export const orderService = {
 
     // Washing Gate Enforcement (Picked Up -> In Washing)
     if (targetStatus === 'in_washing') {
+      if (!hasOrderArrivedAtLaundry(targetOrder)) {
+        throw new Error('Pencucian Ditolak: Pakaian belum tiba di outlet laundry.');
+      }
       const finalWeightSet = targetOrder.finalWeightKg !== undefined && targetOrder.finalWeightKg !== null;
       if (!finalWeightSet) {
         throw new Error('Pencucian Ditolak: Berat aktual belum diverifikasi oleh outlet laundry.');
@@ -2056,7 +2106,7 @@ export const orderService = {
 
   /**
    * Records courier arrival event at laundry outlet ('courier_arrived_at_laundry').
-   * Does NOT change canonical OrderStatus ('assigned').
+   * Completes pickup assignment (`assignmentStatus = 'completed'`) and transfers ownership to outlet.
    */
   async markCourierArrivedAtLaundryAsync(orderId: string, courierId: string, client?: any): Promise<Order | null> {
     const db = client || (isSupabaseConfigured ? supabase : null);
@@ -2065,6 +2115,25 @@ export const orderService = {
 
     if (order.courierId && order.courierId !== courierId && courierId !== 'usr_courier_01' && courierId !== 'system') {
       throw new Error('Akses Ditolak: Penugasan ini milik kurir lain.');
+    }
+
+    if (hasOrderArrivedAtLaundry(order)) {
+      if (order.assignmentStatus !== 'completed') {
+        if (!isSupabaseConfigured || !db) {
+          const orders = this.getOrders();
+          const idx = orders.findIndex((o) => o.id === orderId);
+          if (idx !== -1) {
+            orders[idx].assignmentStatus = 'completed';
+            this.saveOrders(orders);
+          }
+        } else {
+          await (db.from('courier_assignments') as any)
+            .update({ status: 'completed', updated_at: new Date().toISOString() })
+            .eq('order_id', order.id)
+            .eq('assignment_type', 'pickup');
+        }
+      }
+      return this.getOrderByIdAsync(orderId, db);
     }
 
     const notes = 'courier_arrived_at_laundry: Kurir telah tiba di outlet laundry';
@@ -2080,6 +2149,7 @@ export const orderService = {
           updatedBy: courierId,
           timestamp: new Date().toISOString(),
         });
+        orders[idx].assignmentStatus = 'completed';
         this.saveOrders(orders);
       }
     } else {
@@ -2089,6 +2159,11 @@ export const orderService = {
         notes,
         updated_by: courierId,
       });
+
+      await (db.from('courier_assignments') as any)
+        .update({ status: 'completed', updated_at: new Date().toISOString() })
+        .eq('order_id', order.id)
+        .eq('assignment_type', 'pickup');
     }
 
     return this.getOrderByIdAsync(orderId, db);
@@ -2404,8 +2479,13 @@ export const orderService = {
       throw new Error('Penimbangan Ditolak: Berat sudah difinalisasi oleh pihak laundry.');
     }
 
+    const isArrived = hasOrderArrivedAtLaundry(order);
+    if (isArrived || ['in_washing', 'ready_for_delivery', 'out_for_delivery', 'delivered', 'cancelled'].includes(order.status)) {
+      throw new Error('Akses Ditolak: Tugas pickup telah selesai. Pesanan ini kini dikelola oleh outlet laundry.');
+    }
+
     if (order.status !== 'assigned' && order.status !== 'picked_up') {
-      throw new Error('Penimbangan Ditolak: Berat awal kurir hanya dapat dicatat setelah kurir ditugaskan atau pakaian telah dijemput.');
+      throw new Error('Penimbangan Ditolak: Berat awal kurir hanya dapat dicatat saat status pesanan assigned atau picked_up.');
     }
 
     if (!isSupabaseConfigured || !db) {

@@ -282,9 +282,14 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
               size="sm"
               variant="outline"
               onClick={() => onWeighClick(order)}
-              className="border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 font-bold"
+              disabled={isPickedUpFromCustomer && hasArrivedAtLaundry}
+              className={`border-amber-300 font-bold ${
+                isPickedUpFromCustomer && hasArrivedAtLaundry
+                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                  : 'bg-amber-50 text-amber-900 hover:bg-amber-100'
+              }`}
             >
-              ⚖️ {order.finalWeightKg ? `${order.finalWeightKg} kg` : 'Input Berat'}
+              ⚖️ {order.finalWeightKg || order.courierWeightKg ? `${order.finalWeightKg || order.courierWeightKg} kg` : 'Input Berat'}
             </Button>
           )}
 
@@ -309,7 +314,7 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
               </Button>
             ) : (
               <Button size="sm" variant="outline" disabled className="text-slate-600 border-slate-300 font-bold opacity-80 cursor-not-allowed">
-                Menunggu Verifikasi Laundry
+                Tiba di Outlet — Dikelola Laundry
               </Button>
             )
           ) : (

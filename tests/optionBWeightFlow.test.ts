@@ -24,7 +24,7 @@ export async function runOptionBWeightFlowTests() {
   const courierA = DEMO_USERS.find((u) => u.role === 'courier' && u.id === 'usr_courier_01') || DEMO_USERS[1];
   const customerA = DEMO_USERS.find((u) => u.role === 'customer') || DEMO_USERS[0];
 
-  function createMockOrder(id: string, courierId = courierA.id, status: any = 'picked_up', laundryId = 'lnd_001'): Order {
+  function createMockOrder(id: string, courierId = courierA.id, status: any = 'assigned', laundryId = 'lnd_001'): Order {
     return {
       id,
       trackingNumber: `LND-OPTB-${id}`,
@@ -95,6 +95,7 @@ export async function runOptionBWeightFlowTests() {
   // SCENARIO B: LAUNDRY CONFIRM COURIER WEIGHT
   try {
     await orderService.saveCourierPreliminaryWeightAsync(orderB.id, 4.2);
+    orderService.transitionOrderStatus(orderB.id, 'picked_up', { id: courierA.id, role: 'courier' });
     const resB = await orderService.finalizeLaundryWeightAsync(orderB.id, 4.2, 'Pihak laundry konfirmasi berat kurir');
     assert(resB.order.finalWeightKg === 4.2, 'Scenario B.1: finalWeightKg set to 4.2 kg');
     assert(resB.order.weightFinalizedAt !== undefined, 'Scenario B.2: weightFinalizedAt is populated');
@@ -107,6 +108,7 @@ export async function runOptionBWeightFlowTests() {
   // SCENARIO C: LAUNDRY ADJUSTS COURIER WEIGHT
   try {
     await orderService.saveCourierPreliminaryWeightAsync(orderC.id, 4.2);
+    orderService.transitionOrderStatus(orderC.id, 'picked_up', { id: courierA.id, role: 'courier' });
     const resC = await orderService.finalizeLaundryWeightAsync(orderC.id, 5.0, 'Laundry sesuaikan berat ke 5.0 kg');
     assert(resC.order.courierWeightKg === 4.2, 'Scenario C.1: courierWeightKg remains 4.2 kg');
     assert(resC.order.finalWeightKg === 5.0, 'Scenario C.2: finalWeightKg updated to 5.0 kg');
@@ -121,6 +123,7 @@ export async function runOptionBWeightFlowTests() {
     const adjBefore = await paymentService.getAdjustmentPaymentStatusAsync(orderD.id);
     assert(!adjBefore.exists, 'Scenario D.1: Payment attempts unchanged after preliminary weigh');
 
+    orderService.transitionOrderStatus(orderD.id, 'picked_up', { id: courierA.id, role: 'courier' });
     const resD = await orderService.finalizeLaundryWeightAsync(orderD.id, 4.5);
     const adjAfter = await paymentService.getAdjustmentPaymentStatusAsync(orderD.id);
     assert(adjAfter.exists, 'Scenario D.2: Adjustment payment attempt exists ONLY after laundry finalization');
@@ -130,6 +133,7 @@ export async function runOptionBWeightFlowTests() {
 
   // SCENARIO E: PAID PAYMENT LOCK
   try {
+    orderService.transitionOrderStatus(orderE.id, 'picked_up', { id: courierA.id, role: 'courier' });
     await orderService.finalizeLaundryWeightAsync(orderE.id, 5.0);
     // Mock paid adjustment
     const adjE = await paymentService.createAdjustmentPaymentAttemptAsync(orderE.id, 16000);
@@ -152,12 +156,10 @@ export async function runOptionBWeightFlowTests() {
   try {
     let couriertoFinalizeBlocked = false;
     try {
-      await orderService.saveCourierPreliminaryWeightAsync(orderA.id, 4.2);
-      // Attempt preliminary weigh when already finalized
-      await orderService.finalizeLaundryWeightAsync(orderB.id, 4.2);
+      // Attempt preliminary weigh when already finalized on orderB
       await orderService.saveCourierPreliminaryWeightAsync(orderB.id, 5.0);
     } catch (err: any) {
-      couriertoFinalizeBlocked = err.message.includes('Penimbangan Ditolak');
+      couriertoFinalizeBlocked = err.message.includes('Penimbangan Ditolak') || err.message.includes('Akses Ditolak');
     }
     assert(couriertoFinalizeBlocked, 'Scenario F.1: Courier preliminary weigh blocked after laundry finalization');
   } catch (err: any) {

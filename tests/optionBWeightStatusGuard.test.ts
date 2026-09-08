@@ -99,12 +99,26 @@ export async function runOptionBWeightStatusGuardTests() {
     assert(false, `TEST B Exception: ${err.message}`);
   }
 
-  // TEST C: Courier preliminary weight on PICKED_UP -> ALLOWED
+  // TEST C.1: Courier preliminary weight on PICKED_UP before arrival -> ALLOWED
   try {
     const resC = await orderService.saveCourierPreliminaryWeightAsync(orderPickedUp.id, 4.2);
-    assert(resC.order.courierWeightKg === 4.2, 'TEST C: Courier preliminary weight on PICKED_UP is ALLOWED');
+    assert(resC.order.courierWeightKg === 4.2, 'TEST C.1: Courier preliminary weight on PICKED_UP before arrival is ALLOWED');
   } catch (err: any) {
-    assert(false, `TEST C Exception: ${err.message}`);
+    assert(false, `TEST C.1 Exception: ${err.message}`);
+  }
+
+  // TEST C.2: Courier preliminary weight on PICKED_UP after arrival -> BLOCKED (Courier Ownership Lock)
+  try {
+    await orderService.markCourierArrivedAtLaundryAsync(orderPickedUp.id, 'usr_courier_01');
+    let blocked = false;
+    try {
+      await orderService.saveCourierPreliminaryWeightAsync(orderPickedUp.id, 4.5);
+    } catch (err: any) {
+      blocked = err.message.includes('Akses Ditolak') || err.message.includes('Tugas pickup telah selesai');
+    }
+    assert(blocked, 'TEST C.2: Courier preliminary weight on PICKED_UP after arrival is BLOCKED (Courier Ownership Lock)');
+  } catch (err: any) {
+    assert(false, `TEST C.2 Exception: ${err.message}`);
   }
 
   // TEST D: Laundry finalization on PENDING -> BLOCKED
@@ -203,7 +217,7 @@ export async function runOptionBWeightStatusGuardTests() {
 
   // TEST J: Existing courier financial isolation remains functional
   try {
-    const orderIsolation = createMockOrder('guard_isolation', 'picked_up');
+    const orderIsolation = createMockOrder('guard_isolation', 'assigned');
     orderService.saveOrders([orderIsolation, ...orderService.getOrders()]);
 
     const resPrelim = await orderService.saveCourierPreliminaryWeightAsync(orderIsolation.id, 4.2);
