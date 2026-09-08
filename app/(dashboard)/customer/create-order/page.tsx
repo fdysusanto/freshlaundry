@@ -8,6 +8,7 @@ import { laundryService } from '@/services/laundryService';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import { DEMO_LAUNDRIES, SERVICE_CATALOG, ServiceCatalogItem, TIME_SLOTS } from '@/utils/constants';
 import { isPickupSlotSelectable } from '@/services/dispatchService';
+import { getEarliestAvailablePickupSchedule } from '@/utils/scheduleUtils';
 import { formatIDR, isValidUuid } from '@/utils/formatters';
 import { ServiceType } from '@/types/order';
 import { Laundry } from '@/types/laundry';
@@ -40,12 +41,10 @@ function CreateOrderContent() {
   const [deliveryAddress, setDeliveryAddress] = useState(
     currentUser.address || 'Jl. Melati No. 45, Kebayoran Baru, Jakarta Selatan'
   );
-  const [pickupDate, setPickupDate] = useState(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
-  });
-  const [pickupTimeSlot, setPickupTimeSlot] = useState(TIME_SLOTS[0]);
+
+  const [initialSchedule] = useState(() => getEarliestAvailablePickupSchedule());
+  const [pickupDate, setPickupDate] = useState(initialSchedule.pickupDate);
+  const [pickupTimeSlot, setPickupTimeSlot] = useState(initialSchedule.pickupTimeSlot);
   const [deliveryDate, setDeliveryDate] = useState(() => {
     const dayAfterTomorrow = new Date();
     dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
@@ -54,6 +53,7 @@ function CreateOrderContent() {
   const [deliveryTimeSlot, setDeliveryTimeSlot] = useState(TIME_SLOTS[0]);
   const [estimatedWeightKg, setEstimatedWeightKg] = useState<number>(initialWeight);
   const [notes, setNotes] = useState('');
+
 
   const availablePickupSlots = useMemo(() => {
     return TIME_SLOTS.filter((slot) => isPickupSlotSelectable(pickupDate, slot));

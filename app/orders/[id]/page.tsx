@@ -280,7 +280,7 @@ export default function OrderDetailPage() {
               if (isMounted) setPendingAdjustment(null);
             } else if (adjStatus.status === 'pending' && adjStatus.attempt) {
               if (isMounted) setPendingAdjustment(adjStatus.attempt);
-            } else if (liveOrder.paymentStatus === 'paid' && liveOrder.finalWeightKg && liveOrder.estimatedWeightKg && liveOrder.finalWeightKg > liveOrder.estimatedWeightKg) {
+            } else if (liveOrder.paymentStatus === 'paid' && liveOrder.finalWeightKg !== undefined && liveOrder.finalWeightKg !== null) {
               try {
                 const sessionRes = await (supabase?.auth?.getSession() || Promise.resolve({ data: { session: null } }));
                 const token = sessionRes?.data?.session?.access_token;
@@ -599,15 +599,20 @@ export default function OrderDetailPage() {
                 <span className="font-bold text-slate-800">{order.serviceName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Estimasi Kiloan:</span>
-                <span className="font-semibold text-slate-800">{order.estimatedWeightKg || 5} kg</span>
+                <span className="text-slate-500">Estimasi Kiloan Customer:</span>
+                <span className="font-semibold text-slate-800">{order.estimatedWeightKg ? `${order.estimatedWeightKg} kg` : '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Berat Aktual Timbangan:</span>
+                <span className="text-slate-500">Berat Aktual Hasil Timbangan:</span>
                 <span className={order.finalWeightKg ? 'font-bold text-brand-primary' : 'font-medium text-amber-600 italic'}>
-                  {order.finalWeightKg ? `${order.finalWeightKg} kg (Sudah Diverifikasi)` : 'Belum Ditimbang'}
+                  {order.finalWeightKg ? `${order.finalWeightKg} kg` : 'Belum Ditimbang'}
                 </span>
               </div>
+              {Boolean(order.finalWeightKg && order.items[0]?.minWeightSnapshot && order.finalWeightKg < order.items[0].minWeightSnapshot) && (
+                <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-800 font-medium">
+                  ℹ️ Berat pakaian sebenarnya adalah <strong>{order.finalWeightKg} kg</strong> (Layanan ini menerapkan minimum order <strong>{order.items[0].minWeightSnapshot} kg</strong>).
+                </div>
+              )}
               <div className="pt-2 border-t border-slate-200/80 space-y-2">
                 <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200/60">
                   <div>

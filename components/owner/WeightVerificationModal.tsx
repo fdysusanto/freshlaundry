@@ -19,7 +19,9 @@ export const WeightVerificationModal: React.FC<WeightVerificationModalProps> = (
   onClose,
   onSuccess,
 }) => {
-  const estimatedWeight = order.estimatedWeightKg || 5;
+  const itemMin = order.items[0]?.minWeightSnapshot;
+  const minWeight = itemMin && itemMin >= 1 ? itemMin : 1;
+  const estimatedWeight = order.estimatedWeightKg || minWeight;
   const courierWeight = order.courierWeightKg;
   const unitPrice = order.items[0]?.unitPrice || 8000;
   const unitName = order.items[0]?.unit || 'kg';
@@ -41,10 +43,11 @@ export const WeightVerificationModal: React.FC<WeightVerificationModalProps> = (
   const platformFee = Number(order.platformFee || 2000);
   const discount = Number(order.discount || 0);
 
-  const estimatedTotal = Math.round(estimatedWeight * unitPrice + deliveryFee + platformFee - discount);
-  const newSubtotal = isValidWeight ? Math.round(numericWeight * unitPrice) : 0;
-  const newTotal = isValidWeight ? Math.round(newSubtotal + deliveryFee + platformFee - discount) : 0;
-  const priceDelta = newTotal - estimatedTotal;
+  const billableWeight = isValidWeight ? Math.max(numericWeight, minWeight) : minWeight;
+  const newSubtotal = Math.round(billableWeight * unitPrice);
+  const newTotal = Math.round(newSubtotal + deliveryFee + platformFee - discount);
+  const initialTotal = Math.round(order.totalPrice);
+  const priceDelta = newTotal - initialTotal;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

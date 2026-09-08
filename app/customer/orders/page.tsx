@@ -150,7 +150,7 @@ export default function CustomerActiveOrdersPage() {
                     <span className="font-black text-brand-primary text-sm">{formatIDR(o.totalPrice)}</span>
                   </div>
 
-                  {o.finalWeightKg && o.estimatedWeightKg && o.finalWeightKg > o.estimatedWeightKg && (
+                  {Boolean(o.finalWeightKg !== undefined && o.finalWeightKg !== null && o.paymentStatus !== 'paid') && (
                     <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-xs flex items-center justify-between text-amber-900 font-bold">
                       <span>⚠️ Perlu Pelunasan Selisih Berat ({o.finalWeightKg} kg)</span>
                       <Link href={`/orders/${o.id}`}>

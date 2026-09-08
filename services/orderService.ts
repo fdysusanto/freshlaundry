@@ -12,7 +12,7 @@ import { PaymentStatus } from '@/types/payment';
 import { UserProfile } from '@/types/user';
 import { SERVICE_CATALOG, DEMO_LAUNDRIES, DEMO_USERS } from '@/utils/constants';
 import { generateTrackingId, isValidUuid } from '@/utils/formatters';
-import { isPickupSlotBookable } from '@/utils/scheduleUtils';
+import { isPickupSlotBookable, calculateBillableWeight } from '@/utils/scheduleUtils';
 import { triggerStatusChangeWebhook } from './webhookService';
 import { laundryService } from './laundryService';
 import { pricingService, PricingInputItem } from './pricingService';
@@ -1959,20 +1959,22 @@ export const orderService = {
         throw new Error('Pencucian Ditolak: Berat aktual belum diverifikasi oleh outlet laundry.');
       }
 
-      const estimatedWeight = targetOrder.estimatedWeightKg || 5;
-      const unitPrice = targetOrder.items[0]?.unitPrice || 8000;
-      const estimatedTotal = Math.round((estimatedWeight * unitPrice) + (targetOrder.deliveryFee || 0) + (targetOrder.platformFee || 2000) - (targetOrder.discount || 0));
-      const actualTotal = Math.round(targetOrder.totalPrice);
-      const priceDelta = actualTotal - estimatedTotal;
-
+      const finalBillableTotal = Math.round(targetOrder.totalPrice);
+      const { paymentService } = require('./paymentService');
+      const mockPayments = paymentService.getMockPayments();
+      const attempts = mockPayments.filter((p: any) => p.orderId === targetOrder.id);
+      let totalPaid = 0;
+      if (attempts.length > 0) {
+        totalPaid = attempts
+          .filter((p: any) => p.status === 'paid')
+          .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+      }
+      if (totalPaid === 0 && targetOrder.paymentStatus === 'paid') {
+        totalPaid = finalBillableTotal;
+      }
+      const priceDelta = Math.max(0, finalBillableTotal - totalPaid);
       if (priceDelta > 0) {
-        const { paymentService } = require('./paymentService');
-        const mockPayments = paymentService.getMockPayments();
-        const attempts = mockPayments.filter((p: any) => p.orderId === targetOrder.id && p.idempotencyKey?.includes('ADJ'));
-        const adjustmentPaid = attempts.some((a: any) => a.status === 'paid');
-        if (!adjustmentPaid) {
-          throw new Error(`Pencucian Ditolak: Menunggu pembayaran selisih harga dari customer (Rp ${priceDelta.toLocaleString('id-ID')})`);
-        }
+        throw new Error(`Pencucian Ditolak: Menunggu pembayaran selisih harga dari customer (Rp ${priceDelta.toLocaleString('id-ID')})`);
       }
     }
 
@@ -2121,7 +2123,7 @@ export const orderService = {
    * Evaluates Washing Gate Conditions (Outlet Washing Authorization).
    * Laundry Outlet is allowed to start washing ('picked_up' -> 'in_washing') IF AND ONLY IF:
    * 1. Final/actual weight has been verified by Laundry Owner/Staff.
-   * 2. Price adjustment (if actual > estimated) is paid by Customer.
+   * 2. Total successful payments (SUM of paid payment_attempts.amount) >= Final Billable Total.
    */
   async canStartWashingOrder(
     orderId: string,
@@ -2134,62 +2136,76 @@ export const orderService = {
       return { allowed: false, reason: 'Pencucian Ditolak: Berat aktual belum diverifikasi oleh outlet laundry.', priceDelta: 0, isAdjustmentPending: false };
     }
 
-    const estimatedWeight = order.estimatedWeightKg || 5;
-    const unitPrice = order.items[0]?.unitPrice || 8000;
-    const estimatedTotal = Math.round((estimatedWeight * unitPrice) + (order.deliveryFee || 0) + (order.platformFee || 2000) - (order.discount || 0));
-    const actualTotal = Math.round(order.totalPrice);
-    const priceDelta = actualTotal - estimatedTotal;
+    const finalBillableTotal = Math.round(order.totalPrice);
 
-    if (priceDelta <= 0) {
-      return { allowed: true, priceDelta, isAdjustmentPending: false };
-    }
-
-    // Actual Total > Estimated Total: Check if adjustment payment attempt exists and is paid
     const { createServiceRoleClient } = await import('./supabase');
     const serviceDb = isSupabaseConfigured && typeof window === 'undefined' ? createServiceRoleClient() : null;
     const checkDb = serviceDb || client || (isSupabaseConfigured ? supabase : null);
     const { paymentService } = await import('./paymentService');
-    let adjustmentPaid = false;
-    let isAdjustmentPending = false;
+
+    let totalPaid = 0;
+    let hasPendingAdjustment = false;
 
     if (checkDb) {
-      const { data: attempts, error: queryErr } = await (checkDb.from('payment_attempts') as any)
-        .select('status, amount, idempotency_key')
-        .eq('order_id', order.id)
-        .like('idempotency_key', '%ADJ%');
+      let query = (checkDb.from('payment_attempts') as any)
+        .select('status, amount, idempotency_key, adjustment_type')
+        .eq('order_id', order.id);
+
+      if (typeof query.like === 'function') {
+        query = query.like('idempotency_key', '%');
+      }
+
+      const { data: attempts, error: queryErr } = await query;
 
       if (queryErr) {
-        console.error('[WASHING-GATE-QUERY-ERROR] Gagal membaca status adjustment payment:', queryErr.message);
+        console.error('[WASHING-GATE-QUERY-ERROR] Gagal membaca status payment_attempts:', queryErr.message);
         return {
           allowed: false,
-          reason: 'Pencucian Ditolak: Tidak dapat memverifikasi pembayaran selisih.',
-          priceDelta,
+          reason: 'Pencucian Ditolak: Tidak dapat memverifikasi pembayaran.',
+          priceDelta: 0,
           isAdjustmentPending: true,
         };
       }
 
       if (attempts && attempts.length > 0) {
-        adjustmentPaid = attempts.some((a: any) => a.status === 'paid');
-        isAdjustmentPending = attempts.some((a: any) => a.status === 'pending');
+        totalPaid = attempts
+          .filter((a: any) => a.status === 'paid')
+          .reduce((sum: number, a: any) => sum + Number(a.amount || 0), 0);
+
+        hasPendingAdjustment = attempts.some(
+          (a: any) => a.status === 'pending' && (a.adjustment_type === 'weight_increase' || a.idempotency_key?.includes('ADJ'))
+        );
       }
     } else {
       const mockPayments = paymentService.getMockPayments();
-      const attempts = mockPayments.filter((p) => p.orderId === order.id && p.idempotencyKey?.includes('ADJ'));
+      const attempts = mockPayments.filter((p) => p.orderId === order.id);
       if (attempts.length > 0) {
-        adjustmentPaid = attempts.some((a) => a.status === 'paid');
-        isAdjustmentPending = attempts.some((a) => a.status === 'pending');
+        totalPaid = attempts
+          .filter((p) => p.status === 'paid')
+          .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+        hasPendingAdjustment = attempts.some(
+          (p) => p.status === 'pending' && (p.adjustmentType === 'weight_increase' || p.idempotencyKey?.includes('ADJ'))
+        );
       }
     }
 
-    if (adjustmentPaid) {
-      return { allowed: true, priceDelta, isAdjustmentPending: false };
+    // Fallback for mock/legacy orders where order.paymentStatus === 'paid' but no explicit payment_attempts rows exist
+    if (totalPaid === 0 && order.paymentStatus === 'paid') {
+      totalPaid = finalBillableTotal;
+    }
+
+    const priceDelta = Math.max(0, finalBillableTotal - totalPaid);
+
+    if (priceDelta <= 0) {
+      return { allowed: true, priceDelta: 0, isAdjustmentPending: false };
     }
 
     return {
       allowed: false,
       reason: `Pencucian Ditolak: Menunggu pembayaran selisih harga dari customer (Rp ${priceDelta.toLocaleString('id-ID')})`,
       priceDelta,
-      isAdjustmentPending: true,
+      isAdjustmentPending: hasPendingAdjustment,
     };
   },
 
@@ -2269,11 +2285,7 @@ export const orderService = {
     }
     const billableWeight = Math.max(finalWeightKg, minWeightThreshold);
 
-    const estimatedWeight = order.estimatedWeightKg || 5;
     const unitPrice = order.items[0]?.unitPrice || 8000;
-    const initialBillableEst = Math.max(estimatedWeight, minWeightThreshold);
-    const estimatedTotal = Math.round((initialBillableEst * unitPrice) + (order.deliveryFee || 0) + (order.platformFee || 2000) - (order.discount || 0));
-
     const actualItemSubtotal = Math.round(billableWeight * unitPrice);
 
     const deliveryFee = Number(order.deliveryFee || 0);
@@ -2282,9 +2294,30 @@ export const orderService = {
 
     const newSubtotal = actualItemSubtotal;
     const newTotalPrice = Math.round(newSubtotal + deliveryFee + platformFee - discount);
-    let priceDelta = newTotalPrice - estimatedTotal;
 
     const db = client || (isSupabaseConfigured ? supabase : null);
+
+    const { paymentService } = await import('./paymentService');
+    let totalPaid = 0;
+    if (db) {
+      const { data: paidAttempts } = await (db.from('payment_attempts') as any)
+        .select('amount')
+        .eq('order_id', order.id)
+        .eq('status', 'paid');
+      if (paidAttempts && paidAttempts.length > 0) {
+        totalPaid = paidAttempts.reduce((sum: number, a: any) => sum + Number(a.amount || 0), 0);
+      }
+    } else {
+      const mockPayments = paymentService.getMockPayments();
+      const paidAttempts = mockPayments.filter((p) => p.orderId === order.id && p.status === 'paid');
+      totalPaid = paidAttempts.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    }
+
+    if (totalPaid === 0 && order.paymentStatus === 'paid') {
+      totalPaid = Math.round(order.totalPrice);
+    }
+
+    let priceDelta = Math.max(0, newTotalPrice - totalPaid);
 
     if (!isSupabaseConfigured || !db) {
       // Mock in-memory update
@@ -2453,15 +2486,18 @@ export const orderService = {
       }
       const billableWeight = Math.max(finalWeightKg, minWeightThreshold);
 
-      const estimatedWeight = order.estimatedWeightKg || 5;
       const unitPrice = order.items[0]?.unitPrice || 8000;
-      const initialBillableEst = Math.max(estimatedWeight, minWeightThreshold);
-      const estimatedTotal = Math.round((initialBillableEst * unitPrice) + (order.deliveryFee || 0) + (order.platformFee || 2000) - (order.discount || 0));
-
       const actualItemSubtotal = Math.round(billableWeight * unitPrice);
       const newSubtotal = actualItemSubtotal;
       const newTotalPrice = Math.round(newSubtotal + (order.deliveryFee || 0) + (order.platformFee || 2000) - (order.discount || 0));
-      priceDelta = newTotalPrice - estimatedTotal;
+
+      const mockPayments = paymentService.getMockPayments();
+      const paidAttempts = mockPayments.filter((p) => p.orderId === orderId && p.status === 'paid');
+      let totalPaid = paidAttempts.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      if (totalPaid === 0 && order.paymentStatus === 'paid') {
+        totalPaid = Math.round(order.totalPrice);
+      }
+      priceDelta = Math.max(0, newTotalPrice - totalPaid);
 
       const orders = this.getOrders();
       const idx = orders.findIndex((o) => o.id === orderId);

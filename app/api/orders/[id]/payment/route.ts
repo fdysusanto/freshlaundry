@@ -64,13 +64,29 @@ export async function POST(
         userClient || undefined
       );
 
-      if (!pendingAdj && order.finalWeightKg && order.estimatedWeightKg && order.finalWeightKg > order.estimatedWeightKg) {
-        const estimatedWeight = Number(order.estimatedWeightKg) || 5;
-        const unitPrice = Number(order.items[0]?.unitPrice) || 8000;
-        const estimatedTotal = Math.round((estimatedWeight * unitPrice) + (Number(order.deliveryFee) || 0) + (Number(order.platformFee) || 2000) - (Number(order.discount) || 0));
-        const actualSubtotal = Math.round(Number(order.finalWeightKg) * unitPrice);
-        const newTotalPrice = Math.round(actualSubtotal + (Number(order.deliveryFee) || 0) + (Number(order.platformFee) || 2000) - (Number(order.discount) || 0));
-        const priceDelta = newTotalPrice - estimatedTotal;
+      if (!pendingAdj && order.finalWeightKg !== undefined && order.finalWeightKg !== null) {
+        const finalBillableTotal = Math.round(order.totalPrice);
+        let totalPaid = 0;
+
+        if (userClient) {
+          const { data: paidAttempts } = await (userClient.from('payment_attempts') as any)
+            .select('amount')
+            .eq('order_id', orderId)
+            .eq('status', 'paid');
+          if (paidAttempts && paidAttempts.length > 0) {
+            totalPaid = paidAttempts.reduce((sum: number, a: any) => sum + Number(a.amount || 0), 0);
+          }
+        } else {
+          const mockPayments = paymentService.getMockPayments();
+          const paidAttempts = mockPayments.filter((p) => p.orderId === orderId && p.status === 'paid');
+          totalPaid = paidAttempts.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+        }
+
+        if (totalPaid === 0 && order.paymentStatus === 'paid') {
+          totalPaid = finalBillableTotal;
+        }
+
+        const priceDelta = Math.max(0, finalBillableTotal - totalPaid);
 
         if (priceDelta > 0) {
           const { createServiceRoleClient, isSupabaseConfigured } = await import('@/services/supabase');
@@ -83,19 +99,35 @@ export async function POST(
 
     // ACTION: Customer Requesting Price Adjustment Payment Attempt Creation / Refresh
     if (action === 'create_adjustment') {
-      if (!order.finalWeightKg || !order.estimatedWeightKg || Number(order.finalWeightKg) <= Number(order.estimatedWeightKg)) {
+      if (order.finalWeightKg === undefined || order.finalWeightKg === null) {
         return NextResponse.json(
-          { success: false, message: 'Tidak ada kekurangan pembayaran selisih yang harus dibayar untuk pesanan ini.' },
+          { success: false, message: 'Berat aktual belum diverifikasi oleh pihak laundry.' },
           { status: 400 }
         );
       }
 
-      const estimatedWeight = Number(order.estimatedWeightKg) || 5;
-      const unitPrice = Number(order.items[0]?.unitPrice) || 8000;
-      const estimatedTotal = Math.round((estimatedWeight * unitPrice) + (Number(order.deliveryFee) || 0) + (Number(order.platformFee) || 2000) - (Number(order.discount) || 0));
-      const actualSubtotal = Math.round(Number(order.finalWeightKg) * unitPrice);
-      const newTotalPrice = Math.round(actualSubtotal + (Number(order.deliveryFee) || 0) + (Number(order.platformFee) || 2000) - (Number(order.discount) || 0));
-      const priceDelta = newTotalPrice - estimatedTotal;
+      const finalBillableTotal = Math.round(order.totalPrice);
+      let totalPaid = 0;
+
+      if (userClient) {
+        const { data: paidAttempts } = await (userClient.from('payment_attempts') as any)
+          .select('amount')
+          .eq('order_id', orderId)
+          .eq('status', 'paid');
+        if (paidAttempts && paidAttempts.length > 0) {
+          totalPaid = paidAttempts.reduce((sum: number, a: any) => sum + Number(a.amount || 0), 0);
+        }
+      } else {
+        const mockPayments = paymentService.getMockPayments();
+        const paidAttempts = mockPayments.filter((p) => p.orderId === orderId && p.status === 'paid');
+        totalPaid = paidAttempts.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      }
+
+      if (totalPaid === 0 && order.paymentStatus === 'paid') {
+        totalPaid = finalBillableTotal;
+      }
+
+      const priceDelta = Math.max(0, finalBillableTotal - totalPaid);
 
       if (priceDelta <= 0) {
         return NextResponse.json(

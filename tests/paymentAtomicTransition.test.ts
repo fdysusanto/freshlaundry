@@ -41,8 +41,8 @@ async function runPaymentAtomicTransitionTests() {
       serviceType: 'kiloan',
       pickupAddress: 'Jl. Sudirman No. 12, Jakarta',
       deliveryAddress: 'Jl. Sudirman No. 12, Jakarta',
-      pickupDate: '2026-08-25',
-      pickupTimeSlot: '10:00 - 12:00 WIB',
+      pickupDate: '2099-08-25',
+      pickupTimeSlot: '11:00 - 14:00 WIB',
       estimatedWeightKg: 5,
     },
     customer
@@ -67,8 +67,8 @@ async function runPaymentAtomicTransitionTests() {
       serviceType: 'kiloan',
       pickupAddress: 'Jl. Test No. 2',
       deliveryAddress: 'Jl. Test No. 2',
-      pickupDate: '2026-08-25',
-      pickupTimeSlot: '10:00 - 12:00 WIB',
+      pickupDate: '2099-08-25',
+      pickupTimeSlot: '11:00 - 14:00 WIB',
       estimatedWeightKg: 3,
     },
     customer
@@ -141,8 +141,8 @@ async function runPaymentAtomicTransitionTests() {
       serviceType: 'kiloan',
       pickupAddress: 'Jl. Gatot Subroto No. 8',
       deliveryAddress: 'Jl. Gatot Subroto No. 8',
-      pickupDate: '2026-08-25',
-      pickupTimeSlot: '13:00 - 15:00 WIB',
+      pickupDate: '2099-08-25',
+      pickupTimeSlot: '11:00 - 14:00 WIB',
       estimatedWeightKg: 4,
     },
     customer

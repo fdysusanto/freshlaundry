@@ -301,19 +301,61 @@ async function runServerSideWeighAdjustmentTests() {
   console.log('\n--- WASHING GATE REGRESSION TESTS (WG-R1 to WG-R6) ---');
 
   const origGetOrderWG = orderService.getOrderByIdAsync;
-  orderService.getOrderByIdAsync = (async () => ({
-    id: 'ord_wg_test_1',
-    customerId: 'usr_cust_wg',
-    laundryId: 'lnd_wg_001',
-    status: 'picked_up',
-    paymentStatus: 'paid',
-    estimatedWeightKg: 7,
-    finalWeightKg: 8,
-    subtotal: 56000,
-    totalPrice: 58000,
-    items: [{ id: 'it_1', unitPrice: 7000, subtotal: 56000, quantity: 7 }],
-    logs: [],
-  })) as any;
+  orderService.getOrderByIdAsync = (async (orderId: string) => {
+    if (orderId === 'ord_wg_final_1') {
+      return {
+        id: 'ord_wg_final_1', customerId: 'usr_cust_wg', laundryId: 'lnd_wg_001',
+        status: 'picked_up', paymentStatus: 'paid', estimatedWeightKg: 5, finalWeightKg: 7,
+        totalPrice: 56000, subtotal: 56000, deliveryFee: 0, platformFee: 0, discount: 0,
+        items: [{ id: 'it_1', serviceId: 'srv_001', unitPrice: 8000, quantity: 5, minWeightSnapshot: 5 }], logs: []
+      };
+    }
+    if (orderId === 'ord_wg_final_2') {
+      return {
+        id: 'ord_wg_final_2', customerId: 'usr_cust_wg', laundryId: 'lnd_wg_001',
+        status: 'picked_up', paymentStatus: 'paid', estimatedWeightKg: 5, finalWeightKg: 7,
+        totalPrice: 56000, subtotal: 56000, deliveryFee: 0, platformFee: 0, discount: 0,
+        items: [{ id: 'it_1', serviceId: 'srv_001', unitPrice: 8000, quantity: 5, minWeightSnapshot: 5 }], logs: []
+      };
+    }
+    if (orderId === 'ord_wg_final_3') {
+      return {
+        id: 'ord_wg_final_3', customerId: 'usr_cust_wg', laundryId: 'lnd_wg_001',
+        status: 'picked_up', paymentStatus: 'paid', estimatedWeightKg: 5, finalWeightKg: 7,
+        totalPrice: 56000, subtotal: 56000, deliveryFee: 0, platformFee: 0, discount: 0,
+        items: [{ id: 'it_1', serviceId: 'srv_001', unitPrice: 8000, quantity: 5, minWeightSnapshot: 5 }], logs: []
+      };
+    }
+    if (orderId === 'ord_wg_final_4') {
+      return {
+        id: 'ord_wg_final_4', customerId: 'usr_cust_wg', laundryId: 'lnd_wg_001',
+        status: 'picked_up', paymentStatus: 'paid', estimatedWeightKg: 8, finalWeightKg: 5,
+        totalPrice: 40000, subtotal: 40000, deliveryFee: 0, platformFee: 0, discount: 0,
+        items: [{ id: 'it_1', serviceId: 'srv_001', unitPrice: 8000, quantity: 8, minWeightSnapshot: 5 }], logs: []
+      };
+    }
+    if (orderId === 'ord_wg_final_5') {
+      return {
+        id: 'ord_wg_final_5', customerId: 'usr_cust_wg', laundryId: 'lnd_wg_001',
+        status: 'picked_up', paymentStatus: 'paid', estimatedWeightKg: 3, finalWeightKg: 6,
+        totalPrice: 50000, subtotal: 48000, deliveryFee: 2000, platformFee: 0, discount: 0,
+        items: [{ id: 'it_1', serviceId: 'srv_001', unitPrice: 8000, quantity: 3, minWeightSnapshot: 3 }], logs: []
+      };
+    }
+    return {
+      id: orderId || 'ord_wg_test_1',
+      customerId: 'usr_cust_wg',
+      laundryId: 'lnd_wg_001',
+      status: 'picked_up',
+      paymentStatus: 'paid',
+      estimatedWeightKg: 7,
+      finalWeightKg: 8,
+      subtotal: 56000,
+      totalPrice: 58000,
+      items: [{ id: 'it_1', unitPrice: 7000, subtotal: 56000, quantity: 7 }],
+      logs: [],
+    };
+  }) as any;
 
   // WG-R1: Adjustment status = paid -> allowed: true
   const createMockDb = (status: 'paid' | 'pending' | 'empty') => ({
@@ -322,10 +364,17 @@ async function runServerSideWeighAdjustmentTests() {
         return {
           select: () => ({
             eq: () => ({
-              like: () => Promise.resolve({
-                data: status === 'empty' ? [] : [{ status, amount: 7000, idempotency_key: 'ORD-TEST-ADJ-1' }],
-                error: null
-              })
+              like: () => Promise.resolve(
+                status === 'empty'
+                  ? { data: null, error: { message: 'RLS permission denied' } }
+                  : {
+                      data: [
+                        { status: 'paid', amount: 51000, idempotency_key: 'ORD-TEST-INIT' },
+                        { status, amount: 7000, idempotency_key: 'ORD-TEST-ADJ-1' }
+                      ],
+                      error: null
+                    }
+              )
             })
           })
         };
@@ -429,7 +478,10 @@ async function runServerSideWeighAdjustmentTests() {
           select: () => ({
             eq: () => ({
               like: () => Promise.resolve({
-                data: [{ status: 'paid', amount: 7000, idempotency_key: 'ORD-TEST-ADJ-1' }],
+                data: [
+                  { status: 'paid', amount: 51000, idempotency_key: 'ORD-TEST-INIT' },
+                  { status: 'paid', amount: 7000, idempotency_key: 'ORD-TEST-ADJ-1' }
+                ],
                 error: null
               })
             })
@@ -614,6 +666,240 @@ async function runServerSideWeighAdjustmentTests() {
   };
   const wgOwnerCheck = await orderService.canStartWashingOrder('ord_wg_test_1', mockOwnerClientNoAttempts as any);
   assert(wgOwnerCheck.allowed === true || wgOwnerCheck.allowed === false, 'ADJ-11. Washing Gate evaluation handles owner client safely');
+
+  // --- FINAL CRITICAL WASHING GATE REGRESSION TESTS (WG-FINAL-01 to WG-FINAL-05) ---
+  console.log('\n--- FINAL CRITICAL WASHING GATE REGRESSION TESTS (WG-FINAL-01 to WG-FINAL-05) ---');
+
+  // TEST 1 — WG-FINAL-01 (CRITICAL): Initial 40k PAID, Adj A 16k PENDING, Adj B 16k PAID, Final Bill 56k
+  // Expected: allowed === true, priceDelta === 0. Pending Adj A MUST NOT block order.
+  const mockDbWgFinal01 = {
+    from: (table: string) => {
+      if (table === 'payment_attempts') {
+        return {
+          select: () => ({
+            eq: () => ({
+              like: () => Promise.resolve({
+                data: [
+                  { status: 'paid', amount: 40000, idempotency_key: 'ORD-TEST-INIT' },
+                  { status: 'pending', amount: 16000, idempotency_key: 'ORD-TEST-ADJ-A', adjustment_type: 'weight_increase' },
+                  { status: 'paid', amount: 16000, idempotency_key: 'ORD-TEST-ADJ-B', adjustment_type: 'weight_increase' }
+                ],
+                error: null
+              })
+            })
+          })
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            single: () => Promise.resolve({
+              data: {
+                id: 'ord_wg_final_1', customer_id: 'usr_cust_wg', laundry_id: 'lnd_wg_001',
+                status: 'picked_up', payment_status: 'paid', estimated_weight_kg: 5, final_weight_kg: 7,
+                total_price: 56000, delivery_fee: 0, platform_fee: 0, discount: 0
+              }, error: null
+            }),
+            maybeSingle: () => Promise.resolve({
+              data: {
+                id: 'ord_wg_final_1', customer_id: 'usr_cust_wg', laundry_id: 'lnd_wg_001',
+                status: 'picked_up', payment_status: 'paid', estimated_weight_kg: 5, final_weight_kg: 7,
+                total_price: 56000, delivery_fee: 0, platform_fee: 0, discount: 0
+              }, error: null
+            })
+          })
+        })
+      };
+    }
+  };
+
+  const wgFinal01Res = await orderService.canStartWashingOrder('ord_wg_final_1', mockDbWgFinal01 as any);
+  assert(wgFinal01Res.allowed === true, 'WG-FINAL-01. Total paid >= final bill with pending Adj A -> allowed = true');
+  assert(wgFinal01Res.priceDelta === 0, 'WG-FINAL-01. Total paid >= final bill -> priceDelta = 0');
+
+  // TEST 2 — UNDERPAID WITH PENDING ADJUSTMENT: Initial 40k PAID, Adj 16k PENDING, Final Bill 56k
+  // Expected: allowed === false, priceDelta === 16000
+  const mockDbWgFinal02 = {
+    from: (table: string) => {
+      if (table === 'payment_attempts') {
+        return {
+          select: () => ({
+            eq: () => ({
+              like: () => Promise.resolve({
+                data: [
+                  { status: 'paid', amount: 40000, idempotency_key: 'ORD-TEST-INIT' },
+                  { status: 'pending', amount: 16000, idempotency_key: 'ORD-TEST-ADJ-A', adjustment_type: 'weight_increase' }
+                ],
+                error: null
+              })
+            })
+          })
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            single: () => Promise.resolve({
+              data: {
+                id: 'ord_wg_final_2', customer_id: 'usr_cust_wg', laundry_id: 'lnd_wg_001',
+                status: 'picked_up', payment_status: 'paid', estimated_weight_kg: 5, final_weight_kg: 7,
+                total_price: 56000, delivery_fee: 0, platform_fee: 0, discount: 0
+              }, error: null
+            }),
+            maybeSingle: () => Promise.resolve({
+              data: {
+                id: 'ord_wg_final_2', customer_id: 'usr_cust_wg', laundry_id: 'lnd_wg_001',
+                status: 'picked_up', payment_status: 'paid', estimated_weight_kg: 5, final_weight_kg: 7,
+                total_price: 56000, delivery_fee: 0, platform_fee: 0, discount: 0
+              }, error: null
+            })
+          })
+        })
+      };
+    }
+  };
+
+  const wgFinal02Res = await orderService.canStartWashingOrder('ord_wg_final_2', mockDbWgFinal02 as any);
+  assert(wgFinal02Res.allowed === false, 'WG-FINAL-02. Underpaid order with pending adjustment -> allowed = false');
+  assert(wgFinal02Res.priceDelta === 16000, 'WG-FINAL-02. Underpaid order -> priceDelta = 16000');
+
+  // TEST 3 — NORMAL PAID ADJUSTMENT: Initial 40k PAID, Adj 16k PAID, Final Bill 56k
+  // Expected: allowed === true, priceDelta === 0
+  const mockDbWgFinal03 = {
+    from: (table: string) => {
+      if (table === 'payment_attempts') {
+        return {
+          select: () => ({
+            eq: () => ({
+              like: () => Promise.resolve({
+                data: [
+                  { status: 'paid', amount: 40000, idempotency_key: 'ORD-TEST-INIT' },
+                  { status: 'paid', amount: 16000, idempotency_key: 'ORD-TEST-ADJ-A', adjustment_type: 'weight_increase' }
+                ],
+                error: null
+              })
+            })
+          })
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            single: () => Promise.resolve({
+              data: {
+                id: 'ord_wg_final_3', customer_id: 'usr_cust_wg', laundry_id: 'lnd_wg_001',
+                status: 'picked_up', payment_status: 'paid', estimated_weight_kg: 5, final_weight_kg: 7,
+                total_price: 56000, delivery_fee: 0, platform_fee: 0, discount: 0
+              }, error: null
+            }),
+            maybeSingle: () => Promise.resolve({
+              data: {
+                id: 'ord_wg_final_3', customer_id: 'usr_cust_wg', laundry_id: 'lnd_wg_001',
+                status: 'picked_up', payment_status: 'paid', estimated_weight_kg: 5, final_weight_kg: 7,
+                total_price: 56000, delivery_fee: 0, platform_fee: 0, discount: 0
+              }, error: null
+            })
+          })
+        })
+      };
+    }
+  };
+
+  const wgFinal03Res = await orderService.canStartWashingOrder('ord_wg_final_3', mockDbWgFinal03 as any);
+  assert(wgFinal03Res.allowed === true, 'WG-FINAL-03. Normal paid adjustment -> allowed = true');
+  assert(wgFinal03Res.priceDelta === 0, 'WG-FINAL-03. Normal paid adjustment -> priceDelta = 0');
+
+  // TEST 4 — OVERPAYMENT: Initial 64k PAID, Final Bill 40k
+  // Expected: allowed === true, priceDelta === 0
+  const mockDbWgFinal04 = {
+    from: (table: string) => {
+      if (table === 'payment_attempts') {
+        return {
+          select: () => ({
+            eq: () => ({
+              like: () => Promise.resolve({
+                data: [
+                  { status: 'paid', amount: 64000, idempotency_key: 'ORD-TEST-INIT' }
+                ],
+                error: null
+              })
+            })
+          })
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            single: () => Promise.resolve({
+              data: {
+                id: 'ord_wg_final_4', customer_id: 'usr_cust_wg', laundry_id: 'lnd_wg_001',
+                status: 'picked_up', payment_status: 'paid', estimated_weight_kg: 8, final_weight_kg: 5,
+                total_price: 40000, delivery_fee: 0, platform_fee: 0, discount: 0
+              }, error: null
+            }),
+            maybeSingle: () => Promise.resolve({
+              data: {
+                id: 'ord_wg_final_4', customer_id: 'usr_cust_wg', laundry_id: 'lnd_wg_001',
+                status: 'picked_up', payment_status: 'paid', estimated_weight_kg: 8, final_weight_kg: 5,
+                total_price: 40000, delivery_fee: 0, platform_fee: 0, discount: 0
+              }, error: null
+            })
+          })
+        })
+      };
+    }
+  };
+
+  const wgFinal04Res = await orderService.canStartWashingOrder('ord_wg_final_4', mockDbWgFinal04 as any);
+  assert(wgFinal04Res.allowed === true, 'WG-FINAL-04. Overpayment -> allowed = true');
+  assert(wgFinal04Res.priceDelta === 0, 'WG-FINAL-04. Overpayment -> priceDelta = 0');
+
+  // TEST 5 — REAL PAYMENT BASELINE: Initial Paid 26.000, Final Bill 50.000
+  // Expected: totalPaid = 26.000, priceDelta = 24.000 (not calculated from estimatedWeightKg || 5)
+  const mockDbWgFinal05 = {
+    from: (table: string) => {
+      if (table === 'payment_attempts') {
+        return {
+          select: () => ({
+            eq: () => ({
+              like: () => Promise.resolve({
+                data: [
+                  { status: 'paid', amount: 26000, idempotency_key: 'ORD-TEST-INIT' }
+                ],
+                error: null
+              })
+            })
+          })
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            single: () => Promise.resolve({
+              data: {
+                id: 'ord_wg_final_5', customer_id: 'usr_cust_wg', laundry_id: 'lnd_wg_001',
+                status: 'picked_up', payment_status: 'paid', estimated_weight_kg: 3, final_weight_kg: 6,
+                total_price: 50000, delivery_fee: 2000, platform_fee: 0, discount: 0,
+                items: [{ serviceId: 'srv_001', unitPrice: 8000, quantity: 3, minWeightSnapshot: 3 }]
+              }, error: null
+            }),
+            maybeSingle: () => Promise.resolve({
+              data: {
+                id: 'ord_wg_final_5', customer_id: 'usr_cust_wg', laundry_id: 'lnd_wg_001',
+                status: 'picked_up', payment_status: 'paid', estimated_weight_kg: 3, final_weight_kg: 6,
+                total_price: 50000, delivery_fee: 2000, platform_fee: 0, discount: 0,
+                items: [{ serviceId: 'srv_001', unitPrice: 8000, quantity: 3, minWeightSnapshot: 3 }]
+              }, error: null
+            })
+          })
+        })
+      };
+    }
+  };
+
+  const wgFinal05Res = await orderService.canStartWashingOrder('ord_wg_final_5', mockDbWgFinal05 as any);
+  assert(wgFinal05Res.allowed === false, 'WG-FINAL-05. Real payment baseline 26k vs 50k -> allowed = false');
+  assert(wgFinal05Res.priceDelta === 24000, 'WG-FINAL-05. Real payment baseline -> priceDelta = 24000 (not 8000 from || 5 fallback)');
 
   orderService.getOrderByIdAsync = origGetOrderWG;
 

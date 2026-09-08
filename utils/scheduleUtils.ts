@@ -67,6 +67,65 @@ export function isPickupSlotBookable(
 }
 
 /**
+ * Resolves the earliest valid, bookable pickup Date & Time Slot.
+ * Business Rules:
+ * 1. Checks today's date in Asia/Jakarta (WIB).
+ * 2. Filters TIME_SLOTS using isPickupSlotBookable(todayStr, slot, now).
+ * 3. If any slot today is bookable, returns { pickupDate: todayStr, pickupTimeSlot: earliestSlotToday }.
+ * 4. Otherwise, returns tomorrow's date with TIME_SLOTS[0].
+ */
+export function getEarliestAvailablePickupSchedule(
+  nowInput: Date | string = new Date()
+): { pickupDate: string; pickupTimeSlot: string } {
+  const now = typeof nowInput === 'string' ? new Date(nowInput) : nowInput;
+  const validNow = isNaN(now.getTime()) ? new Date() : now;
+
+  // Calculate WIB date for today
+  const nowWibMs = validNow.getTime() + 7 * 3600 * 1000;
+  const nowWibDate = new Date(nowWibMs);
+  const todayYear = nowWibDate.getUTCFullYear();
+  const todayMonth = String(nowWibDate.getUTCMonth() + 1).padStart(2, '0');
+  const todayDay = String(nowWibDate.getUTCDate()).padStart(2, '0');
+  const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
+
+  // Check today's slots
+  const availableToday = TIME_SLOTS.filter((slot) => isPickupSlotBookable(todayStr, slot, validNow));
+  if (availableToday.length > 0) {
+    return {
+      pickupDate: todayStr,
+      pickupTimeSlot: availableToday[0],
+    };
+  }
+
+  // Fallback to tomorrow in WIB
+  const tomorrowWibMs = nowWibMs + 24 * 3600 * 1000;
+  const tomorrowWibDate = new Date(tomorrowWibMs);
+  const tomYear = tomorrowWibDate.getUTCFullYear();
+  const tomMonth = String(tomorrowWibDate.getUTCMonth() + 1).padStart(2, '0');
+  const tomDay = String(tomorrowWibDate.getUTCDate()).padStart(2, '0');
+  const tomorrowStr = `${tomYear}-${tomMonth}-${tomDay}`;
+
+  return {
+    pickupDate: tomorrowStr,
+    pickupTimeSlot: TIME_SLOTS[0],
+  };
+}
+
+/**
+ * Calculates the Billable Weight for pricing.
+ * Formula: MAX(actualWeight, minimumWeight)
+ */
+export function calculateBillableWeight(
+  actualWeightKg: number,
+  minimumWeightKg?: number
+): number {
+  const minWeight = typeof minimumWeightKg === 'number' && minimumWeightKg > 0 ? minimumWeightKg : 1;
+  const actual = typeof actualWeightKg === 'number' && actualWeightKg > 0 ? actualWeightKg : minWeight;
+  return Math.max(actual, minWeight);
+}
+
+
+/**
  * Resolves the Operational SLA Start Timestamp in WIB (+07:00) based on Pickup Date and Pickup Time Slot.
  * Business Rules:
  * - Pickup '08:00 - 10:00 WIB' -> SLA Start: Same day at 11:00 WIB

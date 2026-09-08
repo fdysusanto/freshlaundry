@@ -7,7 +7,7 @@ import { orderService } from '@/services/orderService';
 import { customerAddressService } from '@/services/customerAddressService';
 import { DEMO_LAUNDRIES, SERVICE_CATALOG, ServiceCatalogItem, TIME_SLOTS } from '@/utils/constants';
 import { isPickupSlotSelectable } from '@/services/dispatchService';
-import { calculateEarliestDeliveryDateTime, filterAvailableDeliverySlots, validateDeliverySchedule } from '@/utils/scheduleUtils';
+import { calculateEarliestDeliveryDateTime, filterAvailableDeliverySlots, validateDeliverySchedule, getEarliestAvailablePickupSchedule } from '@/utils/scheduleUtils';
 import { ServiceType } from '@/types/order';
 import { CustomerAddress, AddressSnapshot } from '@/types/address';
 import { formatIDR, isValidUuid } from '@/utils/formatters';
@@ -73,12 +73,9 @@ function CheckoutContent() {
   // Form State
   const [pickupAddress, setPickupAddress] = useState(currentUser?.address || '');
   const [deliveryAddress, setDeliveryAddress] = useState(currentUser?.address || '');
-  const [pickupDate, setPickupDate] = useState(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
-  });
-  const [pickupTimeSlot, setPickupTimeSlot] = useState(TIME_SLOTS[0]);
+  const [initialSchedule] = useState(() => getEarliestAvailablePickupSchedule());
+  const [pickupDate, setPickupDate] = useState(initialSchedule.pickupDate);
+  const [pickupTimeSlot, setPickupTimeSlot] = useState(initialSchedule.pickupTimeSlot);
   const [deliveryDate, setDeliveryDate] = useState(() => {
     const dayAfterTomorrow = new Date();
     dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);

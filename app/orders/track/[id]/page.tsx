@@ -111,7 +111,7 @@ export default function OrderTrackingPage() {
             if (isMounted) setPendingAdjustment(null);
           } else if (adjStatus.status === 'pending' && adjStatus.attempt) {
             if (isMounted) setPendingAdjustment(adjStatus.attempt);
-          } else if (liveOrder.paymentStatus === 'paid' && liveOrder.finalWeightKg && liveOrder.estimatedWeightKg && liveOrder.finalWeightKg > liveOrder.estimatedWeightKg) {
+          } else if (liveOrder.paymentStatus === 'paid' && liveOrder.finalWeightKg !== undefined && liveOrder.finalWeightKg !== null) {
             try {
               const sessionRes = await (supabase?.auth?.getSession() || Promise.resolve({ data: { session: null } }));
               const token = sessionRes?.data?.session?.access_token;
