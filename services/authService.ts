@@ -476,9 +476,7 @@ export const authService = {
   },
 
   logoutSync(): void {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-    }
+    this.setCurrentUserSync(null);
   },
 
   logout(): void {

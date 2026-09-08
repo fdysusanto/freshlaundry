@@ -9,6 +9,60 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   rightIcon?: React.ReactNode;
 }
 
+const NON_COLOR_TEXT_SUFFIXES = new Set([
+  'xs',
+  'sm',
+  'base',
+  'lg',
+  'xl',
+  '2xl',
+  '3xl',
+  '4xl',
+  '5xl',
+  '6xl',
+  '7xl',
+  '8xl',
+  '9xl',
+  'left',
+  'center',
+  'right',
+  'justify',
+  'start',
+  'end',
+  'ellipsis',
+  'clip',
+  'truncate',
+  'wrap',
+  'nowrap',
+  'balance',
+  'pretty',
+]);
+
+export function hasCustomTextColor(className: string): boolean {
+  if (!className) return false;
+  const tokens = className.trim().split(/\s+/);
+
+  for (const rawToken of tokens) {
+    const token = rawToken.replace(/^([a-z0-9-]+:)+/i, '');
+
+    if (token.startsWith('text-')) {
+      const suffix = token.slice(5);
+
+      if (NON_COLOR_TEXT_SUFFIXES.has(suffix)) {
+        continue;
+      }
+
+      if (/^\[\d+(?:\.\d+)?(?:px|rem|em|%)\]$/.test(suffix)) {
+        continue;
+      }
+
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export const Button: React.FC<ButtonProps> = ({
   children,
   variant = 'primary',
@@ -24,7 +78,7 @@ export const Button: React.FC<ButtonProps> = ({
     'inline-flex items-center justify-center font-semibold transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-offset-2 active:scale-98 disabled:opacity-50 disabled:pointer-events-none disabled:active:scale-100 rounded-xl cursor-pointer';
 
   const hasCustomBg = /\bbg-/.test(className);
-  const hasCustomText = /\btext-/.test(className);
+  const hasCustomText = hasCustomTextColor(className);
 
   const variants = {
     primary: `${hasCustomBg ? '' : 'bg-brand-primary hover:bg-brand-primary/90'} ${hasCustomText ? '' : 'text-white'} shadow-md hover:shadow-lg shadow-brand-primary/20 focus:ring-brand-primary`,

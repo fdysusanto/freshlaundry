@@ -6,21 +6,20 @@ import { usePathname, useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { UserProfile, UserRole } from '@/types/user';
+import { UserAccountDropdown } from './UserAccountDropdown';
 import {
   Sparkles,
   User,
   Users,
   Truck,
   ShieldCheck,
-  LogOut,
-  Menu,
-  X,
   PackageCheck,
   ChevronDown,
   BarChart3,
   Store,
   Package,
   RotateCcw,
+  LogOut,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -33,7 +32,6 @@ export const Navbar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
 
   useEffect(() => {
@@ -51,20 +49,6 @@ export const Navbar: React.FC = () => {
       isMounted = false;
     };
   }, [pathname]);
-
-  const handleLogout = async () => {
-    try {
-      await authService.signOut();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Gagal melakukan logout.';
-      alert(message);
-      return;
-    }
-    setCurrentUser(null);
-    setIsMobileMenuOpen(false);
-    setIsRoleModalOpen(false);
-    router.push('/login');
-  };
 
   const handleRoleSwitch = (role: UserRole) => {
     if (isSupabaseConfigured) {
@@ -118,7 +102,7 @@ export const Navbar: React.FC = () => {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
+          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-700">
             <Link
               href="/"
               className={`hover:text-brand-primary transition-colors ${
@@ -227,160 +211,59 @@ export const Navbar: React.FC = () => {
             )}
           </nav>
 
-          {/* User Profile & Demo Role Switcher */}
-          <div className="flex items-center gap-3">
+          {/* Header Right Actions: CTA + User Profile / Avatar */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
             {currentUser ? (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (!isSupabaseConfigured) {
-                      setIsRoleModalOpen(true);
-                    }
-                  }}
-                  className={`flex items-center gap-2 p-1.5 sm:px-3 sm:py-2 rounded-xl border border-slate-200 bg-slate-50/80 transition-all text-left ${
-                    !isSupabaseConfigured ? 'hover:border-brand-secondary hover:bg-brand-surface group cursor-pointer' : 'cursor-default'
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-brand-primary text-white font-bold flex items-center justify-center text-xs shadow-sm">
-                    {currentUser.fullName ? currentUser.fullName.charAt(0) : 'U'}
-                  </div>
-                  <div className="hidden sm:block">
-                    <p className="text-xs font-bold text-slate-800 leading-tight">
-                      {currentUser.fullName || 'Pengguna'}
-                    </p>
-                    <div className="flex items-center gap-1">
-                      <Badge variant={getRoleBadgeVariant(currentUser.role)} size="sm">
-                        {getRoleLabel(currentUser.role)}
-                      </Badge>
-                      {!isSupabaseConfigured && <ChevronDown className="w-3 h-3 text-slate-400" />}
-                    </div>
-                  </div>
-                </button>
-
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 {(!currentUser || currentUser?.role === 'customer') && (
                   <Button
                     variant="primary"
                     size="sm"
                     onClick={() => router.push('/customer/laundries')}
-                    leftIcon={<PackageCheck className="w-4 h-4" />}
-                    className="hidden lg:inline-flex"
+                    leftIcon={<PackageCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />}
+                    className="inline-flex items-center sm:text-sm font-bold shrink-0 px-2.5 sm:px-3.5"
                   >
-                    Pesan Laundry
+                    <span className="hidden sm:inline">Pesan Laundry</span>
+                    <span className="inline sm:hidden">+ Pesan</span>
                   </Button>
                 )}
+
+                <div className="shrink-0">
+                  <UserAccountDropdown
+                    currentUser={currentUser}
+                    onOpenRoleModal={() => setIsRoleModalOpen(true)}
+                    onLogoutSuccess={() => {
+                      setCurrentUser(null);
+                      setIsRoleModalOpen(false);
+                      router.push('/login');
+                    }}
+                  />
+                </div>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => router.push('/customer/laundries')}
+                  leftIcon={<PackageCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />}
+                  className="inline-flex items-center sm:text-sm font-bold shrink-0 px-2.5 sm:px-3.5"
+                >
+                  <span className="hidden sm:inline">Pesan Laundry</span>
+                  <span className="inline sm:hidden">+ Pesan</span>
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => router.push('/login')}
+                  className="text-xs sm:text-sm px-2.5 sm:px-3 shrink-0"
                 >
                   Masuk
                 </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => router.push('/register')}
-                >
-                  Daftar
-                </Button>
               </div>
             )}
-
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 text-slate-600 hover:text-brand-primary rounded-xl hover:bg-slate-100 transition-colors"
-            >
-              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
           </div>
         </div>
-
-        {/* Mobile Navigation Drawer */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden border-b border-slate-100 bg-white/95 backdrop-blur-md px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top duration-200">
-            <Link
-              href="/"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-brand-surface hover:text-brand-primary"
-            >
-              Beranda
-            </Link>
-            {(!currentUser || currentUser?.role === 'customer') && (
-              <Link
-                href="/customer/laundries"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-brand-surface hover:text-brand-primary"
-              >
-                Cari Laundry
-              </Link>
-            )}
-            {currentUser?.role === 'customer' && (
-              <Link
-                href="/customer"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-brand-surface hover:text-brand-primary"
-              >
-                Dashboard Pelanggan
-              </Link>
-            )}
-            {(!currentUser || currentUser?.role === 'customer') && (
-              <Link
-                href="/customer/laundries"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-brand-primary font-bold bg-brand-surface"
-              >
-                + Pesan Laundry Pickup
-              </Link>
-            )}
-
-            {currentUser?.role === 'courier' && (
-              <Link
-                href="/courier"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-brand-surface hover:text-brand-primary"
-              >
-                Courier Portal
-              </Link>
-            )}
-
-            {(currentUser?.role === 'laundry_owner' || currentUser?.role === 'laundry_staff') && (
-              <Link
-                href="/owner"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-brand-surface hover:text-brand-primary"
-              >
-                Owner Laundry
-              </Link>
-            )}
-
-            {(currentUser?.role === 'admin' || currentUser?.role === 'platform_admin') && (
-              <Link
-                href="/admin"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-slate-700 font-medium hover:bg-brand-surface hover:text-brand-primary"
-              >
-                Admin Portal
-              </Link>
-            )}
-
-            {currentUser && (
-              <div className="pt-3 border-t border-slate-100">
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-left px-3 py-2 text-xs font-bold text-rose-600 bg-rose-50 rounded-lg flex items-center justify-between hover:bg-rose-100 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <LogOut className="w-4 h-4" />
-                    <span>Keluar Akun ({currentUser.email || currentUser.fullName})</span>
-                  </div>
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </header>
 
       {/* Demo Role Switcher Modal (Only active in Offline/Unconfigured mode) */}
