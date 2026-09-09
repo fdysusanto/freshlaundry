@@ -47,19 +47,30 @@ export const CuciyanHero: React.FC = () => {
 
             {/* Subheadline */}
             <p className="text-sm sm:text-base lg:text-lg text-slate-600 leading-relaxed max-w-xl mx-auto lg:mx-0 font-medium">
-              CUCIYAN segera hadir di Cirebon dengan layanan laundry pickup &amp; delivery yang praktis. Segera hadir di Cirebon.
+              CUCIYAN adalah platform yang menghubungkan pelanggan di Cirebon dengan mitra laundry lokal melalui layanan pickup &amp; delivery.
             </p>
 
+            {/* Marketplace Ecosystem Micro-Indicator */}
+            <div className="pt-1 flex justify-center lg:justify-start">
+              <div className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-2xl bg-cyan-50/90 border border-cyan-200/80 text-slate-700 text-[11px] sm:text-xs font-bold shadow-2xs">
+                <span className="px-2 py-0.5 rounded-lg bg-white text-slate-800 font-extrabold shadow-2xs border border-slate-200/60">Pelanggan</span>
+                <span className="text-cyan-600 font-black">→</span>
+                <span className="px-2 py-0.5 rounded-lg bg-cyan-600 text-white font-extrabold shadow-2xs">CUCIYAN Platform</span>
+                <span className="text-cyan-600 font-black">→</span>
+                <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-900 font-extrabold shadow-2xs border border-emerald-200/60">Mitra Laundry Lokal</span>
+              </div>
+            </div>
+
             {/* 3 Value Proposition Chips */}
-            <div className="pt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-200/70 max-w-xl mx-auto lg:mx-0 text-left">
+            <div className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-slate-200/70 max-w-xl mx-auto lg:mx-0 text-left">
               
               <div className="flex items-start gap-2.5 bg-white/70 p-3 rounded-2xl border border-slate-200/60 shadow-2xs">
                 <div className="w-8 h-8 rounded-xl bg-cyan-100/80 text-cyan-700 flex items-center justify-center shrink-0 mt-0.5">
                   <MapPin className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-black text-slate-900">Pertama di Cirebon</p>
-                  <p className="text-[11px] text-slate-500 font-medium">Fokus melayani kota Cirebon</p>
+                  <p className="text-xs font-black text-slate-900">Platform Laundry Cirebon</p>
+                  <p className="text-[11px] text-slate-500 font-medium">Menghubungkan laundry lokal</p>
                 </div>
               </div>
 
@@ -68,8 +79,8 @@ export const CuciyanHero: React.FC = () => {
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-black text-slate-900">Aman &amp; Terpercaya</p>
-                  <p className="text-[11px] text-slate-500 font-medium">Cucian ditangani profesional</p>
+                  <p className="text-xs font-black text-slate-900">Mitra Laundry Lokal</p>
+                  <p className="text-[11px] text-slate-500 font-medium">Partner penyedia layanan</p>
                 </div>
               </div>
 
@@ -78,8 +89,8 @@ export const CuciyanHero: React.FC = () => {
                   <Leaf className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-black text-slate-900">Lebih Praktis</p>
-                  <p className="text-[11px] text-slate-500 font-medium">Hemat waktu tanpa repot</p>
+                  <p className="text-xs font-black text-slate-900">Pickup &amp; Delivery</p>
+                  <p className="text-[11px] text-slate-500 font-medium">Kurir antar-jemput</p>
                 </div>
               </div>
 

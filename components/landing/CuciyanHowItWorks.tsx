@@ -73,7 +73,7 @@ export const CuciyanHowItWorks: React.FC = () => {
             <div className="space-y-2">
               <h3 className="text-lg font-black text-slate-900">LAUNDRY</h3>
               <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
-                Cucian diproses oleh mitra laundry.
+                Cucian diproses oleh mitra laundry lokal.
               </p>
             </div>
           </div>

@@ -45,7 +45,7 @@ export const Footer: React.FC = () => {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 text-center sm:text-left">
           <p>© 2026 {BRAND.name}. Hak Cipta Dilindungi.</p>
           <div className="flex items-center gap-4">
-            <span className="text-cyan-400 font-medium">Cirebon Operasional</span>
+            <span className="text-cyan-400 font-medium">Platform Marketplace Laundry Pickup &amp; Delivery • Cirebon</span>
           </div>
         </div>
 

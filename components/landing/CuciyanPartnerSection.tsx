@@ -52,7 +52,7 @@ export const CuciyanPartnerSection: React.FC = () => {
               </div>
 
               <p className="text-xs sm:text-sm lg:text-base text-slate-600 font-medium leading-relaxed max-w-xl">
-                Perluas jangkauan pelanggan dan kembangkan bisnis laundry Anda bersama CUCIYAN.
+                Usaha laundry Anda tetap mandiri. CUCIYAN membantu menghadirkan channel pesanan baru dan memperluas jangkauan pelanggan Anda.
               </p>
 
               {/* Action CTA & Benefits Checklist */}
@@ -70,17 +70,17 @@ export const CuciyanPartnerSection: React.FC = () => {
                 <div className="space-y-2.5 pt-2">
                   <div className="flex items-center gap-2.5 text-xs sm:text-sm font-bold text-slate-700">
                     <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>Jangkauan pelanggan lebih luas</span>
+                    <span>Toko laundry Anda tetap mandiri dengan brand sendiri</span>
                   </div>
 
                   <div className="flex items-center gap-2.5 text-xs sm:text-sm font-bold text-slate-700">
                     <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>Proses mudah dan transparan</span>
+                    <span>Channel pesanan baru dari aplikasi pelanggan</span>
                   </div>
 
                   <div className="flex items-center gap-2.5 text-xs sm:text-sm font-bold text-slate-700">
                     <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>Bersama membangun ekosistem laundry modern</span>
+                    <span>Proses kemitraan mudah, praktis, dan transparan</span>
                   </div>
                 </div>
 
