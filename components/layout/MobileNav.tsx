@@ -10,6 +10,13 @@ import { Home, Search, Package, User, Truck, Store, BarChart3, Users, RotateCcw,
 
 import { OwnerMobileNavigation } from '@/components/owner/OwnerMobileNavigation';
 
+export function shouldShowMobileNav(pathname: string): boolean {
+  if (pathname === '/' || pathname.startsWith('/register/partner')) {
+    return false;
+  }
+  return true;
+}
+
 export const MobileNav: React.FC = () => {
   const pathname = usePathname();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -32,7 +39,7 @@ export const MobileNav: React.FC = () => {
 
   const role = currentUser?.role;
 
-  if (pathname === '/') {
+  if (!shouldShowMobileNav(pathname)) {
     return null;
   }
 
