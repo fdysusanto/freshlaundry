@@ -2,43 +2,58 @@ export function shouldShowPartnerCta(pathname: string): boolean {
   return pathname === '/';
 }
 
+export function shouldShowAccountCta(pathname: string): boolean {
+  return pathname !== '/';
+}
+
 console.log('==================================================');
-console.log('RUNNING NAVBAR PARTNER CTA VISIBILITY TEST SUITE');
+console.log('RUNNING NAVBAR CTA VISIBILITY TEST SUITE');
 console.log('==================================================');
 
 const routesToTest = [
-  { route: '/', expected: true, label: 'Public Landing Page' },
-  { route: '/login', expected: false, label: 'Login Page' },
-  { route: '/register', expected: false, label: 'Register Page' },
-  { route: '/register/partner', expected: false, label: 'Partner Registration Page' },
-  { route: '/customer', expected: false, label: 'Customer Dashboard' },
-  { route: '/customer/orders', expected: false, label: 'Customer Orders Page' },
-  { route: '/customer/account', expected: false, label: 'Customer Account Page' },
-  { route: '/courier', expected: false, label: 'Courier Portal' },
-  { route: '/courier/job-pool', expected: false, label: 'Courier Job Pool' },
-  { route: '/owner', expected: false, label: 'Laundry Owner Dashboard' },
-  { route: '/admin', expected: false, label: 'Admin Monitoring' },
-  { route: '/admin/partner-applications', expected: false, label: 'Admin Applications' },
+  { route: '/', expectedAccount: false, expectedPartner: true, label: 'Public Landing Page' },
+  { route: '/login', expectedAccount: true, expectedPartner: false, label: 'Login Page' },
+  { route: '/register', expectedAccount: true, expectedPartner: false, label: 'Register Page' },
+  { route: '/register/partner', expectedAccount: true, expectedPartner: false, label: 'Partner Registration Page' },
+  { route: '/customer', expectedAccount: true, expectedPartner: false, label: 'Customer Dashboard' },
+  { route: '/customer/orders', expectedAccount: true, expectedPartner: false, label: 'Customer Orders Page' },
+  { route: '/customer/account', expectedAccount: true, expectedPartner: false, label: 'Customer Account Page' },
+  { route: '/courier', expectedAccount: true, expectedPartner: false, label: 'Courier Portal' },
+  { route: '/courier/account', expectedAccount: true, expectedPartner: false, label: 'Courier Account Page' },
+  { route: '/courier/job-pool', expectedAccount: true, expectedPartner: false, label: 'Courier Job Pool' },
+  { route: '/owner', expectedAccount: true, expectedPartner: false, label: 'Laundry Owner Dashboard' },
+  { route: '/admin', expectedAccount: true, expectedPartner: false, label: 'Admin Monitoring' },
+  { route: '/admin/partner-applications', expectedAccount: true, expectedPartner: false, label: 'Admin Applications' },
 ];
 
 let passed = 0;
 let failed = 0;
 
 for (const testCase of routesToTest) {
-  const actual = shouldShowPartnerCta(testCase.route);
-  if (actual === testCase.expected) {
-    console.log(`[PASS] Route "${testCase.route}" (${testCase.label}) => Partner CTA is ${actual ? 'VISIBLE' : 'HIDDEN'}`);
+  const actualPartner = shouldShowPartnerCta(testCase.route);
+  const actualAccount = shouldShowAccountCta(testCase.route);
+
+  const partnerOk = actualPartner === testCase.expectedPartner;
+  const accountOk = actualAccount === testCase.expectedAccount;
+
+  if (partnerOk && accountOk) {
+    console.log(
+      `[PASS] Route "${testCase.route}" (${testCase.label}) => Account CTA: ${actualAccount ? 'VISIBLE' : 'HIDDEN'}, Partner CTA: ${actualPartner ? 'VISIBLE' : 'HIDDEN'}`
+    );
     passed++;
   } else {
-    console.error(`[FAIL] Route "${testCase.route}" (${testCase.label}) => Expected ${testCase.expected ? 'VISIBLE' : 'HIDDEN'}, but got ${actual ? 'VISIBLE' : 'HIDDEN'}`);
+    console.error(
+      `[FAIL] Route "${testCase.route}" (${testCase.label}) => Expected Account=${testCase.expectedAccount ? 'VISIBLE' : 'HIDDEN'}, Partner=${testCase.expectedPartner ? 'VISIBLE' : 'HIDDEN'}, but got Account=${actualAccount ? 'VISIBLE' : 'HIDDEN'}, Partner=${actualPartner ? 'VISIBLE' : 'HIDDEN'}`
+    );
     failed++;
   }
 }
 
 console.log('==================================================');
-console.log(`NAVBAR PARTNER CTA VISIBILITY RESULTS: ${passed} PASSED, ${failed} FAILED`);
+console.log(`NAVBAR CTA VISIBILITY RESULTS: ${passed} PASSED, ${failed} FAILED`);
 console.log('==================================================');
 
 if (failed > 0) {
   process.exit(1);
 }
+

@@ -76,30 +76,32 @@ export const Navbar: React.FC = () => {
 
           {/* Header Right Actions: Existing Account CTA / Dropdown + Partner Registration CTA (Only on "/") */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
-            {/* Account Action (Restored Existing Account Logic) */}
-            {currentUser ? (
-              <div className="shrink-0">
-                <UserAccountDropdown
-                  currentUser={currentUser}
-                  onOpenRoleModal={() => setIsRoleModalOpen(true)}
-                  onLogoutSuccess={() => {
-                    setCurrentUser(null);
-                    setIsRoleModalOpen(false);
-                    router.push('/login');
-                  }}
-                />
-              </div>
-            ) : (
-              <div className="shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push('/login')}
-                  className="text-xs sm:text-sm px-2.5 sm:px-3 font-bold border-slate-300 text-slate-700 shrink-0"
-                >
-                  Masuk
-                </Button>
-              </div>
+            {/* Account Action (Hidden on Public Landing Page "/") */}
+            {!isPublicLandingPage && (
+              currentUser ? (
+                <div className="shrink-0">
+                  <UserAccountDropdown
+                    currentUser={currentUser}
+                    onOpenRoleModal={() => setIsRoleModalOpen(true)}
+                    onLogoutSuccess={() => {
+                      setCurrentUser(null);
+                      setIsRoleModalOpen(false);
+                      router.push('/login');
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push('/login')}
+                    className="text-xs sm:text-sm px-2.5 sm:px-3 font-bold border-slate-300 text-slate-700 shrink-0"
+                  >
+                    Masuk
+                  </Button>
+                </div>
+              )
             )}
 
             {/* Partner Registration CTA - Strictly ONLY VISIBLE ON PUBLIC LANDING PAGE ("/") */}
