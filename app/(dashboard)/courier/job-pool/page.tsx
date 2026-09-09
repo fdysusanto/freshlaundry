@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { authService } from '@/services/authService';
 import { supabase } from '@/services/supabase';
-import { courierJobPoolService, CourierJobPoolResponse, getWibTodayDateString } from '@/services/courierJobPoolService';
+import { courierJobPoolService, CourierJobPoolResponse, getWibTodayDateString, getWibTomorrowDateString } from '@/services/courierJobPoolService';
 import { UserProfile } from '@/types/user';
 import { CourierDateSelector } from '@/components/courier/CourierDateSelector';
 import { JobPoolSlotCard } from '@/components/courier/JobPoolSlotCard';
@@ -41,6 +41,16 @@ export default function CourierJobPoolPage() {
   useEffect(() => {
     const user = authService.getCurrentUser();
     setCurrentUser(user);
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const dateParam = params.get('date');
+      if (dateParam === 'tomorrow') {
+        setSelectedDate(getWibTomorrowDateString());
+      } else if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+        setSelectedDate(dateParam);
+      }
+    }
   }, []);
 
   const loadJobPoolData = async (dateStr: string) => {

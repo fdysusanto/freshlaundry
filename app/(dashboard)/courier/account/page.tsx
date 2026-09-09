@@ -1,19 +1,23 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { orderService } from '@/services/orderService';
+import { courierJobPoolService, TomorrowJobPoolSummary, getWibTomorrowDateString } from '@/services/courierJobPoolService';
 import { UserProfile } from '@/types/user';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { User, LogOut, ShieldCheck, Truck, CheckCircle2, Clock, MapPin, Phone, Mail } from 'lucide-react';
+import { formatDateIndo } from '@/utils/formatters';
+import { User, LogOut, ShieldCheck, Truck, CheckCircle2, Clock, MapPin, Phone, Mail, Package, ArrowRight } from 'lucide-react';
 
 export default function CourierAccountPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [completedCount, setCompletedCount] = useState<number>(0);
   const [activeCount, setActiveCount] = useState<number>(0);
+  const [tomorrowPool, setTomorrowPool] = useState<TomorrowJobPoolSummary | null>(null);
 
   useEffect(() => {
     const user = authService.getCurrentUser();
@@ -32,6 +36,12 @@ export default function CourierAccountPage() {
       };
       fetchOrders();
     }
+
+    // Read-only operational forecast query for tomorrow's job pool
+    courierJobPoolService
+      .getTomorrowJobPoolSummaryAsync()
+      .then((summary) => setTomorrowPool(summary))
+      .catch((err) => console.warn('Failed loading tomorrow job pool summary:', err));
   }, []);
 
   const handleLogout = async () => {
@@ -40,6 +50,10 @@ export default function CourierAccountPage() {
       router.push('/login');
     }
   };
+
+  const targetJobPoolUrl = tomorrowPool?.date
+    ? `/courier/job-pool?date=${tomorrowPool.date}`
+    : `/courier/job-pool?date=${getWibTomorrowDateString()}`;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 pb-24">
@@ -95,6 +109,71 @@ export default function CourierAccountPage() {
           <p className="text-xs font-bold text-slate-500 uppercase mt-0.5">Tugas Selesai</p>
         </Card>
       </div>
+
+      {/* Tomorrow Job Pool Forecast Summary Card (Clickable Entry Point to Tomorrow Job Pool) */}
+      <Link href={targetJobPoolUrl} className="block group">
+        <Card
+          variant="white"
+          className="p-5 border-amber-200 bg-amber-50/40 space-y-3 shadow-xs group-hover:border-amber-400 group-hover:bg-amber-50/80 group-hover:shadow-md transition-all cursor-pointer relative"
+        >
+          <div className="flex items-center justify-between border-b border-amber-100 pb-2.5">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                <Package className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-xs font-black text-amber-900 uppercase tracking-tight flex items-center gap-1.5">
+                  📦 JOB POOL BESOK
+                </h2>
+                <p className="text-[11px] text-amber-800 font-medium">
+                  {tomorrowPool?.date ? formatDateIndo(tomorrowPool.date) : 'Persiapan Logistik Operasional'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="amber" className="font-black text-[10px] hidden sm:inline-flex">
+                ESTIMASI OPERASIONAL
+              </Badge>
+              <span className="text-xs font-bold text-amber-700 group-hover:text-amber-900 flex items-center gap-1 group-hover:translate-x-0.5 transition-all bg-amber-100/80 px-2.5 py-1 rounded-lg border border-amber-200">
+                Lihat Job Besok <ArrowRight className="w-3.5 h-3.5" />
+              </span>
+            </div>
+          </div>
+
+          {tomorrowPool ? (
+            <div className="space-y-2.5">
+              <div className="flex items-baseline justify-between">
+                <span className="text-3xl font-black text-slate-900">
+                  ± {tomorrowPool.totalCount} JOB
+                </span>
+                <span className="text-xs font-bold text-slate-500 sm:hidden">
+                  ESTIMASI OPERASIONAL
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4 text-xs font-bold text-slate-700 bg-white/90 p-3 rounded-xl border border-amber-200/80 shadow-2xs">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-sky-500 inline-block" />
+                  Pickup: <strong className="text-slate-900">{tomorrowPool.pickupCount}</strong>
+                </span>
+                <span className="text-slate-300">·</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block" />
+                  Delivery: <strong className="text-slate-900">{tomorrowPool.deliveryCount}</strong>
+                </span>
+              </div>
+
+              <p className="text-[11px] text-amber-800 font-medium italic">
+                * Jumlah sementara untuk persiapan kerja besok. Angka ini dapat berubah sesuai order masuk, pembatalan, atau perubahan jadwal.
+              </p>
+            </div>
+          ) : (
+            <div className="p-4 text-center text-xs font-medium text-slate-500">
+              Memuat estimasi job pool besok...
+            </div>
+          )}
+        </Card>
+      </Link>
 
       {/* Driver Information Details */}
       <Card variant="white" className="p-5 border-slate-200 space-y-4">

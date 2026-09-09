@@ -44,6 +44,25 @@ export function getWibTodayDateString(now: Date = new Date()): string {
 }
 
 /**
+ * Returns tomorrow's date string in Asia/Jakarta WIB timezone (YYYY-MM-DD)
+ */
+export function getWibTomorrowDateString(nowInput: Date | string = new Date()): string {
+  const now = typeof nowInput === 'string' ? new Date(nowInput) : nowInput;
+  const todayStr = getWibTodayDateString(now);
+  const [year, month, day] = todayStr.split('-').map(Number);
+  const todayDate = new Date(Date.UTC(year, month - 1, day));
+  todayDate.setUTCDate(todayDate.getUTCDate() + 1);
+  return todayDate.toISOString().split('T')[0];
+}
+
+export interface TomorrowJobPoolSummary {
+  date: string;
+  pickupCount: number;
+  deliveryCount: number;
+  totalCount: number;
+}
+
+/**
  * Calculates claimableAt ISO timestamp (Slot Start - 15 minutes) for a slot and date in WIB
  */
 export function getSlotClaimableAtIso(dateStr: string, timeSlotStr: string): string {
@@ -272,6 +291,63 @@ export const courierJobPoolService = {
       timeSlot: params.timeSlot,
       claimedCount: res.claimedCount,
       claimedOrderIds: res.claimedOrderIds,
+      message: res.message,
+    };
+  },
+
+  /**
+   * Fetches operational forecast summary for Tomorrow's Courier Job Pool.
+   * READ-ONLY: Returns ONLY count aggregates. Zero customer PII, zero mutations.
+   */
+  async getTomorrowJobPoolSummaryAsync(
+    nowInput: Date | string = new Date(),
+    client?: any
+  ): Promise<TomorrowJobPoolSummary> {
+    const now = typeof nowInput === 'string' ? new Date(nowInput) : nowInput;
+    const tomorrowDate = getWibTomorrowDateString(now);
+    const db = client !== undefined ? client : (isSupabaseConfigured ? supabase : null);
+
+    let pickupCount = 0;
+    let deliveryCount = 0;
+
+    if (db && typeof db.from === 'function') {
+      // Query Pickup Pool for Tomorrow
+      const { count: pCount } = await db
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('pickup_date', tomorrowDate)
+        .not('status', 'in', '("cancelled","delivered","in_washing","ready_for_delivery","out_for_delivery")');
+
+      pickupCount = pCount || 0;
+
+      // Query Delivery Pool for Tomorrow
+      const { count: dCount } = await db
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('delivery_date', tomorrowDate)
+        .not('status', 'in', '("cancelled","delivered")');
+
+      deliveryCount = dCount || 0;
+    } else {
+      const allOrders = orderService.getOrders();
+      pickupCount = allOrders.filter(
+        (o) =>
+          o.pickupDate === tomorrowDate &&
+          !['cancelled', 'delivered', 'in_washing', 'ready_for_delivery', 'out_for_delivery'].includes(o.status)
+      ).length;
+
+      deliveryCount = allOrders.filter(
+        (o) =>
+          o.deliveryDate === tomorrowDate &&
+          !['cancelled', 'delivered'].includes(o.status)
+      ).length;
+    }
+
+    return {
+      date: tomorrowDate,
+      pickupCount,
+      deliveryCount,
+      totalCount: pickupCount + deliveryCount,
     };
   },
 };
