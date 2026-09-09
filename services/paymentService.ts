@@ -613,6 +613,94 @@ export const paymentService = {
   },
 
   /**
+   * Batch lookup helper to retrieve adjustment payment statuses for multiple order IDs in a SINGLE query.
+   */
+  async getAdjustmentPaymentStatusesBatchAsync(
+    orderIds: string[],
+    client?: any
+  ): Promise<Record<string, { exists: boolean; status: 'paid' | 'pending' | 'none'; amount: number; paidAt?: string; attempt: PaymentAttempt | null }>> {
+    const result: Record<string, { exists: boolean; status: 'paid' | 'pending' | 'none'; amount: number; paidAt?: string; attempt: PaymentAttempt | null }> = {};
+    if (!orderIds || orderIds.length === 0) return result;
+
+    const db = client || (isSupabaseConfigured ? supabase : null);
+
+    if (db) {
+      const { data: attempts } = await (db.from('payment_attempts') as any)
+        .select('*')
+        .in('order_id', orderIds)
+        .eq('adjustment_type', 'weight_increase')
+        .order('created_at', { ascending: false });
+
+      const attemptsByOrderId: Record<string, any[]> = {};
+      (attempts || []).forEach((a: any) => {
+        if (!attemptsByOrderId[a.order_id]) attemptsByOrderId[a.order_id] = [];
+        attemptsByOrderId[a.order_id].push(a);
+      });
+
+      orderIds.forEach((id) => {
+        const orderAttempts = attemptsByOrderId[id];
+        if (orderAttempts && orderAttempts.length > 0) {
+          const paidAttempt = orderAttempts.find((a: any) => normalizePaymentStatus(a.status) === 'paid');
+          const target = paidAttempt || orderAttempts[0];
+          const normStatus = normalizePaymentStatus(target.status);
+          const status = normStatus === 'paid' ? 'paid' : normStatus === 'pending' ? 'pending' : 'none';
+          const attemptObj: PaymentAttempt = {
+            id: target.id,
+            orderId: target.order_id,
+            customerId: target.customer_id,
+            provider: target.provider,
+            providerReference: target.provider_reference || undefined,
+            paymentMethod: target.payment_method,
+            amount: Number(target.amount),
+            currency: 'IDR',
+            status: normStatus,
+            adjustmentType: target.adjustment_type || 'weight_increase',
+            idempotencyKey: target.idempotency_key,
+            expiresAt: target.expires_at || undefined,
+            paidAt: target.paid_at || undefined,
+            rawResponse: target.raw_response,
+            createdAt: target.created_at,
+            updatedAt: target.updated_at,
+            invoiceUrl: target.raw_response?.invoice_url || target.raw_response?.redirect_url,
+            paymentToken: target.raw_response?.token || target.raw_response?.snap_token,
+            paymentUrl: target.raw_response?.redirect_url || target.raw_response?.invoice_url,
+          };
+          result[id] = {
+            exists: true,
+            status,
+            amount: attemptObj.amount,
+            paidAt: attemptObj.paidAt,
+            attempt: attemptObj,
+          };
+        } else {
+          result[id] = { exists: false, status: 'none', amount: 0, attempt: null };
+        }
+      });
+    } else {
+      const mockPayments = this.getMockPayments();
+      orderIds.forEach((id) => {
+        const attempts = mockPayments.filter((p) => p.orderId === id && p.adjustmentType === 'weight_increase');
+        if (attempts.length > 0) {
+          const paidAttempt = attempts.find((p) => p.status === 'paid');
+          const target = paidAttempt || attempts[0];
+          const status = target.status === 'paid' ? 'paid' : target.status === 'pending' ? 'pending' : 'none';
+          result[id] = {
+            exists: true,
+            status,
+            amount: target.amount,
+            paidAt: target.paidAt,
+            attempt: target,
+          };
+        } else {
+          result[id] = { exists: false, status: 'none', amount: 0, attempt: null };
+        }
+      });
+    }
+
+    return result;
+  },
+
+  /**
    * Controlled Payment State Machine Transition.
    * Uses Atomic Conditional Update to prevent race conditions.
    */

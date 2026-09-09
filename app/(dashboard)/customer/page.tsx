@@ -16,13 +16,13 @@ import { getStatusConfig } from '@/utils/helpers';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { ShoppingBag, Truck, Eye, Search } from 'lucide-react';
+import { ShoppingBag, Truck, Eye, Search, AlertTriangle } from 'lucide-react';
 
 export default function CustomerDashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [adjStatuses, setAdjStatuses] = useState<Record<string, 'paid' | 'pending' | 'none'>>({});
+  const [adjStatuses, setAdjStatuses] = useState<Record<string, { exists: boolean; status: 'paid' | 'pending' | 'none'; amount: number }>>({});
   const [partnerApp, setPartnerApp] = useState<PartnerApplicationRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -81,19 +81,9 @@ export default function CustomerDashboardPage() {
       }
 
       if (isMounted && loadedOrders.length > 0) {
-        const statusPromises = loadedOrders
-          .filter((o) => o.finalWeightKg !== undefined && o.finalWeightKg !== null)
-          .map(async (o) => {
-            const res = await paymentService.getAdjustmentPaymentStatusAsync(o.id);
-            return { id: o.id, status: res.status };
-          });
-
-        const results = await Promise.all(statusPromises);
-        const map: Record<string, 'paid' | 'pending' | 'none'> = {};
-        results.forEach((r) => {
-          map[r.id] = r.status;
-        });
-        if (isMounted) setAdjStatuses(map);
+        const orderIds = loadedOrders.map((o) => o.id);
+        const batchMap = await paymentService.getAdjustmentPaymentStatusesBatchAsync(orderIds);
+        if (isMounted) setAdjStatuses(batchMap);
       }
     };
 
@@ -200,7 +190,7 @@ export default function CustomerDashboardPage() {
         </Card>
       ) : null}
 
-      {/* Active Orders Section (Quick Overview) */}
+      {/* Active Orders Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -216,8 +206,8 @@ export default function CustomerDashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {activeOrders.slice(0, 2).map((o) => {
               const cfg = getStatusConfig(o.status);
-              const adjStatus = adjStatuses[o.id] || 'none';
-              const { isShortfall } = calculateOrderShortfall(o, adjStatus);
+              const adjInfo = adjStatuses[o.id] || { exists: false, status: 'none', amount: 0 };
+              const { isShortfall, amount: shortfallAmount } = calculateOrderShortfall(o, adjInfo.status, adjInfo.amount);
               return (
                 <Card key={o.id} variant="white" className="hover:border-brand-secondary transition-all space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -226,11 +216,6 @@ export default function CustomerDashboardPage() {
                       <p className="text-sm font-black text-slate-900">{o.trackingNumber}</p>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      {isShortfall && (
-                        <Badge variant="amber" className="font-black animate-pulse">
-                          KURANG BAYAR
-                        </Badge>
-                      )}
                       <Badge variant={cfg.stepIndex >= 4 ? 'teal' : cfg.stepIndex >= 2 ? 'blue' : 'amber'}>
                         {cfg.label}
                       </Badge>
@@ -264,20 +249,24 @@ export default function CustomerDashboardPage() {
                     </div>
 
                     {isShortfall && (
-                      <div className="p-3 bg-amber-50 rounded-2xl border-2 border-amber-300 text-xs flex items-center justify-between text-amber-950 font-bold shadow-sm">
-                        <div className="space-y-0.5">
-                          <p className="font-black text-amber-900 uppercase tracking-wide text-[11px] flex items-center gap-1">
-                            ⚠️ KURANG BAYAR / SELISIH
+                      <div className="p-3.5 bg-amber-50 rounded-2xl border-2 border-amber-300 text-xs text-amber-950 font-bold shadow-sm space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="font-black text-amber-900 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                            ⚠️ ACTION REQUIRED: KURANG BAYAR
                           </p>
-                          <p className="text-[11px] text-amber-800 font-medium">
-                            Berat ditimbang ({o.finalWeightKg} kg) &gt; estimasi ({o.estimatedWeightKg || 5} kg)
-                          </p>
+                          <span className="font-black text-amber-900 text-sm">+{formatIDR(shortfallAmount)}</span>
                         </div>
-                        <Link href={`/orders/${o.id}`}>
-                          <Button size="sm" variant="primary" className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shrink-0">
-                            Bayar Kekurangan →
-                          </Button>
-                        </Link>
+                        <p className="text-[11px] text-amber-800 font-medium leading-relaxed">
+                          Berat ditimbang ({o.finalWeightKg} kg) &gt; estimasi ({o.estimatedWeightKg || 5} kg). Terdapat selisih pembayaran yang perlu diselesaikan.
+                        </p>
+                        <div className="pt-1 flex items-center justify-end">
+                          <Link href={`/orders/${o.id}`}>
+                            <Button size="sm" variant="primary" className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shrink-0 flex items-center gap-1">
+                              Bayar Selisih {shortfallAmount > 0 ? formatIDR(shortfallAmount) : ''} →
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
                     )}
                   </div>
