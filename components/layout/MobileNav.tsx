@@ -32,6 +32,10 @@ export const MobileNav: React.FC = () => {
 
   const role = currentUser?.role;
 
+  if (pathname === '/') {
+    return null;
+  }
+
   if (role === 'laundry_owner' || role === 'laundry_staff') {
     return <OwnerMobileNavigation />;
   }
