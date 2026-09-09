@@ -59,7 +59,7 @@ export default function CourierAccountPage() {
                 <ShieldCheck className="w-3.5 h-3.5" /> VERIFIED DRIVER
               </Badge>
             </div>
-            <p className="text-xs text-slate-500 font-medium">Logistik Partner FreshLaundry</p>
+            <p className="text-xs text-slate-500 font-medium">Logistik Partner CUCIYAN</p>
 
             <div className="pt-2 flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs text-slate-600 font-medium">
               <span className="flex items-center gap-1">

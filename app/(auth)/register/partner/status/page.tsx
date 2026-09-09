@@ -81,7 +81,7 @@ export default function PartnerApplicationStatusPage() {
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Status Pengajuan Mitra</h1>
           <p className="text-xs text-slate-500">
-            Status verifikasi outlet laundry Anda oleh tim platform FreshWash.
+            Status verifikasi outlet laundry Anda oleh tim platform CUCIYAN.
           </p>
         </div>
 
@@ -154,7 +154,7 @@ export default function PartnerApplicationStatusPage() {
                     <Clock className="w-4 h-4 text-amber-600 shrink-0" /> Pengajuan Anda sedang menunggu verifikasi.
                   </p>
                   <p className="text-amber-800 text-[11px] leading-relaxed pl-5">
-                    Tim verifikasi FreshWash sedang meninjau dokumen dan alamat outlet usaha Anda. Kami akan menghubungi nomor WhatsApp <strong>{application.owner_phone}</strong>.
+                    Tim verifikasi CUCIYAN sedang meninjau dokumen dan alamat outlet usaha Anda. Kami akan menghubungi nomor WhatsApp <strong>{application.owner_phone}</strong>.
                   </p>
                   <p className="text-amber-900 font-semibold text-[11px] pl-5 pt-1">
                     Anda tidak perlu membuat pengajuan baru. Tim kami sedang melakukan verifikasi.

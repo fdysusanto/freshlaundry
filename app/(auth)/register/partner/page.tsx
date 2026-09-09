@@ -533,7 +533,7 @@ function PartnerRegisterContent() {
             Pendaftaran Mitra Laundry
           </h1>
           <p className="text-xs text-slate-500">
-            Bergabunglah sebagai mitra resmi FreshWash untuk menjangkau ribuan pelanggan.
+            Bergabunglah sebagai mitra resmi CUCIYAN untuk menjangkau ribuan pelanggan.
           </p>
         </div>
 
@@ -1411,7 +1411,7 @@ function PartnerRegisterContent() {
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500 text-left mt-2">
                   <p className="font-bold text-slate-700 mb-1">Informasi Tahap Selanjutnya:</p>
                   <p className="leading-relaxed">
-                    Tim FreshLaundry akan melakukan verifikasi data usaha Anda. Kami akan menghubungi nomor WhatsApp <strong>{ownerPhone}</strong> setelah proses verifikasi selesai.
+                    Tim CUCIYAN akan melakukan verifikasi data usaha Anda. Kami akan menghubungi nomor WhatsApp <strong>{ownerPhone}</strong> setelah proses verifikasi selesai.
                   </p>
                 </div>
               </div>

@@ -40,8 +40,8 @@ async function runOrderCreationTests() {
       items: [{ serviceId: 'srv_001', quantity: 5 }], // 5 x 8000 = 40.000 subtotal
       pickupAddress: 'Jl. Sudirman No. 12, Jakarta',
       deliveryAddress: 'Jl. Sudirman No. 12, Jakarta',
-      pickupDate: '2026-08-20',
-      pickupTimeSlot: '10:00 - 12:00 WIB',
+      pickupDate: '2026-09-15',
+      pickupTimeSlot: '11:00 - 14:00 WIB',
       idempotencyKey: test1Key,
     },
     customer
@@ -63,8 +63,8 @@ async function runOrderCreationTests() {
       items: [{ serviceId: 'srv_001', quantity: 5 }],
       pickupAddress: 'Jl. Sudirman No. 12, Jakarta',
       deliveryAddress: 'Jl. Sudirman No. 12, Jakarta',
-      pickupDate: '2026-08-20',
-      pickupTimeSlot: '10:00 - 12:00 WIB',
+      pickupDate: '2026-09-15',
+      pickupTimeSlot: '11:00 - 14:00 WIB',
       idempotencyKey: test1Key, // SAME KEY!
     },
     customer
@@ -82,8 +82,8 @@ async function runOrderCreationTests() {
       laundryId: 'lnd_001',
       items: [{ serviceId: 'srv_001', quantity: 5, unitPrice: 1 }], // Client spoofed Rp 1 unitPrice!
       pickupAddress: 'Jl. Gatot Subroto No. 8, Jakarta',
-      pickupDate: '2026-08-21',
-      pickupTimeSlot: '14:00 - 16:00 WIB',
+      pickupDate: '2026-09-15',
+      pickupTimeSlot: '11:00 - 14:00 WIB',
       idempotencyKey: test3Key,
     },
     customer
@@ -101,8 +101,8 @@ async function runOrderCreationTests() {
         laundryId: 'lnd_001',
         items: [{ serviceId: 'srv_101', quantity: 2 }],
         pickupAddress: 'Jl. Gatot Subroto No. 8',
-        pickupDate: '2026-08-21',
-        pickupTimeSlot: '14:00 - 16:00 WIB',
+      pickupDate: '2026-09-15',
+      pickupTimeSlot: '15:00 - 17:00 WIB',
         idempotencyKey: test4Key,
       },
       customer
@@ -116,14 +116,14 @@ async function runOrderCreationTests() {
       laundryId: 'lnd_001',
       items: [{ serviceId: 'srv_001', quantity: 2 }], // 2 x 8000 + 2000 = 18.000 total
       pickupAddress: 'Jl. Kebayoran Lama No. 99',
-      pickupDate: '2026-08-22',
-      pickupTimeSlot: '09:00 - 11:00 WIB',
+      pickupDate: '2026-09-15',
+      pickupTimeSlot: '08:00 - 10:00 WIB',
       idempotencyKey: test5Key,
       clientSuppliedTotal: 1000, // Spoofed Rp 1.000 total!
     },
     customer
   );
-  assert(res5.pricing.totalPrice === 18000, 'Test 5: Authoritative total price calculated as Rp 18.000');
+  assert(res5.pricing.totalPrice === 26000, 'Test 5: Authoritative total price calculated as Rp 26.000 (minimum weight 3kg applied)');
 
   // Test 6: Input Errors (Empty items, invalid laundry, missing idempotency key)
   await assertThrowsAsync(async () => {
@@ -161,8 +161,8 @@ async function runOrderCreationTests() {
       laundryId: 'lnd_001',
       items: [{ serviceId: 'srv_001', quantity: 3 }], // 24.000 subtotal
       pickupAddress: 'Jl. Rasuna Said No. 10',
-      pickupDate: '2026-08-22',
-      pickupTimeSlot: '13:00 - 15:00 WIB',
+      pickupDate: '2026-09-15',
+      pickupTimeSlot: '15:00 - 17:00 WIB',
       voucherCode: 'FRESH5K',
       idempotencyKey: test7Key,
     },

@@ -163,7 +163,7 @@ export default function AdminRefundsPage() {
             Antrean Pengembalian Dana (Refund)
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-            Kelola transaksi pembatalan yang membutuhkan pengembalian dana manual dari rekening platform FreshLaundry ke customer.
+            Kelola transaksi pembatalan yang membutuhkan pengembalian dana manual dari rekening platform CUCIYAN ke customer.
           </p>
         </div>
 

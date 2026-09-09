@@ -12,7 +12,7 @@ export const HowItWorks: React.FC = () => {
     {
       num: '02',
       title: 'Penjemputan Pakaian',
-      description: 'Kurir FreshWash datang membawa kantong laundry khusus dan menimbang pakaian di tempat.',
+      description: 'Kurir CUCIYAN datang membawa kantong laundry khusus dan menimbang pakaian di tempat.',
       icon: Truck,
     },
     {

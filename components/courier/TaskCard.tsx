@@ -78,7 +78,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               <Store className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-slate-800">Tujuan (Outlet Laundry):</p>
-                <p className="text-slate-600 font-medium">{order.laundryName || 'FreshWash Partner Outlet'}</p>
+                <p className="text-slate-600 font-medium">{order.laundryName || 'CUCIYAN Partner Outlet'}</p>
               </div>
             </div>
           </>
@@ -88,7 +88,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               <Store className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-slate-800">Asal (Outlet Laundry):</p>
-                <p className="text-slate-600 font-medium">{order.laundryName || 'FreshWash Partner Outlet'}</p>
+                <p className="text-slate-600 font-medium">{order.laundryName || 'CUCIYAN Partner Outlet'}</p>
               </div>
             </div>
             <div className="flex items-start gap-2.5">

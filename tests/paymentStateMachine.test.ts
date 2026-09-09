@@ -60,7 +60,7 @@ async function runPaymentStateMachineTests() {
       serviceType: 'kiloan',
       pickupAddress: 'Jl. Melati No. 45, Jakarta',
       deliveryAddress: 'Jl. Melati No. 45, Jakarta',
-      pickupDate: '2026-08-20',
+      pickupDate: '2026-09-15',
       pickupTimeSlot: '08:00 - 10:00 WIB',
       estimatedWeightKg: 5,
     },

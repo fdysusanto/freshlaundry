@@ -352,7 +352,7 @@ function OwnerDashboardContent() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
         <div className="w-10 h-10 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto" />
-        <p className="text-xs font-semibold text-slate-500">Memuat Dashboard Partner FreshLaundry...</p>
+        <p className="text-xs font-semibold text-slate-500">Memuat Dashboard Partner CUCIYAN...</p>
       </div>
     );
   }
@@ -398,7 +398,7 @@ function OwnerDashboardContent() {
           <AlertCircle className="w-12 h-12 text-amber-500 mx-auto" />
           <h2 className="text-lg font-bold text-slate-900">Belum Memiliki Outlet Laundry Aktif</h2>
           <p className="text-xs text-slate-600 leading-relaxed">
-            Akun Anda saat ini terdaftar sebagai Mitra, namun belum memiliki outlet laundry yang terverifikasi di platform FreshWash.
+            Akun Anda saat ini terdaftar sebagai Mitra, namun belum memiliki outlet laundry yang terverifikasi di platform CUCIYAN.
           </p>
 
           {partnerApp ? (
@@ -774,7 +774,7 @@ function OwnerDashboardContent() {
                       <Store className="w-5 h-5 text-brand-primary" />
                       <span>Galeri Foto Storefront Mitra (5 Foto)</span>
                     </h3>
-                    <p className="text-xs text-slate-500">Foto fisik tampak depan toko mitra yang tampil pada marketplace FreshLaundry.</p>
+                    <p className="text-xs text-slate-500">Foto fisik tampak depan toko mitra yang tampil pada marketplace CUCIYAN.</p>
                   </div>
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
                     <Check className="w-3.5 h-3.5 text-emerald-600" />
@@ -977,7 +977,7 @@ export default function OwnerDashboardPage() {
       fallback={
         <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
           <div className="w-10 h-10 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs font-semibold text-slate-500">Memuat Dashboard Partner FreshLaundry...</p>
+          <p className="text-xs font-semibold text-slate-500">Memuat Dashboard Partner CUCIYAN...</p>
         </div>
       }
     >

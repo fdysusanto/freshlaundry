@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { orderService } from '@/services/orderService';
 import { isSupabaseConfigured } from '@/services/supabase';
+import { paymentService } from '@/services/paymentService';
+import { calculateOrderShortfall } from '@/utils/paymentShortfall';
 import { Order, normalizeOrderStatus } from '@/types/order';
 import { UserProfile } from '@/types/user';
 import { formatIDR, formatDateIndo } from '@/utils/formatters';
@@ -19,6 +21,7 @@ export default function CustomerActiveOrdersPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [adjStatuses, setAdjStatuses] = useState<Record<string, 'paid' | 'pending' | 'none'>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -27,6 +30,7 @@ export default function CustomerActiveOrdersPage() {
     const loadOrders = async () => {
       setIsLoading(true);
       try {
+        let loadedOrders: Order[] = [];
         if (isSupabaseConfigured) {
           const liveProfile = await authService.fetchCurrentProfile();
           if (!liveProfile) {
@@ -39,16 +43,34 @@ export default function CustomerActiveOrdersPage() {
           }
           if (isMounted) setUser(liveProfile);
 
-          const liveOrders = await orderService.getOrdersByCustomerAsync(liveProfile.id);
-          if (isMounted) setOrders(liveOrders);
+          loadedOrders = await orderService.getOrdersByCustomerAsync(liveProfile.id);
         } else {
           const currentUser = authService.getCurrentUser();
           if (currentUser) {
             if (isMounted) {
               setUser(currentUser);
-              setOrders(orderService.getOrdersByCustomer(currentUser.id));
+              loadedOrders = orderService.getOrdersByCustomer(currentUser.id);
             }
           }
+        }
+
+        if (isMounted) {
+          setOrders(loadedOrders);
+
+          // Asynchronously fetch adjustment payment statuses for orders with finalWeightKg
+          const statusPromises = loadedOrders
+            .filter((o) => o.finalWeightKg !== undefined && o.finalWeightKg !== null)
+            .map(async (o) => {
+              const res = await paymentService.getAdjustmentPaymentStatusAsync(o.id);
+              return { id: o.id, status: res.status };
+            });
+
+          const results = await Promise.all(statusPromises);
+          const map: Record<string, 'paid' | 'pending' | 'none'> = {};
+          results.forEach((r) => {
+            map[r.id] = r.status;
+          });
+          if (isMounted) setAdjStatuses(map);
         }
       } catch (err) {
         console.warn('Failed loading customer orders:', err);
@@ -106,6 +128,8 @@ export default function CustomerActiveOrdersPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {activeOrders.map((o) => {
             const cfg = getStatusConfig(o.status);
+            const adjStatus = adjStatuses[o.id] || 'none';
+            const { isShortfall } = calculateOrderShortfall(o, adjStatus);
             return (
               <Card key={o.id} variant="white" className="hover:border-brand-secondary transition-all space-y-4 shadow-sm">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -113,15 +137,22 @@ export default function CustomerActiveOrdersPage() {
                     <span className="text-[11px] font-bold text-slate-400 uppercase">Nomor Resi:</span>
                     <p className="text-sm font-black text-slate-900">{o.trackingNumber}</p>
                   </div>
-                  <Badge variant={cfg.stepIndex >= 4 ? 'teal' : cfg.stepIndex >= 2 ? 'blue' : 'amber'}>
-                    {cfg.label}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    {isShortfall && (
+                      <Badge variant="amber" className="font-black animate-pulse">
+                        KURANG BAYAR
+                      </Badge>
+                    )}
+                    <Badge variant={cfg.stepIndex >= 4 ? 'teal' : cfg.stepIndex >= 2 ? 'blue' : 'amber'}>
+                      {cfg.label}
+                    </Badge>
+                  </div>
                 </div>
 
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-slate-500">Mitra Laundry:</span>
-                    <span className="font-bold text-slate-800">{o.laundryName || 'FreshWash Laundry Partner'}</span>
+                    <span className="font-bold text-slate-800">{o.laundryName || 'CUCIYAN Laundry Partner'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Jenis Layanan:</span>
@@ -150,11 +181,20 @@ export default function CustomerActiveOrdersPage() {
                     <span className="font-black text-brand-primary text-sm">{formatIDR(o.totalPrice)}</span>
                   </div>
 
-                  {Boolean(o.finalWeightKg !== undefined && o.finalWeightKg !== null && o.paymentStatus !== 'paid') && (
-                    <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-xs flex items-center justify-between text-amber-900 font-bold">
-                      <span>⚠️ Perlu Pelunasan Selisih Berat ({o.finalWeightKg} kg)</span>
+                  {isShortfall && (
+                    <div className="p-3 bg-amber-50 rounded-2xl border-2 border-amber-300 text-xs flex items-center justify-between text-amber-950 font-bold shadow-sm">
+                      <div className="space-y-0.5">
+                        <p className="font-black text-amber-900 uppercase tracking-wide text-[11px] flex items-center gap-1">
+                          ⚠️ KURANG BAYAR / SELISIH
+                        </p>
+                        <p className="text-[11px] text-amber-800 font-medium">
+                          Berat ditimbang ({o.finalWeightKg} kg) &gt; estimasi ({o.estimatedWeightKg || 5} kg)
+                        </p>
+                      </div>
                       <Link href={`/orders/${o.id}`}>
-                        <span className="text-amber-700 underline text-[11px] cursor-pointer">Bayar →</span>
+                        <Button size="sm" variant="primary" className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shrink-0">
+                          Bayar Kekurangan →
+                        </Button>
                       </Link>
                     </div>
                   )}

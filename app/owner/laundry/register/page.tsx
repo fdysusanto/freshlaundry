@@ -401,7 +401,7 @@ function OwnerLaundryRegisterContent() {
           {isRevising ? 'Revisi Pengajuan Laundry' : 'Daftarkan Usaha Laundry Anda'}
         </h1>
         <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-          Lengkapi data outlet, wilayah operasional, katalog layanan, dan rekening bank untuk dikaji oleh Admin Platform FreshWash.
+          Lengkapi data outlet, wilayah operasional, katalog layanan, dan rekening bank untuk dikaji oleh Admin Platform CUCIYAN.
         </p>
       </div>
 
@@ -471,7 +471,7 @@ function OwnerLaundryRegisterContent() {
                 required
                 value={laundryName}
                 onChange={(e) => setLaundryName(e.target.value)}
-                placeholder="Contoh: FreshWash Express Kebayoran"
+                placeholder="Contoh: CUCIYAN Express Kebayoran"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-semibold"
               />
             </div>

@@ -1170,6 +1170,11 @@ export const orderService = {
         throw new Error('Akses Ditolak: Tugas pickup telah selesai. Pesanan ini kini dikelola oleh outlet laundry.');
       }
       if (currentStatus === 'ready_for_delivery') {
+        const assignedDeliveryCourierId = currentOrder.deliveryCourier?.id;
+        if (!assignedDeliveryCourierId || (actorId && actorId !== assignedDeliveryCourierId)) {
+          throw new Error('Akses Ditolak: Kurir ini belum ditugaskan untuk pengantaran order ini. Silakan klaim tugas delivery di Job Pool.');
+        }
+      } else if (currentStatus === 'out_for_delivery') {
         const assignedDeliveryCourierId = currentOrder.deliveryCourier?.id || currentOrder.courierId;
         if (actorId && assignedDeliveryCourierId && actorId !== assignedDeliveryCourierId) {
           throw new Error('Akses Ditolak: Kurir ini tidak berhak mengelola pengantaran order yang ditugaskan kepada kurir lain.');

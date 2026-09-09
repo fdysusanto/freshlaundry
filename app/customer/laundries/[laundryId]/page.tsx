@@ -229,7 +229,7 @@ export default function CustomerLaundryDetailPage() {
       <div className="max-w-md mx-auto px-4 py-16 text-center space-y-4">
         <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
         <h1 className="text-xl font-bold text-slate-800">Mitra laundry tidak ditemukan.</h1>
-        <p className="text-xs text-slate-500">ID `{laundryId}` tidak terdaftar di marketplace FreshWash.</p>
+        <p className="text-xs text-slate-500">ID `{laundryId}` tidak terdaftar di marketplace CUCIYAN.</p>
         <Button variant="outline" size="sm" onClick={() => router.push('/customer/laundries')}>
           Kembali ke Daftar Laundry
         </Button>

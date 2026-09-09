@@ -410,7 +410,7 @@ export default function OrderDetailPage() {
               <span className="text-[10px] uppercase font-bold text-brand-primary tracking-widest block">
                 Mitra Laundry Pengolah:
               </span>
-              <p className="text-sm font-bold text-slate-900">{order.laundryName || 'FreshWash Laundry Partner'}</p>
+              <p className="text-sm font-bold text-slate-900">{order.laundryName || 'CUCIYAN Laundry Partner'}</p>
             </div>
           </div>
           <Link href={`/customer/laundries/${order.laundryId || 'lnd_001'}`}>
@@ -474,7 +474,7 @@ export default function OrderDetailPage() {
               {isPaying ? 'Menghubungkan ke Gateway Pembayaran...' : `Bayar Selisih ${formatIDR(pendingAdjustment.amount)}`}
             </Button>
           </div>
-        ) : order.paymentStatus === 'refund_pending' ? ( <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 flex items-center gap-3"><div className="w-5 h-5 text-amber-600 shrink-0" /><div><p className="text-xs font-bold text-amber-900">Pesanan Dibatalkan - Pengembalian Dana Diproses</p><p className="text-[11px] text-amber-700">Pengembalian dana sedang diproses secara manual oleh FreshLaundry.</p></div></div> ) : order.paymentStatus === 'refunded' ? ( <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center gap-3"><div className="w-5 h-5 text-slate-600 shrink-0" /><div><p className="text-xs font-bold text-slate-900">Dana Dikembalikan</p><p className="text-[11px] text-slate-700">Pengembalian dana telah berhasil diproses.</p></div></div> ) : order.paymentStatus === 'paid' ? (
+        ) : order.paymentStatus === 'refund_pending' ? ( <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 flex items-center gap-3"><div className="w-5 h-5 text-amber-600 shrink-0" /><div><p className="text-xs font-bold text-amber-900">Pesanan Dibatalkan - Pengembalian Dana Diproses</p><p className="text-[11px] text-amber-700">Pengembalian dana sedang diproses secara manual oleh CUCIYAN.</p></div></div> ) : order.paymentStatus === 'refunded' ? ( <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center gap-3"><div className="w-5 h-5 text-slate-600 shrink-0" /><div><p className="text-xs font-bold text-slate-900">Dana Dikembalikan</p><p className="text-[11px] text-slate-700">Pengembalian dana telah berhasil diproses.</p></div></div> ) : order.paymentStatus === 'paid' ? (
           <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center gap-3">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
             <div>

@@ -292,7 +292,7 @@ function CustomerLaundriesContent() {
             <div className="space-y-0.5">
               <h4 className="text-xs font-bold text-slate-800">🏪 Punya Usaha Laundry?</h4>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                Daftarkan laundry Anda dan mulai menerima pesanan dari pelanggan FreshLaundry.
+                Daftarkan laundry Anda dan mulai menerima pesanan dari pelanggan CUCIYAN.
               </p>
             </div>
           </div>

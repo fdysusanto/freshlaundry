@@ -73,7 +73,7 @@ export default function CustomerAccountPage() {
   }, [router]);
 
   const handleLogout = async () => {
-    if (!confirm('Apakah Anda yakin ingin keluar dari akun FreshLaundry?')) return;
+    if (!confirm('Apakah Anda yakin ingin keluar dari akun CUCIYAN?')) return;
     try {
       await authService.logout();
       router.push('/login');
@@ -230,7 +230,7 @@ export default function CustomerAccountPage() {
               <div className="space-y-1">
                 <h4 className="text-xs font-bold text-slate-800">🏪 Punya Usaha Laundry?</h4>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Daftarkan laundry Anda dan mulai menerima pesanan dari pelanggan FreshLaundry.
+                  Daftarkan laundry Anda dan mulai menerima pesanan dari pelanggan CUCIYAN.
                 </p>
               </div>
             </div>

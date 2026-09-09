@@ -148,7 +148,7 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
                 <Store className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-slate-800">Tujuan (Outlet Laundry):</p>
-                  <p className="text-slate-600 font-medium break-words">{order.laundryName || 'FreshWash Partner Outlet'}</p>
+                  <p className="text-slate-600 font-medium break-words">{order.laundryName || 'CUCIYAN Partner Outlet'}</p>
                 </div>
               </div>
               <button
@@ -169,7 +169,7 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
                 <Store className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-slate-800">Asal (Outlet Laundry):</p>
-                  <p className="text-slate-600 font-medium break-words">{order.laundryName || 'FreshWash Partner Outlet'}</p>
+                  <p className="text-slate-600 font-medium break-words">{order.laundryName || 'CUCIYAN Partner Outlet'}</p>
                 </div>
               </div>
               <button
