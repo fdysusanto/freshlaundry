@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getWibTodayDateString } from '@/services/courierJobPoolService';
+import { getWibTodayDateString, getWibTomorrowDateString } from '@/services/courierJobPoolService';
 
 interface CourierDateSelectorProps {
   selectedDate: string;
@@ -14,11 +14,7 @@ export const CourierDateSelector: React.FC<CourierDateSelectorProps> = ({
   onDateChange,
 }) => {
   const todayWib = getWibTodayDateString();
-
-  // Tomorrow WIB date calculation
-  const todayMs = new Date(`${todayWib}T00:00:00+07:00`).getTime();
-  const tomorrowMs = todayMs + 24 * 60 * 60 * 1000;
-  const tomorrowWib = new Date(tomorrowMs).toISOString().split('T')[0];
+  const tomorrowWib = getWibTomorrowDateString();
 
   const isToday = selectedDate === todayWib;
 
