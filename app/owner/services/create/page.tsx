@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { laundryService } from '@/services/laundryService';
-import { DEMO_LAUNDRIES } from '@/utils/constants';
 import { ServiceType } from '@/types/order';
 import { UserProfile } from '@/types/user';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { OwnerBranchProvider, useOwnerBranch } from '@/components/owner/OwnerBranchContext';
+import { OwnerBranchSwitcher } from '@/components/owner/OwnerBranchSwitcher';
 import {
   ArrowLeft,
   Plus,
@@ -21,9 +22,9 @@ import {
   Store,
 } from 'lucide-react';
 
-export default function CreateOwnerServicePage() {
+function CreateOwnerServiceContent() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const { currentUser, activeLaundryId, activeLaundry, buildBranchUrl, isLoading: isBranchLoading } = useOwnerBranch();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -39,14 +40,7 @@ export default function CreateOwnerServicePage() {
   const [badge, setBadge] = useState('');
   const [isActive, setIsActive] = useState(true);
 
-  useEffect(() => {
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-  }, []);
-
-  const selectedLaundry = DEMO_LAUNDRIES.find(
-    (l) => l.id === (currentUser?.laundryId || 'lnd_001')
-  ) || DEMO_LAUNDRIES[0];
+  const selectedLaundry = activeLaundry;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +48,11 @@ export default function CreateOwnerServicePage() {
 
     if (!currentUser) {
       setErrorMsg('Sesi login tidak valid. Silakan login kembali.');
+      return;
+    }
+
+    if (!activeLaundryId) {
+      setErrorMsg('Cabang laundry aktif tidak ditemukan. Silakan pilih cabang laundry.');
       return;
     }
 
@@ -103,10 +102,11 @@ export default function CreateOwnerServicePage() {
           iconName: unit === 'pcs' ? 'Sparkles' : 'ShoppingBag',
           isActive,
         },
-        currentUser
+        currentUser,
+        activeLaundryId // Explicit target branch ID
       );
 
-      router.push('/owner/services');
+      router.push(buildBranchUrl('/owner/services'));
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal menambahkan layanan baru.');
     } finally {
@@ -116,13 +116,19 @@ export default function CreateOwnerServicePage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
-      {/* Top Back Navigation */}
-      <button
-        onClick={() => router.push('/owner/services')}
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-primary transition-colors cursor-pointer"
-      >
-        <ArrowLeft className="w-4 h-4" /> Kembali ke Daftar Layanan
-      </button>
+      {/* Top Back Navigation & Branch Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <button
+          onClick={() => router.push(buildBranchUrl('/owner/services'))}
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-primary transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" /> Kembali ke Daftar Layanan
+        </button>
+
+        <div className="shrink-0">
+          <OwnerBranchSwitcher />
+        </div>
+      </div>
 
       {/* Header Banner */}
       <div className="space-y-2">
@@ -133,9 +139,14 @@ export default function CreateOwnerServicePage() {
         <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
           Tambah Layanan Laundry
         </h1>
+        {selectedLaundry && (
+          <p className="text-xs sm:text-sm font-semibold text-brand-primary">
+            Menambahkan layanan untuk cabang: <strong>{selectedLaundry.name}</strong>
+          </p>
+        )}
         <p className="text-xs sm:text-sm text-slate-500">
           Layanan baru akan otomatis terikat pada toko mitra:{' '}
-          <strong className="text-slate-800">{selectedLaundry.name}</strong> ({selectedLaundry.id})
+          <strong className="text-slate-800">{selectedLaundry?.name || 'Laundry Active Context'}</strong> ({selectedLaundry?.id || activeLaundryId})
         </p>
       </div>
 
@@ -327,7 +338,7 @@ export default function CreateOwnerServicePage() {
             type="button"
             variant="outline"
             size="md"
-            onClick={() => router.push('/owner/services')}
+            onClick={() => router.push(buildBranchUrl('/owner/services'))}
           >
             Batal
           </Button>
@@ -345,4 +356,8 @@ export default function CreateOwnerServicePage() {
       </form>
     </div>
   );
+}
+
+export default function CreateOwnerServicePage() {
+  return <CreateOwnerServiceContent />;
 }

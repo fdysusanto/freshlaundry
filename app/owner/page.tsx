@@ -20,6 +20,8 @@ import { Button } from '@/components/ui/Button';
 import { WeightVerificationModal } from '@/components/owner/WeightVerificationModal';
 import { OwnerHomeDashboard } from '@/components/owner/OwnerHomeDashboard';
 import { MobileOrdersView } from '@/components/owner/mobile/MobileOrdersView';
+import { OwnerBranchProvider, useOwnerBranch } from '@/components/owner/OwnerBranchContext';
+import { OwnerBranchSwitcher } from '@/components/owner/OwnerBranchSwitcher';
 import {
   Store,
   ShoppingBag,
@@ -53,9 +55,16 @@ const FALLBACK_STOREFRONT =
 function OwnerDashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [ownerLaundries, setOwnerLaundries] = useState<Laundry[]>([]);
-  const [selectedLaundryId, setSelectedLaundryId] = useState<string | null>(null);
+  
+  const {
+    currentUser,
+    ownedLaundries,
+    activeLaundryId: selectedLaundryId,
+    activeLaundry: selectedLaundry,
+    setActiveLaundryId: setSelectedLaundryId,
+    isLoading: isBranchLoading,
+  } = useOwnerBranch();
+
   const [partnerApp, setPartnerApp] = useState<PartnerApplicationRecord | null>(null);
 
   const [laundryOrders, setLaundryOrders] = useState<Order[]>([]);
@@ -161,42 +170,15 @@ function OwnerDashboardContent() {
             return;
           }
 
-          if (isMounted) setCurrentUser(profile);
-
-          const [liveLaundries, livePartnerApp] = await Promise.all([
-            laundryService.getLaundriesByOwnerAsync(profile.id),
-            partnerApplicationService.getMyPartnerApplicationAsync(),
-          ]);
-
+          const livePartnerApp = await partnerApplicationService.getMyPartnerApplicationAsync();
           if (isMounted) {
-            setOwnerLaundries(liveLaundries);
             setPartnerApp(livePartnerApp);
-
-            if (liveLaundries.length > 0) {
-              const activeId = profile.laundryId && liveLaundries.some((l) => l.id === profile.laundryId)
-                ? profile.laundryId
-                : liveLaundries[0].id;
-              setSelectedLaundryId(activeId);
-            } else {
-              setSelectedLaundryId(null);
-            }
           }
         } else {
           const user = authService.getCurrentUser();
           if (user.role !== 'laundry_owner' && user.role !== 'laundry_staff') {
             if (isMounted) router.push('/customer');
             return;
-          }
-          if (isMounted) {
-            setCurrentUser(user);
-            const mockLaundries = await laundryService.getLaundriesAsync();
-            const ownedMock = mockLaundries.filter((l) => l.ownerId === user.id || l.id === user.laundryId);
-            setOwnerLaundries(ownedMock);
-            if (ownedMock.length > 0) {
-              setSelectedLaundryId(ownedMock[0].id);
-            } else {
-              setSelectedLaundryId(null);
-            }
           }
         }
       } catch (err) {
@@ -260,10 +242,6 @@ function OwnerDashboardContent() {
       isMounted = false;
     };
   }, [selectedLaundryId]);
-
-  const selectedLaundry = useMemo(() => {
-    return ownerLaundries.find((l) => l.id === selectedLaundryId) || ownerLaundries[0] || null;
-  }, [ownerLaundries, selectedLaundryId]);
 
   // Sync profileForm when selectedLaundry changes
   useEffect(() => {
@@ -373,23 +351,10 @@ function OwnerDashboardContent() {
           </p>
         </div>
 
-        {/* Laundry Outlet Selector if Owner has multiple stores */}
-        {ownerLaundries.length > 1 && (
-          <div className="flex items-center gap-2">
-            <Store className="w-4 h-4 text-slate-400" />
-            <select
-              value={selectedLaundryId || ''}
-              onChange={(e) => setSelectedLaundryId(e.target.value)}
-              className="text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:ring-2 focus:ring-brand-primary focus:border-brand-primary cursor-pointer"
-            >
-              {ownerLaundries.map((lnd) => (
-                <option key={lnd.id} value={lnd.id}>
-                  {lnd.name} ({lnd.code})
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        {/* Active Branch Switcher Component */}
+        <div className="shrink-0">
+          <OwnerBranchSwitcher />
+        </div>
       </div>
 
       {/* NO LAUNDRY OUTLET / PENDING APPLICATION NOTICE */}
@@ -971,17 +936,6 @@ function OwnerDashboardContent() {
   );
 }
 
-export default function OwnerDashboardPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
-          <div className="w-10 h-10 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs font-semibold text-slate-500">Memuat Dashboard Partner CUCIYAN...</p>
-        </div>
-      }
-    >
-      <OwnerDashboardContent />
-    </Suspense>
-  );
+export default function LaundryOwnerDashboard() {
+  return <OwnerDashboardContent />;
 }

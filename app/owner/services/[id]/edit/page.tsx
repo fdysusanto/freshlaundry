@@ -10,23 +10,25 @@ import { UserProfile } from '@/types/user';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import {
+  OwnerBranchProvider,
+  useOwnerBranch,
+} from '@/components/owner/OwnerBranchContext';
+import { OwnerBranchSwitcher } from '@/components/owner/OwnerBranchSwitcher';
+import {
   ArrowLeft,
   Edit,
-  Sparkles,
   Layers,
-  Clock,
   DollarSign,
   AlertCircle,
   ShieldAlert,
-  Store,
-  CheckCircle2,
-  Power,
 } from 'lucide-react';
 
-export default function EditOwnerServicePage() {
+function EditOwnerServiceContent() {
   const params = useParams();
   const router = useRouter();
   const serviceId = params?.id as string;
+
+  const { ownedLaundries, buildBranchUrl } = useOwnerBranch();
 
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [targetService, setTargetService] = useState<ServiceCatalogItem | null>(null);
@@ -65,8 +67,10 @@ export default function EditOwnerServicePage() {
       }
 
       if (srv && isMounted) {
-        const ownerLaundryId = user.laundryId || 'lnd_001';
-        if (user.role !== 'platform_admin' && user.role !== 'admin' && srv.laundryId !== ownerLaundryId) {
+        const isAdmin = user?.role === 'platform_admin' || user?.role === 'admin';
+        const isOwnedByOwner = ownedLaundries.some((l) => l.id === srv.laundryId) || srv.laundryId === user?.laundryId;
+
+        if (!isAdmin && !isOwnedByOwner) {
           setAuthError(
             `Akses Ditolak: Layanan ini milik toko laundry lain (${srv.laundryId}). Anda tidak memiliki wewenang untuk mengubahnya.`
           );
@@ -91,7 +95,7 @@ export default function EditOwnerServicePage() {
     return () => {
       isMounted = false;
     };
-  }, [serviceId]);
+  }, [serviceId, ownedLaundries]);
 
   if (authError) {
     return (
@@ -102,7 +106,7 @@ export default function EditOwnerServicePage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => router.push('/owner/services')}
+          onClick={() => router.push(buildBranchUrl('/owner/services'))}
           leftIcon={<ArrowLeft className="w-4 h-4" />}
         >
           Kembali ke Katalog Layanan Anda
@@ -120,7 +124,9 @@ export default function EditOwnerServicePage() {
   }
 
   const selectedLaundry =
-    DEMO_LAUNDRIES.find((l) => l.id === targetService.laundryId) || DEMO_LAUNDRIES[0];
+    ownedLaundries.find((l) => l.id === targetService.laundryId) ||
+    DEMO_LAUNDRIES.find((l) => l.id === targetService.laundryId) ||
+    DEMO_LAUNDRIES[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,7 +184,7 @@ export default function EditOwnerServicePage() {
         currentUser
       );
 
-      router.push('/owner/services');
+      router.push(buildBranchUrl('/owner/services', targetService.laundryId));
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal memperbarui layanan.');
     } finally {
@@ -188,9 +194,18 @@ export default function EditOwnerServicePage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
+      {/* Branch Switcher Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 border border-slate-200 p-4 rounded-2xl">
+        <div>
+          <span className="text-[10px] font-black text-brand-primary uppercase tracking-wider block">Context Cabang</span>
+          <span className="text-xs text-slate-500 font-medium">Layanan ini terdaftar di cabang berikut.</span>
+        </div>
+        <OwnerBranchSwitcher />
+      </div>
+
       {/* Top Back Navigation */}
       <button
-        onClick={() => router.push('/owner/services')}
+        onClick={() => router.push(buildBranchUrl('/owner/services', targetService.laundryId))}
         className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-primary transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" />
@@ -226,7 +241,7 @@ export default function EditOwnerServicePage() {
         <Card variant="white" className="space-y-5">
           <div className="border-b border-slate-100 pb-3">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-brand-primary" /> Informasi Layanan Utam
+              <Layers className="w-4 h-4 text-brand-primary" /> Informasi Layanan Utama
             </h2>
           </div>
 
@@ -403,7 +418,7 @@ export default function EditOwnerServicePage() {
             type="button"
             variant="outline"
             size="md"
-            onClick={() => router.push('/owner/services')}
+            onClick={() => router.push(buildBranchUrl('/owner/services', targetService.laundryId))}
           >
             Batal
           </Button>
@@ -422,3 +437,8 @@ export default function EditOwnerServicePage() {
     </div>
   );
 }
+
+export default function EditOwnerServicePage() {
+  return <EditOwnerServiceContent />;
+}
+

@@ -1,16 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { laundryService } from '@/services/laundryService';
-import { DEMO_LAUNDRIES, ServiceCatalogItem } from '@/utils/constants';
+import { ServiceCatalogItem } from '@/utils/constants';
 import { UserProfile } from '@/types/user';
 import { Laundry } from '@/types/laundry';
 import { formatIDR } from '@/utils/formatters';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { OwnerBranchProvider, useOwnerBranch } from '@/components/owner/OwnerBranchContext';
+import { OwnerBranchSwitcher } from '@/components/owner/OwnerBranchSwitcher';
 import {
   Layers,
   Plus,
@@ -28,27 +30,27 @@ import {
   XCircle,
 } from 'lucide-react';
 
-export default function OwnerServicesListingPage() {
+function OwnerServicesListingContent() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const { currentUser, activeLaundryId, activeLaundry, buildBranchUrl, isLoading: isBranchLoading } = useOwnerBranch();
   const [services, setServices] = useState<ServiceCatalogItem[]>([]);
-  const [selectedLaundryId, setSelectedLaundryId] = useState<string>('lnd_001');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterActive, setFilterActive] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = async () => {
+    if (!activeLaundryId) {
+      setServices([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const user = authService.getCurrentUserSync();
-      setCurrentUser(user);
-      const userLaundryId = user?.laundryId || 'lnd_001';
-      setSelectedLaundryId(userLaundryId);
-
-      const liveServices = await laundryService.getServicesByLaundryAsync(userLaundryId);
+      const liveServices = await laundryService.getServicesByLaundryAsync(activeLaundryId);
       setServices(liveServices);
     } catch {
-      const fallbackServices = laundryService.getServicesByLaundry('lnd_001');
+      const fallbackServices = laundryService.getServicesByLaundry(activeLaundryId);
       setServices(fallbackServices);
     } finally {
       setIsLoading(false);
@@ -57,11 +59,9 @@ export default function OwnerServicesListingPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [activeLaundryId]);
 
-  const selectedLaundry: Laundry = useMemo(() => {
-    return DEMO_LAUNDRIES.find((l) => l.id === selectedLaundryId) || DEMO_LAUNDRIES[0];
-  }, [selectedLaundryId]);
+  const selectedLaundry: Laundry | null = activeLaundry;
 
   const handleToggleActive = async (serviceId: string) => {
     if (!currentUser) return;
@@ -100,14 +100,18 @@ export default function OwnerServicesListingPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
       
-      {/* Top Back Navigation */}
-      <div className="flex items-center justify-between">
+      {/* Top Back Navigation & Branch Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <button
-          onClick={() => router.push('/owner')}
+          onClick={() => router.push(buildBranchUrl('/owner'))}
           className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-primary transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" /> Kembali ke Dashboard Mitra
         </button>
+
+        <div className="shrink-0">
+          <OwnerBranchSwitcher />
+        </div>
       </div>
 
       {/* Header Banner */}
@@ -118,7 +122,7 @@ export default function OwnerServicesListingPage() {
             <span>Katalog Layanan &amp; Tarif Marketplace</span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-black tracking-tight">
-            Katalog Layanan: {selectedLaundry.name}
+            Katalog Layanan: {selectedLaundry ? selectedLaundry.name : 'Toko Laundry'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
             Layanan terendah yang berstatus <strong>AKTIF</strong> akan otomatis menjadi tarif awal yang ditampilkan pada marketplace ("Mulai Rp X/unit").
@@ -128,7 +132,7 @@ export default function OwnerServicesListingPage() {
         <Button
           variant="primary"
           size="lg"
-          onClick={() => router.push('/owner/services/create')}
+          onClick={() => router.push(buildBranchUrl('/owner/services/create'))}
           leftIcon={<Plus className="w-5 h-5" />}
           className="bg-brand-secondary hover:bg-brand-secondary/90 text-slate-950 font-bold shadow-xl shrink-0 cursor-pointer"
         >
@@ -164,7 +168,7 @@ export default function OwnerServicesListingPage() {
       </div>
 
       {/* Service Cards Grid */}
-      {isLoading ? (
+      {isLoading || isBranchLoading ? (
         <div className="text-center py-16 space-y-3">
           <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full mx-auto" />
           <p className="text-xs text-slate-500 font-semibold">Memuat katalog layanan...</p>
@@ -230,7 +234,7 @@ export default function OwnerServicesListingPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => router.push(`/owner/services/${srv.id}/edit`)}
+                  onClick={() => router.push(buildBranchUrl(`/owner/services/${srv.id}/edit`))}
                   leftIcon={<Edit className="w-3.5 h-3.5" />}
                   className="cursor-pointer"
                 >
@@ -250,7 +254,7 @@ export default function OwnerServicesListingPage() {
           <Button
             variant="primary"
             size="sm"
-            onClick={() => router.push('/owner/services/create')}
+            onClick={() => router.push(buildBranchUrl('/owner/services/create'))}
             leftIcon={<Plus className="w-4 h-4" />}
           >
             + Tambah Layanan Sekarang
@@ -259,4 +263,8 @@ export default function OwnerServicesListingPage() {
       )}
     </div>
   );
+}
+
+export default function OwnerServicesListingPage() {
+  return <OwnerServicesListingContent />;
 }

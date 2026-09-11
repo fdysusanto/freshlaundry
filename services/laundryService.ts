@@ -330,13 +330,14 @@ export const laundryService = {
    */
   async createServiceAsync(
     payload: Omit<ServiceCatalogItem, 'id' | 'laundryId' | 'createdAt'>,
-    ownerUser: UserProfile
+    ownerUser: UserProfile,
+    targetLaundryIdInput?: string
   ): Promise<ServiceCatalogItem> {
     if (!isSupabaseConfigured || !supabase) {
-      return this.createService(payload, ownerUser);
+      return this.createService(payload, ownerUser, targetLaundryIdInput);
     }
 
-    const targetLaundryId = ownerUser.laundryId || 'lnd_001';
+    const targetLaundryId = targetLaundryIdInput || ownerUser.laundryId || 'lnd_001';
 
     if (!payload.name || payload.name.trim().length < 3) {
       throw new Error('Validasi Gagal: Nama layanan wajib diisi minimal 3 karakter.');
@@ -484,13 +485,17 @@ export const laundryService = {
       return;
     }
 
-    if (!user.laundryId) {
+    if (!user.laundryId && (!user.id || !DEMO_LAUNDRIES.some((l) => l.ownerId === user.id))) {
       throw new Error(
         `Akses Ditolak (UnauthorizedError): Pengguna (${user.fullName}) tidak terdaftar pada toko laundry mana pun.`
       );
     }
 
-    if (user.laundryId !== targetLaundryId) {
+    const isOwned =
+      user.laundryId === targetLaundryId ||
+      DEMO_LAUNDRIES.some((l) => l.id === targetLaundryId && (l.ownerId === user.id || l.id === user.laundryId));
+
+    if (!isOwned) {
       throw new Error(
         `Akses Ditolak (UnauthorizedError): Anda (${user.fullName}) tidak memiliki wewenang untuk mengelola toko laundry ini.`
       );
@@ -499,14 +504,10 @@ export const laundryService = {
 
   createService(
     payload: Omit<ServiceCatalogItem, 'id' | 'laundryId' | 'createdAt'>,
-    ownerUser: UserProfile
+    ownerUser: UserProfile,
+    targetLaundryIdInput?: string
   ): ServiceCatalogItem {
-    if (!ownerUser.laundryId && ownerUser.role !== 'platform_admin' && ownerUser.role !== 'admin') {
-      throw new Error(
-        `Akses Ditolak (UnauthorizedError): Sesi pengguna (${ownerUser.fullName}) tidak terhubung dengan toko laundry mana pun.`
-      );
-    }
-    const targetLaundryId = ownerUser.laundryId || 'lnd_001';
+    const targetLaundryId = targetLaundryIdInput || ownerUser.laundryId || 'lnd_001';
     this.validateOwnership(ownerUser, targetLaundryId);
 
     if (!payload.name || payload.name.trim().length < 3) {
