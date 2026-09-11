@@ -11,7 +11,12 @@ import { Home, Search, Package, User, Truck, Store, BarChart3, Users, RotateCcw,
 import { OwnerMobileNavigation } from '@/components/owner/OwnerMobileNavigation';
 
 export function shouldShowMobileNav(pathname: string): boolean {
-  if (pathname === '/' || pathname.startsWith('/register/partner')) {
+  if (
+    pathname === '/' ||
+    pathname === '/register' ||
+    pathname.startsWith('/register/') ||
+    pathname.startsWith('/owner/laundry/register')
+  ) {
     return false;
   }
   return true;

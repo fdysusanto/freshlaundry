@@ -6,10 +6,11 @@ console.log('==================================================');
 
 const routesToTest = [
   { route: '/', expected: false, label: 'Public Landing Page' },
+  { route: '/register', expected: false, label: 'Register Customer Page' },
   { route: '/register/partner', expected: false, label: 'Partner Registration Page' },
   { route: '/register/partner/status', expected: false, label: 'Partner Registration Status Page' },
+  { route: '/owner/laundry/register', expected: false, label: 'Laundry Owner Registration Page' },
   { route: '/login', expected: true, label: 'Login Page' },
-  { route: '/register', expected: true, label: 'Register Customer Page' },
   { route: '/customer', expected: true, label: 'Customer Dashboard' },
   { route: '/customer/orders', expected: true, label: 'Customer Orders Page' },
   { route: '/customer/account', expected: true, label: 'Customer Account Page' },
