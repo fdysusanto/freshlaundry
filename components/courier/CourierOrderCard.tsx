@@ -47,7 +47,7 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
   onWeighClick,
 }) => {
   const statusCfg = getStatusConfig(order.status);
-  const isDelivery = order.assignmentType === 'delivery' || order.status === 'ready_for_delivery' || order.status === 'out_for_delivery';
+  const isDelivery = order.assignmentType === 'delivery' || order.status === 'out_for_delivery' || (order.status === 'ready_for_delivery' && Boolean(order.deliveryCourier?.id));
   const isPickupTask = !isDelivery && (order.status === 'pending' || order.status === 'assigned' || order.status === 'picked_up');
 
   // Check arrival event in logs

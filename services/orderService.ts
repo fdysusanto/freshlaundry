@@ -343,6 +343,15 @@ export const orderService = {
     for (const ord of ordersToClaim) {
       ord.courierId = courierId;
       ord.status = jobType === 'pickup' ? 'assigned' : 'out_for_delivery';
+      if (jobType === 'delivery') {
+        const profileName = ('fullName' in courierProfile && courierProfile.fullName) || ('name' in courierProfile && (courierProfile as any).name) || 'Kurir Pengantar';
+        const profilePhone = ('phone' in courierProfile && courierProfile.phone) || '081234567890';
+        ord.deliveryCourier = {
+          id: courierId,
+          name: profileName,
+          phone: profilePhone,
+        };
+      }
       ord.updatedAt = new Date().toISOString();
       ord.logs = ord.logs || [];
       ord.logs.push({
@@ -1179,6 +1188,9 @@ export const orderService = {
         if (actorId && assignedDeliveryCourierId && actorId !== assignedDeliveryCourierId) {
           throw new Error('Akses Ditolak: Kurir ini tidak berhak mengelola pengantaran order yang ditugaskan kepada kurir lain.');
         }
+        if (actorId && !assignedDeliveryCourierId) {
+          throw new Error('Akses Ditolak: Kurir ini tidak berhak mengelola pengantaran order yang belum diklaim.');
+        }
       } else if (actorId && currentOrder.courierId && actorId !== currentOrder.courierId) {
         throw new Error(`Akses Ditolak: Kurir ini tidak berhak mengelola order yang ditugaskan kepada kurir lain.`);
       }
@@ -1205,10 +1217,15 @@ export const orderService = {
     const writeDb = client || serviceDb || (isSupabaseConfigured ? supabase : null);
 
     const cleanId = orderId.trim();
-    let orderQuery = (writeDb.from('orders') as any).update({
+    const updatePayload: any = {
       status: targetStatus,
       updated_at: new Date().toISOString(),
-    });
+    };
+    if (targetStatus === 'ready_for_delivery') {
+      updatePayload.courier_id = null;
+    }
+
+    let orderQuery = (writeDb.from('orders') as any).update(updatePayload);
 
     if (isValidUuid(cleanId)) {
       orderQuery = orderQuery.eq('id', cleanId);
@@ -1420,13 +1437,15 @@ export const orderService = {
     if (!isSupabaseConfigured || !db) {
       const orders = this.getOrders();
       const targetOrder = orders.find((o) => o.id === assignmentId || o.assignmentId === assignmentId) ||
-        orders.find((o) => (o.status === 'pending' || o.status === 'ready_for_delivery'));
-      if (!targetOrder) throw new Error('Penugasan kurir tidak ditemukan di penyimpanan lokal.');
-      const newStatus: OrderStatus = targetOrder.status === 'ready_for_delivery' ? 'out_for_delivery' : 'assigned';
+        orders.find((o) => o.status === 'pending');
+      if (!targetOrder) throw new Error('Penugasan penjemputan (pickup) kurir tidak ditemukan di penyimpanan lokal.');
+      if (targetOrder.status === 'ready_for_delivery') {
+        throw new Error('Akses Ditolak: Penugasan pengantaran (delivery) wajib diambil melalui Delivery Job Pool.');
+      }
       targetOrder.courierId = courierId;
       const { dispatchService } = await import('./dispatchService');
       dispatchService.completeMockDispatchBatchAsync(targetOrder.id);
-      return this.updateOrderStatus(targetOrder.id, newStatus, 'Kurir menerima tugas.', courierId);
+      return this.transitionOrderStatusAsync(targetOrder.id, 'assigned', { id: courierId, role: 'courier' }, 'Kurir menerima tugas pickup.');
     }
 
     const { data: res, error } = await (db.rpc as any)('accept_courier_assignment_atomic', {
@@ -1988,9 +2007,17 @@ export const orderService = {
         throw new Error('Akses Ditolak: Tugas pickup telah selesai. Pesanan ini kini dikelola oleh outlet laundry.');
       }
       if (currentStatus === 'ready_for_delivery') {
-        const assignedDeliveryCourierId = targetOrder.deliveryCourier?.id || targetOrder.courierId;
+        const assignedDeliveryCourierId = targetOrder.deliveryCourier?.id;
+        if (!assignedDeliveryCourierId || (actorId && actorId !== assignedDeliveryCourierId)) {
+          throw new Error('Akses Ditolak: Kurir ini belum ditugaskan untuk pengantaran order ini. Silakan klaim tugas delivery di Job Pool.');
+        }
+      } else if (currentStatus === 'out_for_delivery') {
+        const assignedDeliveryCourierId = targetOrder.deliveryCourier?.id || (targetOrder.courierId !== targetOrder.pickupCourier?.id ? targetOrder.courierId : undefined);
         if (actorId && assignedDeliveryCourierId && actorId !== assignedDeliveryCourierId) {
           throw new Error('Akses Ditolak: Kurir ini tidak berhak mengelola pengantaran order yang ditugaskan kepada kurir lain.');
+        }
+        if (actorId && !assignedDeliveryCourierId) {
+          throw new Error('Akses Ditolak: Kurir ini tidak berhak mengelola pengantaran order yang belum diklaim.');
         }
       } else if (actorId && targetOrder.courierId && actorId !== targetOrder.courierId) {
         throw new Error(`Akses Ditolak: Kurir ini tidak berhak mengelola order yang ditugaskan kepada kurir lain.`);
