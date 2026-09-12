@@ -265,6 +265,7 @@ export default function AdminPartnerApplicationsPage() {
               <thead className="bg-slate-50 text-slate-500 uppercase font-bold border-b border-slate-200 text-[11px]">
                 <tr>
                   <th className="py-3 px-4">Tanggal</th>
+                  <th className="py-3 px-4">Jenis Pengajuan</th>
                   <th className="py-3 px-4">Nama Laundry</th>
                   <th className="py-3 px-4">Kota / Kecamatan</th>
                   <th className="py-3 px-4">Pemilik Usaha</th>
@@ -275,15 +276,24 @@ export default function AdminPartnerApplicationsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredApps.map((app) => (
-                  <tr key={app.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 font-semibold text-slate-500">
-                      {formatDateIndo(app.created_at)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <strong className="font-bold text-slate-900 block">{app.laundry_name}</strong>
-                      <span className="text-[11px] text-slate-400 font-mono">ID: {app.id.slice(0, 8)}...</span>
-                    </td>
+                {filteredApps.map((app) => {
+                  const isAddBranch = app.application_type === 'add_branch';
+                  return (
+                    <tr key={app.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-semibold text-slate-500">
+                        {formatDateIndo(app.created_at)}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
+                          isAddBranch ? 'bg-purple-100 text-purple-900 border border-purple-200' : 'bg-blue-100 text-blue-900 border border-blue-200'
+                        }`}>
+                          {isAddBranch ? 'Penambahan Cabang' : 'Pendaftaran Laundry Baru'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <strong className="font-bold text-slate-900 block">{app.laundry_name}</strong>
+                        <span className="text-[11px] text-slate-400 font-mono">ID: {app.id.slice(0, 8)}...</span>
+                      </td>
                     <td className="py-3 px-4 font-medium text-slate-700">
                       {app.city}, {app.district}
                     </td>
@@ -325,8 +335,9 @@ export default function AdminPartnerApplicationsPage() {
                       </Button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                );
+              })}
+            </tbody>
             </table>
           </div>
         )}

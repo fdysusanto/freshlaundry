@@ -108,7 +108,14 @@ export const PartnerApplicationDetailModal: React.FC<PartnerApplicationDetailMod
         {/* Header Status Summary */}
         <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Status Pengajuan</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Jenis &amp; Status Pengajuan</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                application.application_type === 'add_branch' ? 'bg-purple-100 text-purple-900 border border-purple-200' : 'bg-blue-100 text-blue-900 border border-blue-200'
+              }`}>
+                {application.application_type === 'add_branch' ? 'Penambahan Cabang' : 'Pendaftaran Laundry Baru'}
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               {application.status === 'pending' && (
                 <Badge variant="amber" className="font-bold text-xs px-2.5 py-1">

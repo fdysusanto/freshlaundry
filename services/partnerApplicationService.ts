@@ -108,6 +108,8 @@ export interface PartnerApplicationRecord {
   rejection_reason?: string | null;
   reviewed_at?: string | null;
   created_at: string;
+  application_type?: 'new_partner' | 'add_branch';
+  approved_laundry_id?: string | null;
   services?: Array<{
     id: string;
     name: string;
@@ -116,6 +118,37 @@ export interface PartnerApplicationRecord {
     unit: string;
     min_weight?: number | null;
     estimated_hours?: number | null;
+  }>;
+}
+
+export interface CreateAddBranchApplicationPayload {
+  laundryName: string;
+  laundryAddress: string;
+  city: string;
+  district: string;
+  provinceCode?: string;
+  provinceName?: string;
+  cityCode?: string;
+  cityName?: string;
+  districtCode?: string;
+  districtName?: string;
+  villageCode?: string;
+  villageName?: string;
+  postalCode?: string;
+  rt?: string;
+  rw?: string;
+  addressDetail?: string;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
+  openingTime?: string;
+  closingTime?: string;
+  services: Array<{
+    name: string;
+    code?: string;
+    price: number;
+    unit: 'kg' | 'pcs';
+    minWeight?: number | null;
+    estimatedHours?: number | null;
   }>;
 }
 
@@ -446,5 +479,185 @@ export const partnerApplicationService = {
     }
 
     return updatedApp as PartnerApplicationRecord;
+  },
+
+  /**
+   * Submit add_branch application for an authenticated Owner.
+   */
+  async createAddBranchApplicationAsync(
+    payload: CreateAddBranchApplicationPayload
+  ): Promise<PartnerApplicationRecord> {
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error('Koneksi Supabase belum terkonfigurasi.');
+    }
+
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session?.user) {
+      throw new Error('Sesi autentikasi tidak ditemukan. Silakan login terlebih dahulu.');
+    }
+
+    const userId = session.user.id;
+    if (!isValidUuid(userId)) {
+      throw new Error('Identitas user tidak valid (bukan UUID).');
+    }
+
+    // Verify profile & role
+    const { data: profile } = await (supabase.from('profiles') as any)
+      .select('id, role, full_name, phone')
+      .eq('id', userId)
+      .single();
+
+    const prof = profile as any;
+
+    if (!prof || prof.role !== 'laundry_owner') {
+      throw new Error('Hanya akun Owner Laundry yang dapat menambahkan cabang baru.');
+    }
+
+    // Check for existing pending add_branch application
+    const { data: existingPending } = await (supabase.from('partner_applications') as any)
+      .select('id, status, application_type')
+      .eq('user_id', userId)
+      .eq('application_type', 'add_branch')
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (existingPending) {
+      throw new Error('Anda sudah memiliki pengajuan cabang yang sedang menunggu verifikasi admin.');
+    }
+
+    // Fetch existing application or laundry for payout fallback info
+    const { data: existingApp } = await (supabase.from('partner_applications') as any)
+      .select('payout_account_holder, payout_bank, payout_account_number')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const payoutHolder = existingApp?.payout_account_holder || prof.full_name || 'Pemilik Laundry';
+    const payoutBank = existingApp?.payout_bank || 'BCA';
+    const payoutAccNum = existingApp?.payout_account_number || '0000000000';
+
+    const numLat = parseCoordinateNumber(payload.latitude);
+    const numLng = parseCoordinateNumber(payload.longitude);
+
+    const formattedOpening = payload.openingTime
+      ? payload.openingTime.includes(':') && payload.openingTime.split(':').length === 2
+        ? `${payload.openingTime}:00`
+        : payload.openingTime
+      : '08:00:00';
+
+    const formattedClosing = payload.closingTime
+      ? payload.closingTime.includes(':') && payload.closingTime.split(':').length === 2
+        ? `${payload.closingTime}:00`
+        : payload.closingTime
+      : '20:00:00';
+
+    // 1. Insert into partner_applications with application_type = 'add_branch'
+    const { data: application, error: appError } = await (supabase.from('partner_applications') as any)
+      .insert({
+        user_id: userId,
+        application_type: 'add_branch',
+        status: 'pending',
+        owner_full_name: (prof.full_name || 'Pemilik Laundry').trim(),
+        owner_phone: (prof.phone || '').trim(),
+        laundry_name: payload.laundryName.trim(),
+        laundry_address: payload.laundryAddress.trim(),
+        city: payload.city.trim(),
+        district: payload.district.trim(),
+        province_code: payload.provinceCode || '32',
+        province_name: payload.provinceName || 'Jawa Barat',
+        city_code: payload.cityCode || '3274',
+        city_name: payload.cityName || payload.city.trim(),
+        district_code: payload.districtCode || null,
+        district_name: payload.districtName || payload.district.trim(),
+        village_code: payload.villageCode || null,
+        village_name: payload.villageName || null,
+        postal_code: payload.postalCode || null,
+        rt: payload.rt || null,
+        rw: payload.rw || null,
+        address_detail: payload.addressDetail || payload.laundryAddress.trim(),
+        latitude: isNaN(numLat as number) ? null : numLat,
+        longitude: isNaN(numLng as number) ? null : numLng,
+        opening_time: formattedOpening,
+        closing_time: formattedClosing,
+        payout_account_holder: payoutHolder,
+        payout_bank: payoutBank,
+        payout_account_number: payoutAccNum,
+      })
+      .select()
+      .single();
+
+    if (appError) {
+      if (appError.code === '23505' || appError.message?.includes('idx_one_pending_add_branch_per_owner')) {
+        throw new Error('Anda sudah memiliki pengajuan cabang yang sedang menunggu verifikasi admin.');
+      }
+      throw new Error(`Gagal menyimpan pengajuan cabang: ${appError.message}`);
+    }
+
+    if (!application) {
+      throw new Error('Gagal membuat pengajuan cabang baru.');
+    }
+
+    // 2. Insert draft services into partner_application_services
+    if (payload.services && payload.services.length > 0) {
+      const servicesToInsert = payload.services.map((s) => {
+        const enumCode = normalizeServiceType(s.code, s.unit, s.name);
+
+        const parsedMinWeight = (s.unit === 'kg' && typeof s.minWeight === 'number' && Number.isFinite(s.minWeight) && s.minWeight > 0)
+          ? s.minWeight
+          : null;
+
+        const parsedEstHours = normalizeEstimatedHours(s.estimatedHours, enumCode, s.unit);
+
+        return {
+          application_id: application.id,
+          name: s.name.trim(),
+          code: enumCode,
+          price_per_unit: s.price,
+          unit: s.unit || 'kg',
+          min_weight: parsedMinWeight,
+          estimated_hours: parsedEstHours,
+        };
+      });
+
+      const { error: servicesError } = await (supabase.from('partner_application_services') as any)
+        .insert(servicesToInsert);
+
+      if (servicesError) {
+        console.warn('Warning inserting draft services for add_branch:', servicesError.message);
+      }
+    }
+
+    return application as PartnerApplicationRecord;
+  },
+
+  /**
+   * Fetch all partner applications (new_partner & add_branch) for the current authenticated user.
+   */
+  async getMyPartnerApplicationsAsync(): Promise<PartnerApplicationRecord[]> {
+    if (!isSupabaseConfigured || !supabase) {
+      return [];
+    }
+
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.user) {
+        return [];
+      }
+
+      const { data: applications, error: appError } = await (supabase.from('partner_applications') as any)
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (appError || !applications) {
+        return [];
+      }
+
+      return applications as PartnerApplicationRecord[];
+    } catch (err) {
+      console.warn('Error fetching user partner applications:', err);
+      return [];
+    }
   },
 };
