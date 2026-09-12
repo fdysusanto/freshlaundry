@@ -3,12 +3,18 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Home, ShoppingBag, Layers, User } from 'lucide-react';
+import { Home, ShoppingBag, Layers, Users, User } from 'lucide-react';
 
-export const OwnerMobileNavigation: React.FC = () => {
+export interface OwnerMobileNavigationProps {
+  userRole?: string;
+}
+
+export const OwnerMobileNavigation: React.FC<OwnerMobileNavigationProps> = ({ userRole }) => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeTabFromUrl = searchParams.get('tab') || 'dashboard';
+
+  const isStaffRole = userRole === 'laundry_staff';
 
   const navItems = [
     {
@@ -32,6 +38,17 @@ export const OwnerMobileNavigation: React.FC = () => {
       icon: Layers,
       isActive: pathname.startsWith('/owner/services') || (pathname === '/owner' && activeTabFromUrl === 'services'),
     },
+    ...(!isStaffRole
+      ? [
+          {
+            id: 'staff',
+            label: 'Staf',
+            href: '/owner/staff',
+            icon: Users,
+            isActive: pathname.startsWith('/owner/staff'),
+          },
+        ]
+      : []),
     {
       id: 'account',
       label: 'Akun',

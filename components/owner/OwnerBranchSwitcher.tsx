@@ -7,9 +7,10 @@ import { Store, ChevronDown, Check, Plus, MapPin, Sparkles } from 'lucide-react'
 
 export const OwnerBranchSwitcher: React.FC<{ className?: string }> = ({ className = '' }) => {
   const router = useRouter();
-  const { ownedLaundries, activeLaundry, activeLaundryId, setActiveLaundryId, isLoading } = useOwnerBranch();
+  const { ownedLaundries, activeLaundry, activeLaundryId, setActiveLaundryId, isLoading, currentUser } = useOwnerBranch();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isStaffRole = currentUser?.role === 'laundry_staff';
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -33,6 +34,25 @@ export const OwnerBranchSwitcher: React.FC<{ className?: string }> = ({ classNam
 
   if (!ownedLaundries.length || !activeLaundry) {
     return null;
+  }
+
+  // If staff role, show fixed branch pill badge without dropdown
+  if (isStaffRole) {
+    return (
+      <div className={`inline-flex items-center gap-2.5 px-3.5 py-2 rounded-xl border text-xs sm:text-sm font-semibold bg-slate-50 border-slate-200 text-slate-800 shadow-2xs ${className}`}>
+        <div className="w-7 h-7 rounded-lg bg-brand-surface text-brand-primary flex items-center justify-center shrink-0 border border-brand-primary/20">
+          <Store className="w-4 h-4" />
+        </div>
+        <div className="flex flex-col text-left">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-tight">
+            Outlet Staf
+          </span>
+          <span className="font-extrabold text-slate-900 truncate max-w-[150px] sm:max-w-[200px]">
+            {activeLaundry.name}
+          </span>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -124,20 +144,22 @@ export const OwnerBranchSwitcher: React.FC<{ className?: string }> = ({ classNam
             })}
           </div>
 
-          {/* CTA for Add Branch */}
-          <div className="p-2 border-t border-slate-100 bg-slate-50">
-            <button
-              type="button"
-              onClick={() => {
-                setIsOpen(false);
-                router.push('/owner/branches/create');
-              }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-slate-300 hover:border-brand-primary text-slate-600 hover:text-brand-primary text-xs font-bold transition-all cursor-pointer bg-white"
-            >
-              <Plus className="w-4 h-4 text-brand-primary" />
-              <span>+ Tambah Cabang Laundry</span>
-            </button>
-          </div>
+          {/* CTA for Add Branch (Hidden for Staff) */}
+          {!isStaffRole && (
+            <div className="p-2 border-t border-slate-100 bg-slate-50">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  router.push('/owner/branches/create');
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-slate-300 hover:border-brand-primary text-slate-600 hover:text-brand-primary text-xs font-bold transition-all cursor-pointer bg-white"
+              >
+                <Plus className="w-4 h-4 text-brand-primary" />
+                <span>+ Tambah Cabang Laundry</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

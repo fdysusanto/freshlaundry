@@ -49,7 +49,7 @@ export const MobileNav: React.FC = () => {
   }
 
   if (role === 'laundry_owner' || role === 'laundry_staff') {
-    return <OwnerMobileNavigation />;
+    return <OwnerMobileNavigation userRole={role} />;
   }
 
   let navItems: { id: string; label: string; href: string; icon: React.ElementType; isCta?: boolean }[] = [];
