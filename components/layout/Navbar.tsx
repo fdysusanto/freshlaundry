@@ -57,6 +57,13 @@ export const Navbar: React.FC = () => {
   };
 
   const isPublicLandingPage = pathname === '/';
+  const isPartnerRegistrationPage =
+    pathname === '/register/partner' ||
+    pathname.startsWith('/register/partner/') ||
+    pathname === '/owner/laundry/register' ||
+    pathname.startsWith('/owner/laundry/register/');
+
+  const shouldHideLoginButton = isPublicLandingPage || isPartnerRegistrationPage;
 
   return (
     <>
@@ -77,8 +84,8 @@ export const Navbar: React.FC = () => {
           {/* Header Right Actions: Existing Account CTA / Dropdown + Partner Registration CTA (Only on "/") */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
             {/* Account Action (Hidden on Public Landing Page "/") */}
-            {!isPublicLandingPage && (
-              currentUser ? (
+            {currentUser ? (
+              !isPublicLandingPage && (
                 <div className="shrink-0">
                   <UserAccountDropdown
                     currentUser={currentUser}
@@ -90,7 +97,9 @@ export const Navbar: React.FC = () => {
                     }}
                   />
                 </div>
-              ) : (
+              )
+            ) : (
+              !shouldHideLoginButton && (
                 <div className="shrink-0">
                   <Button
                     variant="outline"
