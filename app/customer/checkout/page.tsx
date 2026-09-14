@@ -10,7 +10,7 @@ import { isPickupSlotSelectable } from '@/services/dispatchService';
 import { calculateEarliestDeliveryDateTime, filterAvailableDeliverySlots, validateDeliverySchedule, getEarliestAvailablePickupSchedule } from '@/utils/scheduleUtils';
 import { ServiceType } from '@/types/order';
 import { CustomerAddress, AddressSnapshot } from '@/types/address';
-import { formatIDR, isValidUuid } from '@/utils/formatters';
+import { formatIDR, isValidUuid, getRelativeDateLabel } from '@/utils/formatters';
 import { supabase } from '@/services/supabase';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -695,9 +695,16 @@ function CheckoutContent() {
                   {/* PICKUP DATE & TIME SLOT */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-brand-primary" /> Tanggal Pickup:
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5 mb-0">
+                          <Calendar className="w-3.5 h-3.5 text-brand-primary" /> Tanggal Pickup:
+                        </label>
+                        {getRelativeDateLabel(pickupDate) && (
+                          <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                            {getRelativeDateLabel(pickupDate)}
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="date"
                         required

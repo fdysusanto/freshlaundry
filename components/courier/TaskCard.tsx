@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Order } from '@/types/order';
-import { formatIDR } from '@/utils/formatters';
+import { formatIDR, formatDateIndoWithRelative } from '@/utils/formatters';
 import { getStatusConfig } from '@/utils/helpers';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
@@ -110,7 +110,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               Jadwal {isDelivery ? 'Delivery' : 'Pickup'}:
             </span>
             <span className="font-bold text-slate-900">
-              {isDelivery ? (order.deliveryDate || order.pickupDate) : order.pickupDate}
+              {formatDateIndoWithRelative(isDelivery ? (order.deliveryDate || order.pickupDate) : order.pickupDate)}
             </span>
           </div>
           <div className="flex items-center justify-between text-slate-700">

@@ -11,7 +11,7 @@ import { paymentService } from '@/services/paymentService';
 import { calculateOrderShortfall } from '@/utils/paymentShortfall';
 import { Order, normalizeOrderStatus } from '@/types/order';
 import { UserProfile } from '@/types/user';
-import { formatIDR, formatDateIndo } from '@/utils/formatters';
+import { formatIDR, formatDateIndo, formatDateIndoWithRelative } from '@/utils/formatters';
 import { getStatusConfig } from '@/utils/helpers';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -234,7 +234,7 @@ export default function CustomerDashboardPage() {
                     <div className="flex justify-between">
                       <span className="text-slate-500">Jadwal Pickup:</span>
                       <span className="font-semibold text-slate-800">
-                        {formatDateIndo(o.pickupDate)} ({o.pickupTimeSlot})
+                        {formatDateIndoWithRelative(o.pickupDate)} ({o.pickupTimeSlot})
                       </span>
                     </div>
                     <div className="flex justify-between">

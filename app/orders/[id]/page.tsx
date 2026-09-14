@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { orderService } from '@/services/orderService';
 import { supabase, isSupabaseConfigured } from '@/services/supabase';
 import { Order } from '@/types/order';
-import { formatIDR, formatDateIndo, formatDateTimeIndo } from '@/utils/formatters';
+import { formatIDR, formatDateIndo, formatDateIndoWithRelative, formatDateTimeIndo } from '@/utils/formatters';
 import { getStatusConfig } from '@/utils/helpers';
 import { Stepper } from '@/components/ui/Stepper';
 import { Card } from '@/components/ui/Card';
@@ -618,7 +618,7 @@ export default function OrderDetailPage() {
                   <div>
                     <span className="text-slate-500 block text-[11px] font-medium">Jadwal Penjemputan (Pickup):</span>
                     <span className="font-bold text-slate-800">
-                      {formatDateIndo(order.pickupDate)} ({order.pickupTimeSlot})
+                      {formatDateIndoWithRelative(order.pickupDate)} ({order.pickupTimeSlot})
                     </span>
                   </div>
                   {isPickupEditable ? (
@@ -639,7 +639,7 @@ export default function OrderDetailPage() {
                   <div>
                     <span className="text-slate-500 block text-[11px] font-medium">Jadwal Pengantaran (Delivery):</span>
                     <span className="font-bold text-indigo-700">
-                      {order.deliveryDate ? `${formatDateIndo(order.deliveryDate)} ${order.deliveryTimeSlot ? `(${order.deliveryTimeSlot})` : ''}` : '-'}
+                      {order.deliveryDate ? `${formatDateIndoWithRelative(order.deliveryDate)} ${order.deliveryTimeSlot ? `(${order.deliveryTimeSlot})` : ''}` : '-'}
                     </span>
                   </div>
                   {isDeliveryEditable ? (

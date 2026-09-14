@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Order, OrderStatus } from '@/types/order';
 import { getStatusConfig } from '@/utils/helpers';
+import { formatDateIndoWithRelative } from '@/utils/formatters';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -212,7 +213,7 @@ export const CourierOrderCard: React.FC<CourierOrderCardProps> = ({
               Jadwal {isDelivery ? 'Delivery' : 'Pickup'}:
             </span>
             <span className="font-bold text-slate-900">
-              {isDelivery ? (order.deliveryDate || order.pickupDate) : order.pickupDate}
+              {formatDateIndoWithRelative(isDelivery ? (order.deliveryDate || order.pickupDate) : order.pickupDate)}
             </span>
           </div>
           <div className="flex items-center justify-between text-slate-700">

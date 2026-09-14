@@ -8,7 +8,7 @@ import { supabase, isSupabaseConfigured } from '@/services/supabase';
 import { Order } from '@/types/order';
 import { PaymentAttempt } from '@/types/payment';
 import { getStatusConfig } from '@/utils/helpers';
-import { formatIDR, formatDateIndo } from '@/utils/formatters';
+import { formatIDR, formatDateIndo, formatDateIndoWithRelative } from '@/utils/formatters';
 import { Stepper } from '@/components/ui/Stepper';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -288,8 +288,8 @@ export default function OrderTrackingPage() {
               <p className="font-bold text-slate-700">Kurir & Penjemputan:</p>
               <p className="text-slate-600">Kurir Pickup: <strong>{order.pickupCourier ? order.pickupCourier.name : 'Mencari kurir...'}</strong></p>
               <p className="text-slate-600">Kurir Delivery: <strong className={order.deliveryCourier ? 'text-indigo-700 font-bold' : 'text-slate-500 italic'}>{order.deliveryCourier ? order.deliveryCourier.name : 'Belum Ditugaskan'}</strong></p>
-              <p className="text-slate-600">Jadwal Pickup: <strong>{formatDateIndo(order.pickupDate)} ({order.pickupTimeSlot})</strong></p>
-              <p className="text-slate-600">Jadwal Delivery: <strong>{order.deliveryDate ? `${formatDateIndo(order.deliveryDate)} ${order.deliveryTimeSlot ? `(${order.deliveryTimeSlot})` : ''}` : '-'}</strong></p>
+              <p className="text-slate-600">Jadwal Pickup: <strong>{formatDateIndoWithRelative(order.pickupDate)} ({order.pickupTimeSlot})</strong></p>
+              <p className="text-slate-600">Jadwal Delivery: <strong>{order.deliveryDate ? `${formatDateIndoWithRelative(order.deliveryDate)} ${order.deliveryTimeSlot ? `(${order.deliveryTimeSlot})` : ''}` : '-'}</strong></p>
             </div>
           </div>
 
