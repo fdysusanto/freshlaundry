@@ -13,6 +13,9 @@ import { OwnerMobileNavigation } from '@/components/owner/OwnerMobileNavigation'
 export function shouldShowMobileNav(pathname: string): boolean {
   if (
     pathname === '/' ||
+    pathname === '/login' ||
+    pathname === '/forgot-password' ||
+    pathname === '/reset-password' ||
     pathname === '/register' ||
     pathname.startsWith('/register/') ||
     pathname.startsWith('/owner/laundry/register')

@@ -6,6 +6,7 @@ import { authService } from '@/services/authService';
 import { laundryService } from '@/services/laundryService';
 import { ServiceType } from '@/types/order';
 import { UserProfile } from '@/types/user';
+import { ServiceCategory } from '@/types/laundry';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { OwnerBranchProvider, useOwnerBranch } from '@/components/owner/OwnerBranchContext';
@@ -37,6 +38,7 @@ function CreateOwnerServiceContent() {
   const [minWeightInput, setMinWeightInput] = useState<string>('');
   const [estimatedHours, setEstimatedHours] = useState<number>(48);
   const [estimatedTime, setEstimatedTime] = useState('2-3 Hari');
+  const [category, setCategory] = useState<ServiceCategory>('Pakaian');
   const [badge, setBadge] = useState('');
   const [isActive, setIsActive] = useState(true);
 
@@ -90,6 +92,7 @@ function CreateOwnerServiceContent() {
           code,
           name: name.trim(),
           description: description.trim(),
+          category,
           pricingType: unit === 'pcs' ? 'per_item' : 'per_kg',
           price,
           price_per_unit: price,
@@ -182,7 +185,24 @@ function CreateOwnerServiceContent() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                Kode / Kategori Layanan:
+                Kategori Item / Barang <span className="text-rose-500">*</span>:
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as ServiceCategory)}
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary focus:border-brand-primary font-bold bg-slate-50 cursor-pointer"
+              >
+                <option value="Pakaian">👕 Pakaian</option>
+                <option value="Sepatu & Sandal">👟 Sepatu &amp; Sandal</option>
+                <option value="Tas">👜 Tas</option>
+                <option value="Karpet">🧺 Karpet</option>
+                <option value="Sofa">🛋️ Sofa</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                Tipe Layanan / Paket:
               </label>
               <select
                 value={code}
@@ -192,7 +212,7 @@ function CreateOwnerServiceContent() {
                 <option value="kiloan">kiloan — Cuci Kiloan Reguler</option>
                 <option value="express">express — Express Kilat</option>
                 <option value="dry_clean">dry_clean — Dry Cleaning Premium</option>
-                <option value="satuan">satuan — Cuci Satuan (Sepatu/Bedcover)</option>
+                <option value="satuan">satuan — Cuci Satuan</option>
               </select>
             </div>
 

@@ -3,6 +3,15 @@ export type PricingType = 'per_kg' | 'per_item' | 'fixed';
 export type AssignmentStatus = 'offered' | 'accepted' | 'rejected' | 'expired' | 'completed';
 export type PayoutStatus = 'pending' | 'paid';
 
+export type ServiceCategory = 'Pakaian' | 'Sepatu & Sandal' | 'Tas' | 'Karpet' | 'Sofa';
+export const CANONICAL_SERVICE_CATEGORIES: ServiceCategory[] = [
+  'Pakaian',
+  'Sepatu & Sandal',
+  'Tas',
+  'Karpet',
+  'Sofa',
+];
+
 export interface LaundryPhoto {
   id: string;
   laundry_id: string;
@@ -50,6 +59,7 @@ export interface LaundryMarketplaceItem {
   distanceKm?: number;
   isFavorite?: boolean;
   badge?: string;
+  serviceCategories?: ServiceCategory[];
 }
 
 export interface LaundryUser {
@@ -67,6 +77,7 @@ export interface LaundryService {
   code: string;
   name: string;
   description: string;
+  category?: ServiceCategory | null;
   pricingType: PricingType;
   price: number;
   price_per_unit?: number;

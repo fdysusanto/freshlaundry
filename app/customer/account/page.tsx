@@ -155,7 +155,7 @@ export default function CustomerAccountPage() {
         {/* Section 2: Transaction & Favorites */}
         <Card variant="white" className="p-0 border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
           <Link
-            href="/customer/orders/history"
+            href="/customer/orders?tab=history"
             className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group cursor-pointer"
           >
             <div className="flex items-center gap-3">

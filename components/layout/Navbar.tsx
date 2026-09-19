@@ -7,18 +7,28 @@ import { authService } from '@/services/authService';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { UserProfile, UserRole } from '@/types/user';
 import { UserAccountDropdown } from './UserAccountDropdown';
-import { ArrowRight, User, Truck, ShieldCheck, LogOut } from 'lucide-react';
+import { ArrowRight, User, Truck, ShieldCheck, LogOut, MapPin, ChevronDown } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
 import Image from 'next/image';
 import { BRAND } from '@/config/brand';
+import { useLocationState } from '@/hooks/useLocationState';
+import { MarketplaceLocationModal } from '../marketplace/MarketplaceLocationModal';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+
+  const {
+    marketplaceLocation,
+    setManualPinLocation,
+    resetToGps,
+    formattedLocationLabel,
+  } = useLocationState();
 
   useEffect(() => {
     let isMounted = true;
@@ -63,11 +73,16 @@ export const Navbar: React.FC = () => {
     pathname === '/owner/laundry/register' ||
     pathname.startsWith('/owner/laundry/register/');
 
+  const isAuthPage =
+    pathname === '/login' ||
+    pathname === '/forgot-password' ||
+    pathname === '/reset-password';
+
   const shouldHideLoginButton = isPublicLandingPage || isPartnerRegistrationPage;
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-xs transition-all">
+      <header className={`sticky top-0 z-40 w-full bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-xs transition-all ${isAuthPage ? 'hidden sm:block' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
           {/* Logo Brand Link */}
           <Link href="/" className="flex items-center gap-2 group">
@@ -81,12 +96,29 @@ export const Navbar: React.FC = () => {
             />
           </Link>
 
-          {/* Header Right Actions: Existing Account CTA / Dropdown + Partner Registration CTA (Only on "/") */}
+          {/* Header Right Actions */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
-            {/* Account Action (Hidden on Public Landing Page "/") */}
+            {/* Customer Location Selector Badge on Mobile Header */}
+            {currentUser?.role === 'customer' && (
+              <div className="sm:hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsLocationModalOpen(true)}
+                  className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/90 hover:bg-slate-100 px-2.5 py-1.5 rounded-full text-xs font-bold text-slate-700 transition-colors shadow-2xs cursor-pointer select-none"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-brand-primary shrink-0" />
+                  <span className="truncate max-w-[130px] text-[11px] font-extrabold">
+                    {formattedLocationLabel || 'Lokasi Saat Ini'}
+                  </span>
+                  <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
+                </button>
+              </div>
+            )}
+
+            {/* Account Action (Hidden on Mobile, Visible on Desktop sm:block) */}
             {currentUser ? (
               !isPublicLandingPage && (
-                <div className="shrink-0">
+                <div className="shrink-0 hidden sm:block">
                   <UserAccountDropdown
                     currentUser={currentUser}
                     onOpenRoleModal={() => setIsRoleModalOpen(true)}
@@ -233,6 +265,21 @@ export const Navbar: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      {/* Unified Marketplace Location Modal for Mobile Navbar */}
+      <MarketplaceLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        initialLat={marketplaceLocation.latitude}
+        initialLng={marketplaceLocation.longitude}
+        isGpsActive={marketplaceLocation.source === 'current_gps'}
+        onSelectManualPin={(lat, lng, displayAddress) => {
+          setManualPinLocation(lat, lng, displayAddress);
+        }}
+        onResetToGps={() => {
+          resetToGps();
+        }}
+      />
     </>
   );
 };

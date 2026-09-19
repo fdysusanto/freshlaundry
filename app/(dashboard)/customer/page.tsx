@@ -1,30 +1,45 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { orderService } from '@/services/orderService';
 import { partnerApplicationService, PartnerApplicationRecord } from '@/services/partnerApplicationService';
+import { marketplaceService } from '@/services/marketplaceService';
+import { useLocationState } from '@/hooks/useLocationState';
 import { isSupabaseConfigured } from '@/services/supabase';
-import { paymentService } from '@/services/paymentService';
-import { calculateOrderShortfall } from '@/utils/paymentShortfall';
 import { Order, normalizeOrderStatus } from '@/types/order';
 import { UserProfile } from '@/types/user';
-import { formatIDR, formatDateIndo, formatDateIndoWithRelative } from '@/utils/formatters';
-import { getStatusConfig } from '@/utils/helpers';
+import { LaundryMarketplaceItem, ServiceCategory } from '@/types/laundry';
+import { CategoryShortcut, CategoryFilterType } from '@/components/marketplace/CategoryShortcut';
+import { LaundryPartnerCard } from '@/components/marketplace/LaundryPartnerCard';
+import { LaundryCardSkeleton } from '@/components/ui/MarketplaceSkeleton';
+import { formatIDR, formatDateIndo } from '@/utils/formatters';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { ShoppingBag, Truck, Eye, Search, AlertTriangle } from 'lucide-react';
+import { Search, AlertTriangle, Store } from 'lucide-react';
 
 export default function CustomerDashboardPage() {
   const router = useRouter();
+  const locationState = useLocationState();
+  const { marketplaceLocation } = locationState;
+
   const [user, setUser] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [adjStatuses, setAdjStatuses] = useState<Record<string, { exists: boolean; status: 'paid' | 'pending' | 'none'; amount: number }>>({});
   const [partnerApp, setPartnerApp] = useState<PartnerApplicationRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Customer Home Marketplace Data, Category & Search State
+  const [marketplaceItems, setMarketplaceItems] = useState<LaundryMarketplaceItem[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryFilterType>('Semua');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isMarketplaceLoading, setIsMarketplaceLoading] = useState(true);
+
+  // Category shortcut expansion state
+  const [isCategoryExpanded, setIsCategoryExpanded] = useState(false);
+  const [hasMoreThanTwoCategoryRows, setHasMoreThanTwoCategoryRows] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -79,12 +94,6 @@ export default function CustomerDashboardPage() {
           setIsLoading(false);
         }
       }
-
-      if (isMounted && loadedOrders.length > 0) {
-        const orderIds = loadedOrders.map((o) => o.id);
-        const batchMap = await paymentService.getAdjustmentPaymentStatusesBatchAsync(orderIds);
-        if (isMounted) setAdjStatuses(batchMap);
-      }
     };
 
     loadDashboard();
@@ -93,11 +102,54 @@ export default function CustomerDashboardPage() {
     };
   }, [router]);
 
-  // Order Status Source of Truth: Active vs History
-  const activeOrders = orders.filter((o) => {
-    const norm = normalizeOrderStatus(o.status);
-    return norm !== 'delivered' && norm !== 'cancelled';
-  });
+  // Fetch Marketplace Partners for Home using Location State
+  const loadMarketplaceData = useCallback(async () => {
+    setIsMarketplaceLoading(true);
+    try {
+      let userLat: number | null = null;
+      let userLng: number | null = null;
+
+      if (
+        marketplaceLocation.latitude !== null &&
+        marketplaceLocation.longitude !== null
+      ) {
+        userLat = Number(marketplaceLocation.latitude);
+        userLng = Number(marketplaceLocation.longitude);
+      }
+
+      const items = await marketplaceService.getNearbyLaundryPartnersAsync(userLat, userLng);
+      setMarketplaceItems(items);
+    } catch (err: any) {
+      console.warn('[CUSTOMER-HOME] Error loading marketplace data:', err);
+      setMarketplaceItems([]);
+    } finally {
+      setIsMarketplaceLoading(false);
+    }
+  }, [marketplaceLocation.latitude, marketplaceLocation.longitude]);
+
+  useEffect(() => {
+    loadMarketplaceData();
+  }, [loadMarketplaceData]);
+
+  // Category & Search Filtering for Home
+  const filteredPartners = useMemo(() => {
+    return marketplaceItems.filter((item) => {
+      // 1. Category Filter
+      const matchesCategory =
+        selectedCategory === 'Semua' ||
+        item.serviceCategories?.includes(selectedCategory as ServiceCategory);
+
+      // 2. Search Query Filter
+      const q = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        item.laundry.name.toLowerCase().includes(q) ||
+        item.laundry.address?.toLowerCase().includes(q) ||
+        item.serviceCategories?.some((cat) => cat.toLowerCase().includes(q));
+
+      return matchesCategory && matchesSearch;
+    });
+  }, [marketplaceItems, selectedCategory, searchQuery]);
 
   const pastOrders = orders.filter((o) => {
     const norm = normalizeOrderStatus(o.status);
@@ -114,36 +166,58 @@ export default function CustomerDashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 pb-24 md:pb-12">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-brand-primary via-slate-900 to-brand-primary rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
-        <div className="space-y-2 relative z-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-secondary/20 border border-brand-secondary/30 text-brand-secondary text-xs font-bold">
-            <ShoppingBag className="w-3.5 h-3.5" />
-            <span>Customer Overview Dashboard</span>
-          </div>
-          <h1 className="text-2xl sm:text-4xl font-black tracking-tight">
-            Halo, {user?.fullName || 'Pelanggan Setia'}! 👋
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-            Kelola pesanan pickup laundry Anda dengan mudah. Lacak status pencucian real-time langsung dari HP.
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5 space-y-5 pb-24 md:pb-12">
+      {/* 🏷️ SOFT CUCIYAN HERO GRADIENT ZONE */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-brand-surface via-sky-50/40 to-white p-5 sm:p-7 border border-slate-200/50 shadow-2xs space-y-4 transition-all">
+        {/* Soft Radial Brand Glow Overlays (Decorative & Pointer Events None) */}
+        <div className="absolute -top-12 -left-12 w-64 h-64 bg-brand-secondary/12 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-12 -right-12 w-64 h-64 bg-brand-primary/8 rounded-full blur-3xl pointer-events-none" />
+
+        {/* 1. Customer Greeting (Small & Subtle) */}
+        <div className="relative z-10 space-y-0.5">
+          <p className="text-xs sm:text-sm font-semibold text-brand-primary/80">
+            Halo, {user?.fullName || 'Pelanggan Setia'} 👋
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          size="lg"
-          onClick={() => router.push('/customer/laundries')}
-          leftIcon={<Search className="w-5 h-5" />}
-          className="bg-white hover:bg-brand-surface text-brand-primary shadow-xl shrink-0 font-bold"
-        >
-          Cari Laundry &amp; Pesan Baru
-        </Button>
+        {/* 2. Minimal Hero & Subhero */}
+        <div className="relative z-10 space-y-1">
+          <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
+            Laundry terdekat,<br />
+            lebih mudah!
+          </h1>
+          <p className="text-xs sm:text-sm font-medium text-slate-500">
+            Pilih layanan, atur jadwal, beres!
+          </p>
+        </div>
+
+        {/* 3. Search Bar */}
+        <div className="relative z-10 w-full max-w-xl pt-1">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none z-20">
+            <Search className="w-4 h-4 text-slate-400" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Cari laundry atau layanan..."
+            className="w-full h-11 sm:h-12 pl-10 pr-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs focus:outline-none focus:ring-2 focus:ring-brand-primary text-xs sm:text-sm text-slate-900 font-medium placeholder:text-slate-400 transition-all"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-xs text-slate-400 hover:text-slate-600 font-bold z-20"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Partner Application Status Card / CTA Banner */}
       {user?.role === 'laundry_owner' ? (
-        <Card variant="white" className="bg-gradient-to-r from-emerald-50 to-brand-surface border-emerald-200 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <Card variant="white" className="bg-gradient-to-r from-emerald-50 to-brand-surface border-emerald-200 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Badge variant="emerald" className="font-bold">PEMILIK MITRA LAUNDRY</Badge>
@@ -158,7 +232,7 @@ export default function CustomerDashboardPage() {
           </Link>
         </Card>
       ) : partnerApp?.status === 'pending' ? (
-        <Card variant="white" className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <Card variant="white" className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Badge variant="amber" className="font-bold">PENDING VERIFICATION</Badge>
@@ -174,7 +248,7 @@ export default function CustomerDashboardPage() {
           </Link>
         </Card>
       ) : partnerApp?.status === 'rejected' ? (
-        <Card variant="white" className="bg-rose-50 border-rose-200 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <Card variant="white" className="bg-rose-50 border-rose-200 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Badge variant="rose" className="font-bold">PENGAJUAN DITOLAK</Badge>
@@ -190,122 +264,95 @@ export default function CustomerDashboardPage() {
         </Card>
       ) : null}
 
-      {/* Active Orders Section */}
-      <div className="space-y-4">
+      {/* 5. Category Section: Heading + Lihat semua → Link + Collapsible CategoryShortcut */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
+            Kategori Layanan
+          </h2>
+          {hasMoreThanTwoCategoryRows && (
+            <button
+              type="button"
+              aria-expanded={isCategoryExpanded}
+              onClick={() => setIsCategoryExpanded(!isCategoryExpanded)}
+              className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1 cursor-pointer select-none"
+            >
+              <span>{isCategoryExpanded ? 'Tampilkan lebih sedikit ↑' : 'Lihat semua →'}</span>
+            </button>
+          )}
+        </div>
+
+        {/* 2-Row Collapsible Category Shortcut Grid */}
+        <CategoryShortcut
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+          isExpanded={isCategoryExpanded}
+          onToggleExpand={() => setIsCategoryExpanded(!isCategoryExpanded)}
+          hideBottomToggle={true}
+          onHasMoreThanTwoRowsChange={setHasMoreThanTwoCategoryRows}
+        />
+      </div>
+
+      {/* 6. Mitra Laundry Terdekat & Partner List */}
+      <div className="space-y-3.5 pt-3 border-t border-slate-100">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">📦 Pesanan Aktif Berjalan</h2>
-            <p className="text-xs text-slate-500">Ringkasan pesanan yang sedang diproses atau ditugaskan kurir</p>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Store className="w-5 h-5 text-brand-primary shrink-0" />
+              <span>Mitra Laundry Terdekat</span>
+            </h2>
+            <p className="text-xs text-slate-500 font-medium">
+              Pilih dari mitra laundry terbaik di sekitar Anda
+            </p>
           </div>
-          <Link href="/customer/orders" className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1">
-            Lihat Semua Pesanan ({activeOrders.length}) →
+          <Link href="/customer/laundries" className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1 shrink-0">
+            Lihat Semua →
           </Link>
         </div>
 
-        {activeOrders.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {activeOrders.slice(0, 2).map((o) => {
-              const cfg = getStatusConfig(o.status);
-              const adjInfo = adjStatuses[o.id] || { exists: false, status: 'none', amount: 0 };
-              const { isShortfall, amount: shortfallAmount } = calculateOrderShortfall(o, adjInfo.status, adjInfo.amount);
-              return (
-                <Card key={o.id} variant="white" className="hover:border-brand-secondary transition-all space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <div>
-                      <span className="text-[11px] font-bold text-slate-400">Nomor Resi:</span>
-                      <p className="text-sm font-black text-slate-900">{o.trackingNumber}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Badge variant={cfg.stepIndex >= 4 ? 'teal' : cfg.stepIndex >= 2 ? 'blue' : 'amber'}>
-                        {cfg.label}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Mitra Laundry:</span>
-                      <span className="font-bold text-slate-800">{o.laundryName || 'CUCIYAN Laundry Partner'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Jenis Layanan:</span>
-                      <span className="font-semibold text-slate-800">{o.serviceName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Jadwal Pickup:</span>
-                      <span className="font-semibold text-slate-800">
-                        {formatDateIndoWithRelative(o.pickupDate)} ({o.pickupTimeSlot})
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Kurir Ditugaskan:</span>
-                      <span className="font-semibold text-brand-primary">
-                        {o.courierName || 'Mencari Kurir Terdekat...'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t border-slate-100">
-                      <span className="text-slate-500 font-bold">Total Biaya:</span>
-                      <span className="font-black text-brand-primary text-sm">{formatIDR(o.totalPrice)}</span>
-                    </div>
-
-                    {isShortfall && (
-                      <div className="p-3.5 bg-amber-50 rounded-2xl border-2 border-amber-300 text-xs text-amber-950 font-bold shadow-sm space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="font-black text-amber-900 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
-                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                            ⚠️ ACTION REQUIRED: KURANG BAYAR
-                          </p>
-                          <span className="font-black text-amber-900 text-sm">+{formatIDR(shortfallAmount)}</span>
-                        </div>
-                        <p className="text-[11px] text-amber-800 font-medium leading-relaxed">
-                          Berat ditimbang ({o.finalWeightKg} kg) &gt; estimasi ({o.estimatedWeightKg || 5} kg). Terdapat selisih pembayaran yang perlu diselesaikan.
-                        </p>
-                        <div className="pt-1 flex items-center justify-end">
-                          <Link href={`/orders/${o.id}`}>
-                            <Button size="sm" variant="primary" className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shrink-0 flex items-center gap-1">
-                              Bayar Selisih {shortfallAmount > 0 ? formatIDR(shortfallAmount) : ''} →
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100">
-                    <Link
-                      href={`/orders/track/${o.trackingNumber}`}
-                      className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1"
-                    >
-                      <Truck className="w-4 h-4" /> Live Tracking
-                    </Link>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => router.push(`/orders/${o.id}`)}
-                      rightIcon={<Eye className="w-4 h-4" />}
-                    >
-                      Rincian Order
-                    </Button>
-                  </div>
-                </Card>
-              );
-            })}
+        {/* 7. Laundry Partner Cards */}
+        {isMarketplaceLoading ? (
+          <div className="flex flex-col gap-3.5">
+            {[1, 2, 3].map((i) => (
+              <LaundryCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : filteredPartners.length > 0 ? (
+          <div className="flex flex-col gap-3.5">
+            {filteredPartners.slice(0, 5).map((item) => (
+              <LaundryPartnerCard key={item.laundry.id} item={item} />
+            ))}
           </div>
         ) : (
           <Card variant="white" className="p-8 text-center space-y-3">
-            <ShoppingBag className="w-12 h-12 text-slate-300 mx-auto" />
-            <p className="text-sm font-bold text-slate-700">Belum Ada Pesanan Aktif</p>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Anda tidak memiliki pesanan laundry yang sedang berjalan. Jelajahi marketplace dan buat pesanan baru!
+            <AlertTriangle className="w-10 h-10 text-slate-300 mx-auto" />
+            <p className="text-sm font-bold text-slate-700">
+              {searchQuery
+                ? `Belum Ada Laundry dengan Pencarian "${searchQuery}"`
+                : selectedCategory !== 'Semua'
+                ? `Belum Ada Laundry untuk Kategori "${selectedCategory}"`
+                : 'Belum Ada Mitra Laundry Terdekat'}
             </p>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => router.push('/customer/laundries')}
-              className="mt-2"
-            >
-              Cari Laundry Terdekat
-            </Button>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              {searchQuery
+                ? `Tidak ditemukan mitra laundry yang cocok dengan kata kunci "${searchQuery}".`
+                : selectedCategory !== 'Semua'
+                ? `Tidak ditemukan mitra laundry yang menyediakan layanan ${selectedCategory} di sekitar lokasi Anda.`
+                : 'Belum ada mitra laundry yang terdaftar di sekitar lokasi Anda.'}
+            </p>
+            {(selectedCategory !== 'Semua' || searchQuery) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedCategory('Semua');
+                  setSearchQuery('');
+                }}
+                className="mt-2 text-xs font-semibold"
+              >
+                Reset Filter &amp; Pencarian
+              </Button>
+            )}
           </Card>
         )}
       </div>
@@ -329,7 +376,7 @@ export default function CustomerDashboardPage() {
             <h3 className="font-bold text-slate-900 text-sm">📜 Riwayat Pesanan</h3>
             <p className="text-xs text-slate-500">Arsip pesanan laundry selesai</p>
           </div>
-          <Link href="/customer/orders/history">
+          <Link href="/customer/orders">
             <Button variant="outline" size="sm" className="font-bold border-slate-200">
               Buka →
             </Button>

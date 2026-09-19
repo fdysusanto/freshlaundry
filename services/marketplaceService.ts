@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { laundryService } from './laundryService';
-import { Laundry, LaundryMarketplaceItem, LaundryPhoto } from '@/types/laundry';
+import { Laundry, LaundryMarketplaceItem, LaundryPhoto, ServiceCategory, CANONICAL_SERVICE_CATEGORIES } from '@/types/laundry';
 import { DEMO_LAUNDRIES, SERVICE_CATALOG } from '@/utils/constants';
 
 // High-quality storefront fallback images for laundry partners
@@ -88,14 +88,14 @@ export const marketplaceService = {
     if (laundries.length === 0) return [];
 
     const laundryIds = laundries.map((l) => l.id);
-    let activeServicesMap: Record<string, { price: number; unit: 'kg' | 'pcs' }[]> = {};
+    let activeServicesMap: Record<string, { price: number; unit: 'kg' | 'pcs'; category: string }[]> = {};
     let photosMap: Record<string, LaundryPhoto[]> = {};
 
     if (isSupabaseConfigured && supabase) {
       try {
         // Efficient BATCH query for all active services across all target laundries
         const { data: servicesData, error: servicesErr } = await (supabase.from('services') as any)
-          .select('laundry_id, price_per_unit, unit, is_active')
+          .select('laundry_id, price_per_unit, unit, category, is_active')
           .in('laundry_id', laundryIds)
           .eq('is_active', true);
 
@@ -107,6 +107,7 @@ export const marketplaceService = {
             activeServicesMap[s.laundry_id].push({
               price: Number(s.price_per_unit),
               unit: s.unit as 'kg' | 'pcs',
+              category: s.category || 'Pakaian',
             });
           });
         }
@@ -139,6 +140,7 @@ export const marketplaceService = {
         activeServicesMap[s.laundryId].push({
           price: Number(s.price_per_unit || s.price),
           unit: (s.unit || 'kg') as 'kg' | 'pcs',
+          category: s.category || 'Pakaian',
         });
       });
     }
@@ -147,6 +149,19 @@ export const marketplaceService = {
       const partnerServices = activeServicesMap[laundry.id] || [];
       const partnerPhotos = photosMap[laundry.id] || [];
       const primaryPhoto = partnerPhotos.find((p) => p.is_primary) || partnerPhotos[0];
+
+      // Extract unique service categories for this partner
+      const categorySet = new Set<ServiceCategory>();
+      partnerServices.forEach((s) => {
+        if (s.category && CANONICAL_SERVICE_CATEGORIES.includes(s.category as ServiceCategory)) {
+          categorySet.add(s.category as ServiceCategory);
+        }
+      });
+      // Fallback if partner has services but no category specified
+      if (categorySet.size === 0 && partnerServices.length > 0) {
+        categorySet.add('Pakaian');
+      }
+      const serviceCategories: ServiceCategory[] = Array.from(categorySet);
 
       // Find cheapest active service price
       let cheapestPrice: number | undefined;
@@ -176,7 +191,7 @@ export const marketplaceService = {
           ? laundry.logoUrl
           : DEFAULT_STOREFRONT_PHOTOS[index % DEFAULT_STOREFRONT_PHOTOS.length]);
 
-      const item = {
+      const item: LaundryMarketplaceItem = {
         laundry,
         storefrontImageUrl,
         primaryPhoto,
@@ -188,6 +203,7 @@ export const marketplaceService = {
         distanceKm,
         isFavorite: false,
         badge: (laundry as any).badge || (index === 0 ? 'Pilihan terbaik' : undefined),
+        serviceCategories,
       };
       return item;
     });

@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { authService } from '@/services/authService';
 import { partnerApplicationService } from '@/services/partnerApplicationService';
 import { isValidUuid } from '@/utils/formatters';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
 
@@ -66,65 +65,75 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-gradient-to-b from-brand-surface via-slate-50 to-white">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-3">
+    <div className="min-h-[100dvh] sm:min-h-[85vh] flex flex-col justify-between sm:justify-center px-5 sm:px-6 py-6 sm:py-12 bg-slate-50/70 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+      <div className="w-full max-w-[360px] sm:max-w-md mx-auto my-auto space-y-6 sm:space-y-7">
+        
+        {/* Header Section: Logo, Heading, Subtitle */}
+        <div className="text-center space-y-2 sm:space-y-2.5">
           <Image
             src="/brand/cuciyan/logo/logo-horizontal.svg"
             alt={BRAND.displayName}
-            width={300}
-            height={96}
-            className="h-20 sm:h-24 w-auto mx-auto object-contain mb-3"
+            width={240}
+            height={64}
+            className="h-12 sm:h-14 w-auto mx-auto object-contain mb-3 sm:mb-4"
             priority
           />
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Selamat Datang Kembali</h1>
-          <p className="text-xs text-slate-500">Masuk ke portal {BRAND.displayName} untuk mengelola pesanan Anda.</p>
+          <h1 className="text-2xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
+            Selamat Datang Kembali
+          </h1>
+          <p className="text-sm sm:text-sm text-slate-500 font-medium max-w-[300px] sm:max-w-sm mx-auto leading-relaxed">
+            Masuk ke portal {BRAND.displayName} untuk mengelola pesanan Anda.
+          </p>
         </div>
 
-        <Card variant="white" className="shadow-xl">
+        {/* Clean Minimal Mobile-Native Form */}
+        <div className="space-y-4">
           {errorMessage && (
-            <div className="p-3.5 mb-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm font-semibold flex items-center gap-2.5 shadow-2xs">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
               <span>{errorMessage}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4.5">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                Alamat Email:
+              <label className="block text-xs sm:text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1.5">
+                ALAMAT EMAIL:
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type="email"
                   required
                   placeholder="nama@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
+                  className="w-full pl-10 pr-4 h-12 sm:h-12 py-3 text-sm sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 shadow-2xs focus:outline-hidden focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 transition-all"
                 />
               </div>
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-slate-700 uppercase">
-                  Kata Sandi:
+              <div className="flex items-center justify-between mb-1.5 gap-2">
+                <label className="block text-xs sm:text-xs font-extrabold text-slate-700 uppercase tracking-wider shrink-0">
+                  KATA SANDI:
                 </label>
-                <Link href="/forgot-password" className="text-xs font-bold text-brand-primary hover:underline">
+                <Link
+                  href="/forgot-password"
+                  className="text-xs sm:text-xs font-bold text-brand-primary hover:underline transition-colors shrink-0"
+                >
                   Lupa password?
                 </Link>
               </div>
               <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type="password"
                   required
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary"
+                  className="w-full pl-10 pr-4 h-12 sm:h-12 py-3 text-sm sm:text-sm rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 shadow-2xs focus:outline-hidden focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 transition-all"
                 />
               </div>
             </div>
@@ -134,28 +143,30 @@ export default function LoginPage() {
               variant="primary"
               size="lg"
               disabled={isLoading}
-              className="w-full mt-2 cursor-pointer disabled:opacity-50"
+              className="w-full mt-3.5 h-12 sm:h-12 py-3.5 text-sm sm:text-base font-extrabold rounded-xl shadow-xs hover:shadow-md transition-all active:scale-[0.99] cursor-pointer disabled:opacity-50"
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
               {isLoading ? 'Memproses Login...' : 'Masuk Sekarang'}
             </Button>
           </form>
 
-          <div className="mt-6 pt-4 border-t border-slate-100 text-center space-y-2">
-            <p className="text-xs text-slate-500">
+          {/* Registration Links */}
+          <div className="pt-6 mt-3 border-t border-slate-200/60 text-center space-y-3">
+            <p className="text-sm sm:text-sm text-slate-600 font-medium leading-normal">
               Belum punya akun?{' '}
-              <Link href="/register" className="font-bold text-brand-primary hover:underline">
+              <Link href="/register" className="font-extrabold text-brand-primary hover:underline transition-colors block sm:inline mt-1 sm:mt-0">
                 Daftar sebagai Customer
               </Link>
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-sm sm:text-sm text-slate-600 font-medium leading-normal">
               Punya usaha laundry?{' '}
-              <Link href="/register/partner" className="font-bold text-brand-primary hover:underline">
+              <Link href="/register/partner" className="font-extrabold text-brand-primary hover:underline transition-colors block sm:inline mt-1 sm:mt-0">
                 Daftar sebagai Mitra Laundry
               </Link>
             </p>
           </div>
-        </Card>
+        </div>
+
       </div>
     </div>
   );

@@ -7,8 +7,10 @@ import { laundryService } from '@/services/laundryService';
 import { DEMO_LAUNDRIES, ServiceCatalogItem } from '@/utils/constants';
 import { ServiceType } from '@/types/order';
 import { UserProfile } from '@/types/user';
+import { ServiceCategory } from '@/types/laundry';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import {
   OwnerBranchProvider,
   useOwnerBranch,
@@ -17,16 +19,20 @@ import { OwnerBranchSwitcher } from '@/components/owner/OwnerBranchSwitcher';
 import {
   ArrowLeft,
   Edit,
+  Sparkles,
   Layers,
+  Clock,
   DollarSign,
   AlertCircle,
+  CheckCircle2,
+  Trash2,
   ShieldAlert,
 } from 'lucide-react';
 
 function EditOwnerServiceContent() {
-  const params = useParams();
   const router = useRouter();
-  const serviceId = params?.id as string;
+  const params = useParams();
+  const serviceId = (params?.id as string) || '';
 
   const { ownedLaundries, buildBranchUrl } = useOwnerBranch();
 
@@ -40,6 +46,7 @@ function EditOwnerServiceContent() {
   const [name, setName] = useState('');
   const [code, setCode] = useState<ServiceType>('kiloan');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState<ServiceCategory | ''>('');
   const [unit, setUnit] = useState<'kg' | 'pcs'>('kg');
   const [price, setPrice] = useState<number>(0);
   const [minWeightInput, setMinWeightInput] = useState<string>('');
@@ -81,6 +88,7 @@ function EditOwnerServiceContent() {
         setName(srv.name);
         setCode((srv.code as ServiceType) || 'kiloan');
         setDescription(srv.description);
+        setCategory((srv.category as ServiceCategory) || '');
         setUnit(srv.unit || 'kg');
         setPrice(srv.price);
         setMinWeightInput(srv.minWeight && srv.unit === 'kg' ? String(srv.minWeight) : '');
@@ -171,6 +179,7 @@ function EditOwnerServiceContent() {
         {
           name: name.trim(),
           description: description.trim(),
+          category: category || null,
           pricingType: unit === 'pcs' ? 'per_item' : 'per_kg',
           price,
           unit,
@@ -262,7 +271,25 @@ function EditOwnerServiceContent() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                Kode / Kategori Layanan:
+                Kategori Item / Barang:
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as ServiceCategory)}
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-brand-primary font-semibold bg-slate-50 cursor-pointer"
+              >
+                <option value="">-- Belum Ditetapkan --</option>
+                <option value="Pakaian">👕 Pakaian</option>
+                <option value="Sepatu & Sandal">👟 Sepatu &amp; Sandal</option>
+                <option value="Tas">👜 Tas</option>
+                <option value="Karpet">🧺 Karpet</option>
+                <option value="Sofa">🛋️ Sofa</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                Tipe Layanan / Paket:
               </label>
               <select
                 value={code}
@@ -272,7 +299,7 @@ function EditOwnerServiceContent() {
                 <option value="kiloan">kiloan — Cuci Kiloan Reguler</option>
                 <option value="express">express — Express Kilat</option>
                 <option value="dry_clean">dry_clean — Dry Cleaning Premium</option>
-                <option value="satuan">satuan — Cuci Satuan (Sepatu/Bedcover)</option>
+                <option value="satuan">satuan — Cuci Satuan</option>
               </select>
             </div>
 

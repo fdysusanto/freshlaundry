@@ -40,6 +40,8 @@ export function normalizeEstimatedHours(hours: any, code?: string, unit?: string
   return 24;
 }
 
+import { ServiceCategory } from '@/types/laundry';
+
 export interface CreatePartnerApplicationPayload {
   ownerFullName: string;
   ownerPhone: string;
@@ -69,6 +71,7 @@ export interface CreatePartnerApplicationPayload {
   services: Array<{
     name: string;
     code?: string;
+    category?: ServiceCategory | null;
     price: number;
     unit: 'kg' | 'pcs';
     minWeight?: number | null;
@@ -262,6 +265,7 @@ export const partnerApplicationService = {
           application_id: application.id,
           name: s.name.trim(),
           code: enumCode,
+          category: s.category ?? null,
           price_per_unit: s.price,
           unit: s.unit || 'kg',
           min_weight: parsedMinWeight,

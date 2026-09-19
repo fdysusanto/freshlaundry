@@ -78,6 +78,7 @@ export interface Database {
           code: ServiceType;
           name: string;
           description: string;
+          category: string | null;
           pricing_type: string;
           price_per_unit: number;
           unit: 'kg' | 'pcs';

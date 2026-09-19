@@ -241,6 +241,7 @@ export const laundryService = {
       code: s.code || 'kiloan',
       name: s.name,
       description: s.description || '',
+      category: s.category || 'Pakaian',
       pricingType: unit === 'pcs' ? 'per_item' : 'per_kg',
       price: Number(s.price_per_unit),
       price_per_unit: Number(s.price_per_unit),
@@ -308,6 +309,7 @@ export const laundryService = {
         code: s.code || 'kiloan',
         name: s.name,
         description: s.description || '',
+        category: s.category || 'Pakaian',
         pricingType: unit === 'pcs' ? 'per_item' : 'per_kg',
         price: Number(s.price_per_unit),
         price_per_unit: Number(s.price_per_unit),
@@ -322,8 +324,6 @@ export const laundryService = {
       };
     });
   },
-
-
 
   /**
    * Real Supabase Live Service Creation.
@@ -357,6 +357,7 @@ export const laundryService = {
         name: payload.name.trim(),
         description: payload.description || null,
         code: payload.code || 'kiloan',
+        category: payload.category || 'Pakaian',
         price_per_unit: payload.price,
         unit: unit,
         min_weight: minW,
@@ -379,6 +380,7 @@ export const laundryService = {
       code: inserted.code || 'kiloan',
       name: inserted.name,
       description: inserted.description || '',
+      category: inserted.category || 'Pakaian',
       pricingType: inserted.unit === 'pcs' ? 'per_item' : 'per_kg',
       price: Number(inserted.price_per_unit),
       price_per_unit: Number(inserted.price_per_unit),
@@ -408,6 +410,7 @@ export const laundryService = {
     const dbUpdates: any = {};
     if (updates.name !== undefined) dbUpdates.name = updates.name.trim();
     if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.category !== undefined) dbUpdates.category = updates.category;
     if (updates.price !== undefined) dbUpdates.price_per_unit = updates.price;
     if (updates.unit !== undefined) dbUpdates.unit = updates.unit;
 
@@ -439,6 +442,7 @@ export const laundryService = {
       code: updatedRow.code || 'kiloan',
       name: updatedRow.name,
       description: updatedRow.description || '',
+      category: updatedRow.category || 'Pakaian',
       pricingType: updatedRow.unit === 'pcs' ? 'per_item' : 'per_kg',
       price: Number(updatedRow.price_per_unit),
       price_per_unit: Number(updatedRow.price_per_unit),
