@@ -12,6 +12,8 @@ import { Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import { BRAND } from '@/config/brand';
 
+import { OAuthButtons } from '@/components/auth/OAuthButtons';
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -88,6 +90,8 @@ export default function LoginPage() {
 
         {/* Clean Minimal Mobile-Native Form */}
         <div className="space-y-4">
+          <OAuthButtons disabled={isLoading} />
+
           {errorMessage && (
             <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm font-semibold flex items-center gap-2.5 shadow-2xs">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />

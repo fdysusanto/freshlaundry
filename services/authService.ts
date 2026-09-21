@@ -8,7 +8,37 @@ const AUTH_STORAGE_KEY = 'fresh_laundry_auth_user';
 
 let _currentMockUser: UserProfile | null = null;
 
+export type OAuthProvider = 'google' | 'apple';
+
 export const authService = {
+  /**
+   * Real Supabase Auth OAuth Login (Google / Apple).
+   */
+  async signInWithOAuthAsync(provider: OAuthProvider): Promise<void> {
+    if (provider !== 'google' && provider !== 'apple') {
+      throw new Error(`Provider OAuth "${provider}" tidak didukung.`);
+    }
+
+    if (!isSupabaseConfigured || !supabase) {
+      throw new Error('Koneksi Supabase belum terkonfigurasi.');
+    }
+
+    const redirectUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/auth/callback`
+      : 'http://localhost:3000/auth/callback';
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: redirectUrl,
+      },
+    });
+
+    if (error) {
+      throw new Error(`Gagal memulai login via ${provider}: ${error.message}`);
+    }
+  },
+
   /**
    * Mengambil profil pengguna terautentikasi secara asynchronous dari Supabase Auth & Database Profile.
    */

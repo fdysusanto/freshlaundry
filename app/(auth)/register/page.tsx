@@ -10,6 +10,7 @@ import { User, Mail, Lock, Phone, MapPin, ArrowRight, AlertCircle } from 'lucide
 
 import Image from 'next/image';
 import { BRAND } from '@/config/brand';
+import { OAuthButtons } from '@/components/auth/OAuthButtons';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -55,6 +56,8 @@ export default function RegisterPage() {
         </div>
 
         <Card variant="white" className="shadow-xl">
+          <OAuthButtons disabled={isLoading} />
+
           {errorMessage && (
             <div className="p-3.5 mb-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />

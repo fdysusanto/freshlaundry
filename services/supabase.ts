@@ -15,7 +15,11 @@ if (typeof window !== 'undefined') {
 }
 
 export const supabase = isSupabaseConfigured
-  ? createClient<Database>(supabaseUrl, supabaseAnonKey)
+  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        flowType: 'pkce',
+      },
+    })
   : null;
 
 /**
