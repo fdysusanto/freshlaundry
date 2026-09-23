@@ -11,15 +11,17 @@ export interface ManualPinLocationData {
 
 let inMemoryManualPinStore: ManualPinLocationData | null = null;
 
+export function isValidCoordinate(lat: any, lng: any): boolean {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
+  const numLat = Number(lat);
+  const numLng = Number(lng);
+  if (isNaN(numLat) || isNaN(numLng) || !isFinite(numLat) || !isFinite(numLng)) return false;
+  return numLat >= -90 && numLat <= 90 && numLng >= -180 && numLng <= 180;
+}
+
 export const locationService = {
   // Validate geographic coordinate bounds safely
-  isValidCoordinate(lat: any, lng: any): boolean {
-    if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
-    const numLat = Number(lat);
-    const numLng = Number(lng);
-    if (isNaN(numLat) || isNaN(numLng) || !isFinite(numLat) || !isFinite(numLng)) return false;
-    return numLat >= -90 && numLat <= 90 && numLng >= -180 && numLng <= 180;
-  },
+  isValidCoordinate,
 
   // Read manual location override from sessionStorage
   getManualPinLocation(): ManualPinLocationData | null {
