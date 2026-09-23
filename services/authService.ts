@@ -12,6 +12,24 @@ export type OAuthProvider = 'google' | 'apple';
 
 export const authService = {
   /**
+   * Generates Authorization header containing current Supabase bearer access token.
+   */
+  async getAuthHeadersAsync(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {};
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+      } catch {
+        // Fallback if session read fails
+      }
+    }
+    return headers;
+  },
+
+  /**
    * Real Supabase Auth OAuth Login (Google / Apple).
    */
   async signInWithOAuthAsync(provider: OAuthProvider): Promise<void> {

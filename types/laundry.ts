@@ -3,6 +3,35 @@ export type PricingType = 'per_kg' | 'per_item' | 'fixed';
 export type AssignmentStatus = 'offered' | 'accepted' | 'rejected' | 'expired' | 'completed';
 export type PayoutStatus = 'pending' | 'paid';
 
+export type PartnerLifecycleStatus =
+  | 'unclaimed'
+  | 'listed'
+  | 'order_ready'
+  | 'supplier'
+  | 'claimed'
+  | 'onboarding'
+  | 'active'
+  | 'partner'
+  | 'suspended'
+  | 'inactive';
+
+export type PartnerClaimStatus = 'unclaimed' | 'claimed';
+export type PartnerOnboardingStatus = 'not_started' | 'in_progress' | 'completed' | 'rejected';
+
+export type PartnerPermission =
+  | 'PARTNER_VIEW'
+  | 'PARTNER_CREATE'
+  | 'PARTNER_UPDATE'
+  | 'PARTNER_STATUS_UPDATE'
+  | 'PARTNER_VERIFY'
+  | 'PARTNER_SUSPEND'
+  | 'PARTNER_INVITE_OWNER'
+  | 'PARTNER_VIEW_USERS'
+  | 'PARTNER_VIEW_BRANCHES'
+  | 'PARTNER_VIEW_ORDERS'
+  | 'PARTNER_VIEW_PERFORMANCE'
+  | 'PARTNER_VIEW_AUDIT';
+
 export type ServiceCategory = 'Pakaian' | 'Sepatu & Sandal' | 'Tas' | 'Karpet' | 'Sofa';
 export const CANONICAL_SERVICE_CATEGORIES: ServiceCategory[] = [
   'Pakaian',
@@ -28,11 +57,16 @@ export interface Laundry {
   id: string;
   code: string;
   name: string;
-  ownerId: string;
+  ownerId: string | null;
   ownerName?: string;
+  ownerEmail?: string;
+  legalName?: string;
+  businessEmail?: string;
   description?: string;
   phone: string;
   address: string;
+  cityName?: string;
+  districtName?: string;
   latitude?: number;
   longitude?: number;
   logoUrl?: string;
@@ -41,10 +75,19 @@ export interface Laundry {
   isOpen: boolean;
   isActive: boolean;
   verificationStatus: VerificationStatus;
+  status?: PartnerLifecycleStatus;
+  claimStatus?: PartnerClaimStatus;
+  onboardingStatus?: PartnerOnboardingStatus;
+  suspendedAt?: string;
+  suspensionReason?: string;
+  createdBy?: string;
+  updatedBy?: string;
   rating: number;
   totalReviews: number;
   createdAt: string;
   updatedAt?: string;
+  branchesCount?: number;
+  activeOrdersCount?: number;
 }
 
 export interface LaundryMarketplaceItem {
@@ -67,6 +110,9 @@ export interface LaundryUser {
   laundryId: string;
   profileId: string;
   role: 'owner' | 'staff';
+  fullName?: string;
+  email?: string;
+  phone?: string;
   isActive: boolean;
   createdAt: string;
 }
@@ -125,4 +171,19 @@ export interface Review {
   rating: number;
   comment?: string;
   createdAt: string;
+}
+
+export interface AuditLogRecord {
+  id: string;
+  actor_user_id: string | null;
+  actor_role: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  before_value: any;
+  after_value: any;
+  reason: string | null;
+  metadata: any;
+  timestamp: string;
+  actorName?: string;
 }
