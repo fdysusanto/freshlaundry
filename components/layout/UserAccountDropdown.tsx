@@ -15,6 +15,7 @@ import {
   Package,
   Truck,
   Store,
+  Building2,
   Layers,
   BarChart3,
   Users,
@@ -271,6 +272,14 @@ export const UserAccountDropdown: React.FC<UserAccountDropdownProps> = ({
                 >
                   <BarChart3 className="w-4 h-4 text-purple-600" />
                   <span>Monitoring Admin</span>
+                </Link>
+                <Link
+                  href="/admin/partners"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-purple-50 hover:text-purple-700 rounded-xl transition-colors"
+                >
+                  <Building2 className="w-4 h-4 text-purple-600" />
+                  <span>Database Partner</span>
                 </Link>
                 <Link
                   href="/admin/partner-applications"
