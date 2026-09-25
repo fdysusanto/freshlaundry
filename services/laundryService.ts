@@ -320,6 +320,8 @@ export const laundryService = {
         estimatedTime: `${s.estimated_hours || 24} Jam`,
         iconName: s.icon_name || 'Sparkles',
         isActive: s.is_active ?? true,
+        imageUrl: s.image_url || null,
+        storagePath: s.storage_path || null,
         createdAt: s.created_at || new Date().toISOString(),
       };
     });
@@ -364,6 +366,8 @@ export const laundryService = {
         estimated_hours: payload.estimatedHours || 24,
         is_active: payload.isActive ?? true,
         icon_name: payload.iconName || 'Sparkles',
+        image_url: payload.imageUrl || null,
+        storage_path: payload.storagePath || null,
       })
       .select()
       .single();
@@ -391,6 +395,8 @@ export const laundryService = {
       estimatedTime: `${inserted.estimated_hours || 24} Jam`,
       iconName: inserted.icon_name || 'Sparkles',
       isActive: inserted.is_active ?? true,
+      imageUrl: inserted.image_url || null,
+      storagePath: inserted.storage_path || null,
       createdAt: inserted.created_at || new Date().toISOString(),
     };
   },
@@ -423,6 +429,8 @@ export const laundryService = {
 
     if (updates.estimatedHours !== undefined) dbUpdates.estimated_hours = updates.estimatedHours;
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+    if (updates.imageUrl !== undefined) dbUpdates.image_url = updates.imageUrl;
+    if (updates.storagePath !== undefined) dbUpdates.storage_path = updates.storagePath;
 
     const { data: updatedRow, error } = await (supabase.from('services') as any)
       .update(dbUpdates)
@@ -453,6 +461,8 @@ export const laundryService = {
       estimatedTime: `${updatedRow.estimated_hours || 24} Jam`,
       iconName: updatedRow.icon_name || 'Sparkles',
       isActive: updatedRow.is_active ?? true,
+      imageUrl: updatedRow.image_url || null,
+      storagePath: updatedRow.storage_path || null,
       createdAt: updatedRow.created_at || new Date().toISOString(),
     };
   },

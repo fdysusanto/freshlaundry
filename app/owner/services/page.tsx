@@ -8,6 +8,7 @@ import { ServiceCatalogItem } from '@/utils/constants';
 import { UserProfile } from '@/types/user';
 import { Laundry } from '@/types/laundry';
 import { formatIDR } from '@/utils/formatters';
+import { resolveServicePhoto } from '@/utils/servicePhotoFallbacks';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -208,11 +209,24 @@ function OwnerServicesListingContent() {
                 </button>
               </div>
 
-              <div className="space-y-1">
-                <h3 className="font-bold text-slate-900 text-base">{srv.name}</h3>
-                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                  {srv.description}
-                </p>
+              <div className="flex items-start gap-3">
+                <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+                  <img
+                    src={resolveServicePhoto(srv)}
+                    alt={srv.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=600&q=80';
+                    }}
+                  />
+                </div>
+                <div className="space-y-1 min-w-0 flex-1">
+                  <h3 className="font-bold text-slate-900 text-base truncate">{srv.name}</h3>
+                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                    {srv.description}
+                  </p>
+                </div>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl space-y-2 text-xs">

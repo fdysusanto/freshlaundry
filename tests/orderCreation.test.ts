@@ -31,6 +31,7 @@ async function runOrderCreationTests() {
   }
 
   const customer = DEMO_USERS[0];
+  const validPickupDate = new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0];
 
   // Test 1: Successful Consolidated Order Checkout
   const test1Key = `IDEMP-TEST-${Date.now()}-1`;
@@ -40,7 +41,7 @@ async function runOrderCreationTests() {
       items: [{ serviceId: 'srv_001', quantity: 5 }], // 5 x 8000 = 40.000 subtotal
       pickupAddress: 'Jl. Sudirman No. 12, Jakarta',
       deliveryAddress: 'Jl. Sudirman No. 12, Jakarta',
-      pickupDate: '2026-09-15',
+      pickupDate: validPickupDate,
       pickupTimeSlot: '11:00 - 14:00 WIB',
       idempotencyKey: test1Key,
     },
@@ -63,7 +64,7 @@ async function runOrderCreationTests() {
       items: [{ serviceId: 'srv_001', quantity: 5 }],
       pickupAddress: 'Jl. Sudirman No. 12, Jakarta',
       deliveryAddress: 'Jl. Sudirman No. 12, Jakarta',
-      pickupDate: '2026-09-15',
+      pickupDate: validPickupDate,
       pickupTimeSlot: '11:00 - 14:00 WIB',
       idempotencyKey: test1Key, // SAME KEY!
     },
@@ -82,7 +83,7 @@ async function runOrderCreationTests() {
       laundryId: 'lnd_001',
       items: [{ serviceId: 'srv_001', quantity: 5, unitPrice: 1 }], // Client spoofed Rp 1 unitPrice!
       pickupAddress: 'Jl. Gatot Subroto No. 8, Jakarta',
-      pickupDate: '2026-09-15',
+      pickupDate: validPickupDate,
       pickupTimeSlot: '11:00 - 14:00 WIB',
       idempotencyKey: test3Key,
     },
@@ -101,7 +102,7 @@ async function runOrderCreationTests() {
         laundryId: 'lnd_001',
         items: [{ serviceId: 'srv_101', quantity: 2 }],
         pickupAddress: 'Jl. Gatot Subroto No. 8',
-      pickupDate: '2026-09-15',
+      pickupDate: validPickupDate,
       pickupTimeSlot: '15:00 - 17:00 WIB',
         idempotencyKey: test4Key,
       },
@@ -116,7 +117,7 @@ async function runOrderCreationTests() {
       laundryId: 'lnd_001',
       items: [{ serviceId: 'srv_001', quantity: 2 }], // 2 x 8000 + 2000 = 18.000 total
       pickupAddress: 'Jl. Kebayoran Lama No. 99',
-      pickupDate: '2026-09-15',
+      pickupDate: validPickupDate,
       pickupTimeSlot: '08:00 - 10:00 WIB',
       idempotencyKey: test5Key,
       clientSuppliedTotal: 1000, // Spoofed Rp 1.000 total!
@@ -161,7 +162,7 @@ async function runOrderCreationTests() {
       laundryId: 'lnd_001',
       items: [{ serviceId: 'srv_001', quantity: 3 }], // 24.000 subtotal
       pickupAddress: 'Jl. Rasuna Said No. 10',
-      pickupDate: '2026-09-15',
+      pickupDate: validPickupDate,
       pickupTimeSlot: '15:00 - 17:00 WIB',
       voucherCode: 'FRESH5K',
       idempotencyKey: test7Key,

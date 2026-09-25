@@ -7,10 +7,54 @@ export const MAX_LAUNDRY_PHOTOS = 5;
 export const MAX_PHOTO_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 export const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
+export const CANONICAL_LAUNDRY_FALLBACK =
+  'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=800&q=80';
+
+/**
+ * Sorts laundry photos deterministically:
+ * Index 0 = Primary photo (is_primary = true).
+ * Remaining photos = sort_order ascending, photo_slot ascending.
+ */
+export function sortLaundryPhotosForGallery(photos: LaundryPhoto[]): LaundryPhoto[] {
+  if (!photos || photos.length === 0) return [];
+  const primaryIndex = photos.findIndex((p) => p.is_primary);
+  if (primaryIndex === -1) {
+    // If none marked as primary, sort all deterministically by sort_order ASC, photo_slot ASC
+    return [...photos].sort((a, b) => a.sort_order - b.sort_order || a.photo_slot - b.photo_slot);
+  }
+  const primary = photos[primaryIndex];
+  const others = photos.filter((_, idx) => idx !== primaryIndex);
+  others.sort((a, b) => a.sort_order - b.sort_order || a.photo_slot - b.photo_slot);
+  return [primary, ...others];
+}
+
+/**
+ * Resolves exactly one primary photo URL deterministically:
+ * 1. is_primary = true
+ * 2. If none -> lowest sort_order active photo
+ * 3. If none -> laundry logoUrl (if non-empty)
+ * 4. If none -> canonical storefront fallback
+ */
+export function resolvePrimaryLaundryPhotoUrl(
+  photos?: LaundryPhoto[] | null,
+  logoUrl?: string | null
+): string {
+  if (photos && photos.length > 0) {
+    const primary = photos.find((p) => p.is_primary);
+    if (primary?.public_url) return primary.public_url;
+    const sorted = [...photos].sort((a, b) => a.sort_order - b.sort_order || a.photo_slot - b.photo_slot);
+    if (sorted[0]?.public_url) return sorted[0].public_url;
+  }
+  if (logoUrl && logoUrl.trim() !== '') {
+    return logoUrl.trim();
+  }
+  return CANONICAL_LAUNDRY_FALLBACK;
+}
+
 export const laundryPhotoService = {
   /**
-   * Fetch all profile photos for a laundry partner ordered by photo_slot.
-   * Resolves primary photo (is_primary = true or photo_slot = 0).
+   * Fetch all profile photos for a laundry partner.
+   * Deterministically returns photos with primaryPhoto at index 0.
    */
   async getPhotosByLaundryAsync(laundryId: string): Promise<{ photos: LaundryPhoto[]; primaryPhoto?: LaundryPhoto }> {
     if (!laundryId || !isValidUuid(laundryId)) {
@@ -25,15 +69,16 @@ export const laundryPhotoService = {
       const { data, error } = await (supabase.from('laundry_photos') as any)
         .select('*')
         .eq('laundry_id', laundryId)
-        .order('photo_slot', { ascending: true })
-        .order('sort_order', { ascending: true });
+        .order('sort_order', { ascending: true })
+        .order('photo_slot', { ascending: true });
 
       if (error || !data) {
         console.warn(`[LAUNDRY-PHOTO-SERVICE] Fetch photos warning for ${laundryId}:`, error?.message);
         return { photos: [] };
       }
 
-      const photos: LaundryPhoto[] = data as LaundryPhoto[];
+      const rawPhotos: LaundryPhoto[] = data as LaundryPhoto[];
+      const photos = sortLaundryPhotosForGallery(rawPhotos);
       const primaryPhoto = photos.find((p) => p.is_primary) || photos[0];
 
       return { photos, primaryPhoto };
@@ -44,8 +89,9 @@ export const laundryPhotoService = {
   },
 
   /**
-   * Upload a new laundry profile photo (Platform Admin ONLY).
+   * Upload a new laundry profile photo.
    * Validates max 5 photo limit, image format, and max 5MB size.
+   * Auto-promotes to primary ONLY if no primary exists yet.
    * Cleans up storage object if database insert fails.
    */
   async uploadLaundryPhotoAsync(laundryId: string, file: File): Promise<LaundryPhoto> {
@@ -104,7 +150,9 @@ export const laundryPhotoService = {
       .getPublicUrl(storagePath);
 
     const publicUrl = urlData.publicUrl;
-    const isPrimary = photos.length === 0 || targetSlot === 0;
+    // Primary ONLY if no primary exists yet
+    const hasPrimary = photos.some((p) => p.is_primary);
+    const isPrimary = !hasPrimary;
 
     // 6. Insert record into laundry_photos table
     try {
@@ -202,11 +250,12 @@ export const laundryPhotoService = {
       console.warn('[LAUNDRY-PHOTO-SERVICE] Storage delete warning (orphan file):', storageDeleteErr.message);
     }
 
-    // 4. If deleted photo was primary, assign remaining photo as primary
+    // 4. If deleted photo was primary, promote remaining photo with lowest sort_order to primary
     if (wasPrimary) {
       const { photos: remaining } = await this.getPhotosByLaundryAsync(laundryId);
       if (remaining.length > 0) {
-        await this.setPrimaryPhotoAsync(laundryId, remaining[0].id);
+        const sorted = [...remaining].sort((a, b) => (a.sort_order - b.sort_order) || (a.photo_slot - b.photo_slot));
+        await this.setPrimaryPhotoAsync(laundryId, sorted[0].id);
       }
     }
   },

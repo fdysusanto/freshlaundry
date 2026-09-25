@@ -7,7 +7,7 @@ import { authService } from '@/services/authService';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import { orderService } from '@/services/orderService';
 import { laundryService } from '@/services/laundryService';
-import { laundryPhotoService } from '@/services/laundryPhotoService';
+import { laundryPhotoService, CANONICAL_LAUNDRY_FALLBACK } from '@/services/laundryPhotoService';
 import { partnerApplicationService, PartnerApplicationRecord } from '@/services/partnerApplicationService';
 import { Order, OrderStatus } from '@/types/order';
 import { Laundry, LaundryService as ServiceCatalogItem, LaundryPhoto } from '@/types/laundry';
@@ -47,10 +47,11 @@ import {
   Star,
   Check,
   Image as ImageIcon,
+  Upload,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 
-const FALLBACK_STOREFRONT =
-  'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=800&q=80';
 
 function OwnerDashboardContent() {
   const router = useRouter();
@@ -323,6 +324,122 @@ function OwnerDashboardContent() {
       alert(`Gagal memperbarui profil: ${err.message}`);
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  // Owner Photo Management State & Handlers
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [isPhotoUploading, setIsPhotoUploading] = useState(false);
+  const [photoActionId, setPhotoActionId] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
+
+  const refreshPhotos = async () => {
+    if (!selectedLaundryId) return;
+    try {
+      const res = await fetch(`/api/owner/laundries/${selectedLaundryId}/photos`);
+      if (res.ok) {
+        const data = await res.json();
+        setOwnerPhotos(data.photos || []);
+      } else {
+        const p = await laundryPhotoService.getPhotosByLaundryAsync(selectedLaundryId);
+        setOwnerPhotos(p.photos);
+      }
+    } catch {
+      const p = await laundryPhotoService.getPhotosByLaundryAsync(selectedLaundryId);
+      setOwnerPhotos(p.photos);
+    }
+  };
+
+  const handleUploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedLaundryId) return;
+    e.target.value = ''; // reset input
+
+    if (ownerPhotos.length >= 5) {
+      setPhotoError('Maksimum 5 foto outlet telah tercapai.');
+      return;
+    }
+
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      setPhotoError('Format file tidak didukung. Harap unggah format JPG, PNG, atau WebP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError('Ukuran file melebihi batas 5MB.');
+      return;
+    }
+
+    setIsPhotoUploading(true);
+    setPhotoError(null);
+    setPhotoSuccess(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`/api/owner/laundries/${selectedLaundryId}/photos`, {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.error || 'Gagal mengunggah foto');
+      }
+      setPhotoSuccess('Foto berhasil ditambahkan.');
+      await refreshPhotos();
+    } catch (err: any) {
+      setPhotoError(err.message || 'Terjadi kesalahan saat mengunggah foto.');
+    } finally {
+      setIsPhotoUploading(false);
+    }
+  };
+
+  const handleSetPrimary = async (photoId: string) => {
+    if (!selectedLaundryId || photoActionId) return;
+    setPhotoActionId(photoId);
+    setPhotoError(null);
+    setPhotoSuccess(null);
+
+    try {
+      const res = await fetch(`/api/owner/laundries/${selectedLaundryId}/photos/${photoId}/primary`, {
+        method: 'PATCH',
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.error || 'Gagal mengubah foto utama');
+      }
+      setPhotoSuccess('Foto utama berhasil diperbarui.');
+      await refreshPhotos();
+    } catch (err: any) {
+      setPhotoError(err.message || 'Terjadi kesalahan saat mengubah foto utama.');
+    } finally {
+      setPhotoActionId(null);
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!selectedLaundryId || photoActionId) return;
+    if (!window.confirm('Yakin ingin menghapus foto outlet ini?')) return;
+
+    setPhotoActionId(photoId);
+    setPhotoError(null);
+    setPhotoSuccess(null);
+
+    try {
+      const res = await fetch(`/api/owner/laundries/${selectedLaundryId}/photos/${photoId}`, {
+        method: 'DELETE',
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.error || 'Gagal menghapus foto');
+      }
+      setPhotoSuccess('Foto berhasil dihapus.');
+      await refreshPhotos();
+    } catch (err: any) {
+      setPhotoError(err.message || 'Terjadi kesalahan saat menghapus foto.');
+    } finally {
+      setPhotoActionId(null);
     }
   };
 
@@ -731,65 +848,164 @@ function OwnerDashboardContent() {
           {activeTab === 'profile' && selectedLaundry && (
             <div className="space-y-6">
               
-              {/* STOREFRONT 5-PHOTO GALLERY SECTION - READ ONLY */}
-              <Card variant="white" className="p-6 space-y-4 border-amber-200/80 bg-amber-50/20">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              {/* STOREFRONT 5-PHOTO GALLERY SECTION - INTERACTIVE OWNER MANAGEMENT */}
+              <Card variant="white" className="p-6 space-y-4 border-slate-200/90 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-3">
                   <div>
                     <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                       <Store className="w-5 h-5 text-brand-primary" />
-                      <span>Galeri Foto Storefront Mitra (5 Foto)</span>
+                      <span>Galeri & Foto Utama Outlet (Maks. 5 Foto)</span>
                     </h3>
-                    <p className="text-xs text-slate-500">Foto fisik tampak depan toko mitra yang tampil pada marketplace CUCIYAN.</p>
+                    <p className="text-xs text-slate-500">
+                      Kelola foto outlet Anda yang tampil di marketplace FreshLaundry. Foto bertanda <span className="font-bold text-brand-primary">★ Foto Utama</span> akan tampil di kartu pencarian & urutan pertama galeri.
+                    </p>
                   </div>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    ✓ Foto terverifikasi ({ownerPhotos.length} / 5)
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-full border ${
+                      ownerPhotos.length >= 5
+                        ? 'text-amber-800 bg-amber-50 border-amber-300'
+                        : 'text-emerald-800 bg-emerald-50 border-emerald-300'
+                    }`}>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      {ownerPhotos.length} / 5 Foto Terpasang
+                    </span>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleUploadPhoto}
+                      disabled={isPhotoUploading || ownerPhotos.length >= 5}
+                    />
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isPhotoUploading || ownerPhotos.length >= 5}
+                      className="gap-1.5"
+                    >
+                      {isPhotoUploading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Mengunggah...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4" />
+                          <span>+ Tambah Foto</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
-                {/* READ ONLY 5-PHOTO GALLERY */}
-                <div className="space-y-3 pt-1">
+                {photoError && (
+                  <div className="p-3 bg-rose-50 text-rose-800 rounded-xl border border-rose-200 text-xs font-semibold flex items-center justify-between">
+                    <span>{photoError}</span>
+                    <button onClick={() => setPhotoError(null)} className="text-rose-500 hover:text-rose-700 font-bold cursor-pointer">✕</button>
+                  </div>
+                )}
+                {photoSuccess && (
+                  <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-200 text-xs font-semibold flex items-center justify-between">
+                    <span>{photoSuccess}</span>
+                    <button onClick={() => setPhotoSuccess(null)} className="text-emerald-500 hover:text-emerald-700 font-bold cursor-pointer">✕</button>
+                  </div>
+                )}
+
+                {/* Photo Grid */}
+                <div className="space-y-4 pt-1">
                   {ownerPhotos.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                      {ownerPhotos.map((p, idx) => (
-                        <div key={p.id} className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-slate-200 border-2 border-slate-200 shadow-xs">
-                          <img src={p.public_url} alt={`Storefront ${idx + 1}`} className="w-full h-full object-cover" />
-                          {p.is_primary && (
-                            <div className="absolute top-1.5 left-1.5 bg-brand-primary text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <Star className="w-3 h-3 fill-amber-300 text-amber-300" /> Utama
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                      {ownerPhotos.map((p, idx) => {
+                        const isActionInProgress = photoActionId === p.id;
+                        return (
+                          <div
+                            key={p.id}
+                            className={`relative rounded-2xl overflow-hidden bg-slate-100 border-2 transition-all flex flex-col shadow-xs ${
+                              p.is_primary ? 'border-brand-primary ring-2 ring-brand-primary/20' : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="relative aspect-[4/3] w-full bg-slate-200 overflow-hidden">
+                              <img
+                                src={p.public_url}
+                                alt={`Storefront ${idx + 1}`}
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = CANONICAL_LAUNDRY_FALLBACK;
+                                }}
+                                className="w-full h-full object-cover"
+                              />
+                              {p.is_primary && (
+                                <div className="absolute top-2 left-2 bg-brand-primary text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
+                                  <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" /> Foto Utama
+                                </div>
+                              )}
+                              <div className="absolute bottom-2 right-2 bg-slate-900/70 backdrop-blur-xs text-white text-[10px] font-semibold px-2 py-0.5 rounded-md">
+                                #{idx + 1}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      ))}
+
+                            {/* Actions Footer */}
+                            <div className="p-2.5 bg-white border-t border-slate-100 flex items-center justify-between gap-1.5">
+                              {!p.is_primary ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetPrimary(p.id)}
+                                  disabled={isActionInProgress || photoActionId !== null}
+                                  className="text-[11px] font-bold text-slate-700 hover:text-brand-primary hover:bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 transition-colors disabled:opacity-50 cursor-pointer"
+                                >
+                                  {isActionInProgress ? 'Memproses...' : 'Jadikan Utama'}
+                                </button>
+                              ) : (
+                                <span className="text-[11px] font-bold text-brand-primary px-1">
+                                  Utama
+                                </span>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePhoto(p.id)}
+                                disabled={isActionInProgress || photoActionId !== null}
+                                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-1.5 rounded-lg transition-colors disabled:opacity-50 cursor-pointer ml-auto"
+                                title="Hapus foto ini"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 pt-2">
-                      <div className="w-full sm:w-48 aspect-[4/3] rounded-2xl overflow-hidden bg-slate-200 shrink-0 shadow-md">
-                        <img
-                          src={selectedLaundry.logoUrl || FALLBACK_STOREFRONT}
-                          alt={`Storefront ${selectedLaundry.name}`}
-                          className="w-full h-full object-cover"
-                        />
+                    <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 text-center space-y-3">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                        <ImageIcon className="w-6 h-6" />
                       </div>
                       <div className="space-y-1">
-                        <p className="font-bold text-xs text-slate-800">Foto Utama Standar Storefront</p>
-                        <p className="text-xs text-slate-500">Belum ada galeri 5 foto yang diunggah oleh Platform Admin.</p>
+                        <p className="font-bold text-sm text-slate-800">Belum ada foto galeri outlet</p>
+                        <p className="text-xs text-slate-500 max-w-sm">
+                          Unggah foto tampak depan toko atau mesin laundry Anda untuk meningkatkan kepercayaan pelanggan marketplace FreshLaundry.
+                        </p>
                       </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isPhotoUploading}
+                        className="gap-1.5"
+                      >
+                        <Upload className="w-4 h-4" />
+                        <span>Unggah Foto Pertama</span>
+                      </Button>
                     </div>
                   )}
 
-                  {/* READ ONLY NOTICE BANNER */}
-                  <div className="p-4 bg-slate-900 text-white rounded-2xl text-xs space-y-1.5 shadow-sm mt-3">
-                    <p className="font-bold flex items-center gap-1.5 text-amber-300">
-                      <Lock className="w-4 h-4 text-amber-400 shrink-0" />
-                      Otorisasi Khusus Admin Platform:
-                    </p>
-                    <p className="text-slate-300 leading-relaxed italic">
-                      "Foto mitra dikelola oleh Admin Platform. Hubungi Admin jika ingin mengganti foto."
-                    </p>
-                    <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-800">
-                      Demi menjaga kualitas dan keaslian foto marketplace FreshLaundry, Pemilik dan Staf Mitra tidak memiliki wewenang untuk menambah, mengubah, atau menghapus foto secara mandiri.
-                    </p>
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 text-brand-primary shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Tips Galeri Foto:</strong> Unggah foto beresolusi tinggi (format JPG, PNG, atau WebP, maks. 5MB). Foto pertama yang Anda unggah otomatis menjadi Foto Utama, atau Anda dapat menentukan Foto Utama kapan saja dengan tombol <em>Jadikan Utama</em>.
+                    </span>
                   </div>
                 </div>
               </Card>

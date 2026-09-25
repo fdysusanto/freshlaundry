@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { OwnerBranchProvider, useOwnerBranch } from '@/components/owner/OwnerBranchContext';
 import { OwnerBranchSwitcher } from '@/components/owner/OwnerBranchSwitcher';
+import { ServicePhotoUploader } from '@/components/owner/ServicePhotoUploader';
 import {
   ArrowLeft,
   Plus,
@@ -41,6 +42,8 @@ function CreateOwnerServiceContent() {
   const [category, setCategory] = useState<ServiceCategory>('Pakaian');
   const [badge, setBadge] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [storagePath, setStoragePath] = useState<string | null>(null);
 
   const selectedLaundry = activeLaundry;
 
@@ -104,6 +107,8 @@ function CreateOwnerServiceContent() {
           badge: badge.trim() || undefined,
           iconName: unit === 'pcs' ? 'Sparkles' : 'ShoppingBag',
           isActive,
+          imageUrl,
+          storagePath,
         },
         currentUser,
         activeLaundryId // Explicit target branch ID
@@ -161,6 +166,20 @@ function CreateOwnerServiceContent() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Service Photo Section */}
+        <ServicePhotoUploader
+          currentImageUrl={imageUrl}
+          laundryId={activeLaundryId || undefined}
+          category={category}
+          serviceCode={code}
+          serviceName={name}
+          onPhotoUploaded={(newUrl, newPath) => {
+            setImageUrl(newUrl);
+            if (newPath !== undefined) setStoragePath(newPath);
+          }}
+          disabled={isSubmitting}
+        />
+
         <Card variant="white" className="space-y-5">
           <div className="border-b border-slate-100 pb-3">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">

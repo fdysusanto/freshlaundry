@@ -1,18 +1,17 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { LaundryMarketplaceItem } from '@/types/laundry';
 import { formatIDR } from '@/utils/formatters';
 import { useFavorites } from '@/hooks/useFavorites';
-import { Star, MapPin, Heart, ShieldCheck, ChevronLeft, ChevronRight, Clock, Shirt, Footprints, ShoppingBag, Layers, Sofa } from 'lucide-react';
+import { Star, MapPin, Heart, ShieldCheck, Clock, Shirt, Footprints, ShoppingBag, Layers, Sofa } from 'lucide-react';
+import { CANONICAL_LAUNDRY_FALLBACK } from '@/services/laundryPhotoService';
 
 interface LaundryPartnerCardProps {
   item: LaundryMarketplaceItem;
 }
 
-const FALLBACK_STOREFRONT =
-  'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=800&q=80';
 
 const CATEGORY_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   'Pakaian': Shirt,
@@ -39,62 +38,13 @@ export const LaundryPartnerCard: React.FC<LaundryPartnerCardProps> = ({ item }) 
 
   const isFav = isFavorite(laundry.id);
 
-  // Derive all available photo URLs for swiping
-  const photoUrls = useMemo(() => {
-    if (photos && photos.length > 0) {
-      return photos.map((p) => p.public_url);
-    }
-    return [storefrontImageUrl || FALLBACK_STOREFRONT];
-  }, [photos, storefrontImageUrl]);
-
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const photoUrl = storefrontImageUrl || CANONICAL_LAUNDRY_FALLBACK;
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     toggleFavorite(laundry.id);
   };
-
-  const handlePrevPhoto = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setCurrentPhotoIndex((prev) => (prev - 1 + photoUrls.length) % photoUrls.length);
-  };
-
-  const handleNextPhoto = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setCurrentPhotoIndex((prev) => (prev + 1) % photoUrls.length);
-  };
-
-  const handleDotClick = (e: React.MouseEvent, index: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setCurrentPhotoIndex(index);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStartX(e.touches[0].clientX);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX === null) return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const diff = touchStartX - touchEndX;
-    if (Math.abs(diff) > 30) {
-      if (diff > 0) {
-        // Swiped left -> next photo
-        setCurrentPhotoIndex((prev) => (prev + 1) % photoUrls.length);
-      } else {
-        // Swiped right -> prev photo
-        setCurrentPhotoIndex((prev) => (prev - 1 + photoUrls.length) % photoUrls.length);
-      }
-    }
-    setTouchStartX(null);
-  };
-
-  const activePhotoUrl = photoUrls[currentPhotoIndex] || FALLBACK_STOREFRONT;
 
   // Format opening hours display (e.g. "08:00–21:00")
   const formattedHours = (() => {
@@ -107,18 +57,14 @@ export const LaundryPartnerCard: React.FC<LaundryPartnerCardProps> = ({ item }) 
     <Link href={`/customer/laundries/${laundry.id}`} className="block group w-full">
       <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 p-2.5 sm:p-3.5 shadow-xs hover:shadow-xl hover:border-brand-secondary/80 transition-all duration-300 flex flex-row gap-3 sm:gap-4 overflow-hidden relative">
         
-        {/* Left Area: Photo Laundry (~40% Width) */}
-        <div
-          className="relative w-[38%] sm:w-[40%] shrink-0 h-36 sm:h-40 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-100 select-none touch-pan-y"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
+        {/* Left Area: Single Static Primary Photo (~40% Width) */}
+        <div className="relative w-[38%] sm:w-[40%] shrink-0 h-36 sm:h-40 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-100 select-none">
           <img
-            src={activePhotoUrl}
+            src={photoUrl}
             alt={`Foto storefront ${laundry.name}`}
             loading="lazy"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = FALLBACK_STOREFRONT;
+              (e.target as HTMLImageElement).src = CANONICAL_LAUNDRY_FALLBACK;
             }}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
           />
@@ -154,40 +100,6 @@ export const LaundryPartnerCard: React.FC<LaundryPartnerCardProps> = ({ item }) 
               }`}
             />
           </button>
-
-          {/* Prev/Next Photo Arrows on Hover */}
-          {photoUrls.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={handlePrevPhoto}
-                className="hidden group-hover:flex absolute left-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-900/60 text-white items-center justify-center z-20 hover:bg-slate-900"
-              >
-                <ChevronLeft className="w-3 h-3" />
-              </button>
-              <button
-                type="button"
-                onClick={handleNextPhoto}
-                className="hidden group-hover:flex absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-900/60 text-white items-center justify-center z-20 hover:bg-slate-900"
-              >
-                <ChevronRight className="w-3 h-3" />
-              </button>
-
-              {/* Photo Indicator Dots */}
-              <div className="absolute bottom-1.5 inset-x-0 flex justify-center gap-1 z-20 pointer-events-auto">
-                {photoUrls.map((_, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={(e) => handleDotClick(e, idx)}
-                    className={`h-1 rounded-full transition-all cursor-pointer ${
-                      idx === currentPhotoIndex ? 'w-3 bg-white' : 'w-1 bg-white/50 hover:bg-white/80'
-                    }`}
-                  />
-                ))}
-              </div>
-            </>
-          )}
 
           {/* Status Dot Badge */}
           <div className="absolute bottom-1.5 left-1.5 z-10">

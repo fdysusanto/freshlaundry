@@ -234,6 +234,7 @@ export const SERVICE_CATALOG: ServiceCatalogItem[] = [
     iconName: 'ShoppingBag',
     popular: true,
     badge: 'Paling Laris',
+    imageUrl: 'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=600&q=80',
     isActive: true,
   },
   {
@@ -255,6 +256,7 @@ export const SERVICE_CATALOG: ServiceCatalogItem[] = [
     iconName: 'Zap',
     popular: false,
     badge: 'Super Cepat',
+    imageUrl: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=600&q=80',
     isActive: true,
   },
   {
@@ -276,6 +278,7 @@ export const SERVICE_CATALOG: ServiceCatalogItem[] = [
     iconName: 'Sparkles',
     popular: false,
     badge: 'Perawatan Premium',
+    imageUrl: 'https://images.unsplash.com/photo-1521656693074-0ef32e80a5d5?auto=format&fit=crop&w=600&q=80',
     isActive: true,
   },
   {
@@ -297,6 +300,7 @@ export const SERVICE_CATALOG: ServiceCatalogItem[] = [
     iconName: 'Box',
     popular: false,
     badge: 'Barang Besar',
+    imageUrl: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=600&q=80',
     isActive: true,
   },
   {
@@ -318,6 +322,7 @@ export const SERVICE_CATALOG: ServiceCatalogItem[] = [
     iconName: 'Box',
     popular: false,
     badge: 'Care Tas',
+    imageUrl: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=600&q=80',
     isActive: true,
   },
 

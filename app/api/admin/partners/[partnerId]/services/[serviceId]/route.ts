@@ -59,6 +59,8 @@ export async function PATCH(
         estimatedHours: body.estimatedHours !== undefined ? Number(body.estimatedHours) : undefined,
         iconName: body.iconName,
         isActive: body.isActive !== undefined ? Boolean(body.isActive) : undefined,
+        imageUrl: body.imageUrl !== undefined ? body.imageUrl : undefined,
+        storagePath: body.storagePath !== undefined ? body.storagePath : undefined,
       },
       auth.accessToken || undefined
     );

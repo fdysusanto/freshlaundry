@@ -5,6 +5,7 @@ import { ServiceCatalogItem } from '@/utils/constants';
 import { Laundry } from '@/types/laundry';
 import { authService } from '@/services/authService';
 import { formatIDR } from '@/utils/formatters';
+import { resolveServicePhoto } from '@/utils/servicePhotoFallbacks';
 import { Button } from '@/components/ui/Button';
 import { PartnerServiceModal } from '@/components/admin/PartnerServiceModal';
 import {
@@ -245,8 +246,16 @@ export const PartnerServicesTab: React.FC<PartnerServicesTabProps> = ({ partner 
                   {/* Top Bar: Icon, Name, Category & Status Badge */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
-                      <div className="p-2.5 bg-slate-100 rounded-2xl shrink-0">
-                        {renderServiceIcon(service.iconName)}
+                      <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+                        <img
+                          src={resolveServicePhoto(service)}
+                          alt={service.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=600&q=80';
+                          }}
+                        />
                       </div>
                       <div className="space-y-0.5">
                         <div className="flex flex-wrap items-center gap-1.5">

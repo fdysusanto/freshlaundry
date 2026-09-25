@@ -86,6 +86,8 @@ export interface Database {
           estimated_hours: number;
           icon_name: string;
           is_active: boolean;
+          image_url: string | null;
+          storage_path: string | null;
           created_at: string;
         };
         Insert: Omit<Database['public']['Tables']['services']['Row'], 'id' | 'created_at'>;

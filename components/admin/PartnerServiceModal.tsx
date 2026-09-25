@@ -6,6 +6,7 @@ import { ServiceCatalogItem } from '@/utils/constants';
 import { ServiceCategory } from '@/types/laundry';
 import { ServiceType } from '@/types/order';
 import { authService } from '@/services/authService';
+import { ServicePhotoUploader } from '@/components/owner/ServicePhotoUploader';
 import {
   Sparkles,
   AlertTriangle,
@@ -70,6 +71,8 @@ const PartnerServiceModalContent: React.FC<FormContentProps> = ({
     isEdit ? serviceToEdit?.iconName || (initialUnit === 'pcs' ? 'Sparkles' : 'ShoppingBag') : 'ShoppingBag'
   );
   const [isActive, setIsActive] = useState(isEdit ? (serviceToEdit?.isActive ?? true) : true);
+  const [imageUrl, setImageUrl] = useState<string | null>(isEdit ? (serviceToEdit?.imageUrl || null) : null);
+  const [storagePath, setStoragePath] = useState<string | null>(isEdit ? (serviceToEdit?.storagePath || null) : null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -131,6 +134,8 @@ const PartnerServiceModalContent: React.FC<FormContentProps> = ({
             description: description.trim() || undefined,
             iconName,
             isActive,
+            imageUrl,
+            storagePath,
           }),
         });
       } else {
@@ -155,6 +160,8 @@ const PartnerServiceModalContent: React.FC<FormContentProps> = ({
             description: description.trim() || undefined,
             iconName,
             isActive,
+            imageUrl,
+            storagePath,
           }),
         });
       }
@@ -205,6 +212,21 @@ const PartnerServiceModalContent: React.FC<FormContentProps> = ({
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        {/* Service Photo Section */}
+        <ServicePhotoUploader
+          currentImageUrl={imageUrl}
+          serviceId={serviceToEdit?.id}
+          laundryId={partnerId}
+          category={category}
+          serviceCode={code}
+          serviceName={name}
+          onPhotoUploaded={(newUrl, newPath) => {
+            setImageUrl(newUrl);
+            if (newPath !== undefined) setStoragePath(newPath);
+          }}
+          disabled={isSubmitting}
+        />
+
         {/* Service Name */}
         <div>
           <label className="block font-bold text-slate-700 uppercase mb-1">

@@ -16,6 +16,7 @@ import {
   useOwnerBranch,
 } from '@/components/owner/OwnerBranchContext';
 import { OwnerBranchSwitcher } from '@/components/owner/OwnerBranchSwitcher';
+import { ServicePhotoUploader } from '@/components/owner/ServicePhotoUploader';
 import {
   ArrowLeft,
   Edit,
@@ -54,6 +55,8 @@ function EditOwnerServiceContent() {
   const [estimatedTime, setEstimatedTime] = useState('');
   const [badge, setBadge] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [storagePath, setStoragePath] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -96,6 +99,8 @@ function EditOwnerServiceContent() {
         setEstimatedTime(srv.estimatedTime || `${srv.estimatedHours || 24} Jam`);
         setBadge(srv.badge || '');
         setIsActive(srv.isActive ?? true);
+        setImageUrl(srv.imageUrl || null);
+        setStoragePath(srv.storagePath || null);
       }
     };
 
@@ -189,6 +194,8 @@ function EditOwnerServiceContent() {
           estimatedTime: estimatedTime.trim() || `${estimatedHours} Jam`,
           badge: badge.trim() || undefined,
           isActive,
+          imageUrl,
+          storagePath,
         },
         currentUser
       );
@@ -247,6 +254,21 @@ function EditOwnerServiceContent() {
 
       {/* Main Edit Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Service Photo Section */}
+        <ServicePhotoUploader
+          currentImageUrl={imageUrl}
+          serviceId={targetService.id}
+          laundryId={targetService.laundryId}
+          category={category}
+          serviceCode={code}
+          serviceName={name}
+          onPhotoUploaded={(newUrl, newPath) => {
+            setImageUrl(newUrl);
+            if (newPath !== undefined) setStoragePath(newPath);
+          }}
+          disabled={isSubmitting}
+        />
+
         <Card variant="white" className="space-y-5">
           <div className="border-b border-slate-100 pb-3">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">

@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { authService } from '@/services/authService';
 import { laundryService } from '@/services/laundryService';
-import { laundryPhotoService } from '@/services/laundryPhotoService';
+import { laundryPhotoService, sortLaundryPhotosForGallery, CANONICAL_LAUNDRY_FALLBACK } from '@/services/laundryPhotoService';
 import { isSupabaseConfigured } from '@/services/supabase';
 import { useLocationState } from '@/hooks/useLocationState';
 import { calculateHaversineDistance } from '@/services/marketplaceService';
@@ -13,6 +13,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { DEMO_LAUNDRIES } from '@/utils/constants';
 import { Laundry, LaundryService as ServiceCatalogItem, Review, LaundryPhoto } from '@/types/laundry';
 import { formatIDR } from '@/utils/formatters';
+import { CustomerServiceCard } from '@/components/marketplace/CustomerServiceCard';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -35,10 +36,10 @@ import {
   ChevronLeft,
   ImageIcon,
   Timer,
+  Shirt,
+  Zap,
+  Package,
 } from 'lucide-react';
-
-const FALLBACK_STOREFRONT =
-  'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=800&q=80';
 
 export default function CustomerLaundryDetailPage() {
   const router = useRouter();
@@ -162,15 +163,16 @@ export default function CustomerLaundryDetailPage() {
     return calculateHaversineDistance(userLat, userLng, laundry.latitude, laundry.longitude);
   }, [laundry, locationState.marketplaceLocation]);
 
-  // Derive photo array for gallery slider
+  // Derive photo array for gallery slider (guaranteeing primary photo at index 0)
   const photoUrls = useMemo(() => {
     if (photos.length > 0) {
-      return photos.map((p) => p.public_url);
+      const sorted = sortLaundryPhotosForGallery(photos);
+      return sorted.map((p) => p.public_url);
     }
     if (laundry?.logoUrl) {
       return [laundry.logoUrl];
     }
-    return [FALLBACK_STOREFRONT];
+    return [CANONICAL_LAUNDRY_FALLBACK];
   }, [photos, laundry?.logoUrl]);
 
   // Handle Photo Swipe gestures
@@ -179,7 +181,7 @@ export default function CustomerLaundryDetailPage() {
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX === null) return;
+    if (touchStartX === null || photoUrls.length <= 1) return;
     const touchEndX = e.changedTouches[0].clientX;
     const diff = touchStartX - touchEndX;
     if (Math.abs(diff) > 30) {
@@ -246,9 +248,17 @@ export default function CustomerLaundryDetailPage() {
 
   const handleServiceSelect = (serviceId: string) => {
     setSelectedServiceId(serviceId);
-    if (quantities[serviceId] === undefined) {
-      setQuantities((prev) => ({ ...prev, [serviceId]: 0 }));
-    }
+    setQuantities((prev) => {
+      if (prev[serviceId] && prev[serviceId] > 0) {
+        return prev;
+      }
+      const srv = laundryServices.find((s) => s.id === serviceId);
+      const defaultQty =
+        srv && srv.unit === 'kg' && typeof srv.minWeight === 'number' && srv.minWeight > 0
+          ? srv.minWeight
+          : 1;
+      return { ...prev, [serviceId]: defaultQty };
+    });
   };
 
   const handleQuantityChange = (serviceId: string, newQty: number) => {
@@ -273,7 +283,7 @@ export default function CustomerLaundryDetailPage() {
     );
   };
 
-  const activePhoto = photoUrls[activePhotoIndex] || FALLBACK_STOREFRONT;
+  const activePhoto = photoUrls[activePhotoIndex] || CANONICAL_LAUNDRY_FALLBACK;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 pb-32 lg:pb-12">
@@ -310,7 +320,7 @@ export default function CustomerLaundryDetailPage() {
               src={activePhoto}
               alt={`Foto Outlet ${laundry.name}`}
               onError={(e) => {
-                (e.target as HTMLImageElement).src = FALLBACK_STOREFRONT;
+                (e.target as HTMLImageElement).src = CANONICAL_LAUNDRY_FALLBACK;
               }}
               className="w-full h-full object-cover transition-all duration-300"
             />
@@ -435,166 +445,72 @@ export default function CustomerLaundryDetailPage() {
             <Sparkles className="w-5 h-5 text-brand-primary" />
             <span>Katalog Layanan Laundry</span>
           </h2>
-          <span className="text-xs text-slate-500 font-bold">{filteredServices.length} jenis layanan</span>
+          {activeCategoryTab !== 'all' ? (
+            <button
+              type="button"
+              onClick={() => setActiveCategoryTab('all')}
+              className="text-xs text-brand-primary font-bold hover:underline cursor-pointer"
+            >
+              Tampilkan Semua ({laundryServices.length})
+            </button>
+          ) : (
+            <span className="text-xs text-slate-500 font-bold">{filteredServices.length} jenis layanan</span>
+          )}
         </div>
 
-        {/* Category Tabs Bar */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setActiveCategoryTab('all')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
-              activeCategoryTab === 'all'
-                ? 'bg-brand-primary text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            Semua Layanan
-          </button>
-          {categories.includes('kiloan') && (
-            <button
-              type="button"
-              onClick={() => setActiveCategoryTab('kiloan')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
-                activeCategoryTab === 'kiloan'
-                  ? 'bg-brand-primary text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              Cuci Kiloan
-            </button>
-          )}
-          {categories.includes('satuan') && (
-            <button
-              type="button"
-              onClick={() => setActiveCategoryTab('satuan')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
-                activeCategoryTab === 'satuan'
-                  ? 'bg-brand-primary text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              Cuci Satuan
-            </button>
-          )}
-          {categories.includes('express') && (
-            <button
-              type="button"
-              onClick={() => setActiveCategoryTab('express')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
-                activeCategoryTab === 'express'
-                  ? 'bg-brand-primary text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              ⚡ Express
-            </button>
-          )}
+        {/* Category Selector (Compact Square Cards: Kiloan, Express, Satuan) */}
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-4 max-w-sm sm:max-w-md">
+          {[
+            { id: 'kiloan', label: 'Kiloan', icon: Shirt },
+            { id: 'express', label: 'Express', icon: Zap },
+            { id: 'satuan', label: 'Satuan', icon: Package },
+          ].map((cat) => {
+            const Icon = cat.icon;
+            const isActive = activeCategoryTab === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setActiveCategoryTab(isActive ? 'all' : cat.id)}
+                className={`flex flex-col items-center justify-center p-3 sm:p-3.5 rounded-2xl border-2 transition-all duration-200 cursor-pointer aspect-square ${
+                  isActive
+                    ? 'border-brand-primary bg-brand-surface/25 text-brand-primary shadow-2xs'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50/60'
+                }`}
+                aria-pressed={isActive}
+                aria-label={`Kategori ${cat.label}`}
+              >
+                <Icon
+                  className={`w-5 h-5 sm:w-6 sm:h-6 mb-1.5 transition-colors ${
+                    isActive ? 'text-brand-primary' : 'text-slate-500'
+                  }`}
+                />
+                <span
+                  className={`text-xs font-bold tracking-tight ${
+                    isActive ? 'text-brand-primary' : 'text-slate-700'
+                  }`}
+                >
+                  {cat.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* CATALOG SERVICES LIST */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-8 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              {filteredServices.map((service) => {
-                const isSelected = selectedServiceId === service.id;
-                const qty = quantities[service.id];
-                const hasQuantity = qty !== undefined;
-                const estDays = Math.max(1, Math.round((service.estimatedHours || 24) / 24));
-                const hasSrvMin = service.unit === 'kg' && typeof service.minWeight === 'number' && service.minWeight > 0;
-                const srvMinQty = hasSrvMin ? (service.minWeight as number) : null;
-
-                return (
-                  <div
-                    key={service.id}
-                    onClick={() => handleServiceSelect(service.id)}
-                    className={`p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-3 bg-white ${
-                      isSelected && hasQuantity && qty > 0
-                        ? 'border-brand-primary ring-2 ring-brand-primary/20 shadow-sm bg-brand-surface/40'
-                        : 'border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
-                          <span>{service.name}</span>
-                          {isSelected && hasQuantity && qty > 0 && <CheckCircle2 className="w-4 h-4 text-brand-primary" />}
-                        </h3>
-                        {srvMinQty !== null && (
-                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 shrink-0">
-                            Min. charge {srvMinQty} {service.unit}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-500 line-clamp-2">{service.description}</p>
-                    </div>
-
-                    {/* Processing time estimate info */}
-                    <div className="flex items-center justify-between gap-1 text-[11px] font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-150">
-                      <span className="flex items-center gap-1">
-                        <Timer className="w-3.5 h-3.5 text-brand-primary shrink-0" />
-                        <span>
-                          Estimasi pengerjaan: {service.estimatedHours <= 12 ? `${service.estimatedHours} jam` : `1–${estDays} hari`}
-                        </span>
-                      </span>
-                    </div>
-
-                    {/* Disclosure when selected quantity is below minimum charge */}
-                    {isSelected && hasQuantity && qty > 0 && srvMinQty !== null && qty < srvMinQty && (
-                      <div className="text-[11px] text-slate-600 bg-amber-50/70 p-2 rounded-xl border border-amber-200/60 font-medium">
-                        ⓘ Minimum charge berlaku untuk {srvMinQty} {service.unit} ({formatIDR(service.price * srvMinQty)})
-                      </div>
-                    )}
-
-                    {/* Price & Stepper */}
-                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                      <div>
-                        <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-tight">Tarif</span>
-                        <span className="text-sm sm:text-base font-black text-brand-primary">
-                          {formatIDR(service.price)}
-                          <span className="text-xs text-slate-500 font-normal"> / {service.unit}</span>
-                        </span>
-                      </div>
-
-                      {/* Stepper Controls */}
-                      <div onClick={(e) => e.stopPropagation()}>
-                        {!hasQuantity ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleServiceSelect(service.id);
-                            }}
-                            className="px-3.5 py-1.5 rounded-xl bg-brand-surface hover:bg-brand-surface/80 text-brand-primary border border-brand-primary/30 font-bold text-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
-                          >
-                            <Plus className="w-4 h-4 text-brand-primary" />
-                            <span>Pilih</span>
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
-                            <button
-                              type="button"
-                              onClick={() => handleQuantityChange(service.id, qty - 1)}
-                              className="w-7 h-7 rounded-lg bg-white shadow-xs text-slate-700 font-bold flex items-center justify-center hover:bg-slate-200 cursor-pointer active:scale-90"
-                            >
-                              <Minus className="w-3.5 h-3.5" />
-                            </button>
-                            <span className="text-xs font-black text-slate-900 min-w-[3.5rem] text-center">
-                              {qty} {service.unit}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleQuantityChange(service.id, qty + 1)}
-                              className="w-7 h-7 rounded-lg bg-brand-primary text-white font-bold flex items-center justify-center hover:bg-brand-primary/90 cursor-pointer active:scale-90"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {filteredServices.map((service) => (
+                <CustomerServiceCard
+                  key={service.id}
+                  service={service}
+                  isSelected={selectedServiceId === service.id}
+                  quantity={quantities[service.id]}
+                  onSelect={() => handleServiceSelect(service.id)}
+                  onQuantityChange={(newQty) => handleQuantityChange(service.id, newQty)}
+                />
+              ))}
             </div>
 
             {/* CUSTOMER REVIEWS SECTION */}

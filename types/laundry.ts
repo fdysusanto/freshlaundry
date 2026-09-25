@@ -133,6 +133,8 @@ export interface LaundryService {
   estimatedHours: number;
   iconName: string;
   isActive: boolean;
+  imageUrl?: string | null;
+  storagePath?: string | null;
   createdAt?: string;
 }
 

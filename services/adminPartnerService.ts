@@ -46,6 +46,8 @@ export interface CreatePartnerServicePayload {
   estimatedHours?: number;
   iconName?: string;
   isActive?: boolean;
+  imageUrl?: string | null;
+  storagePath?: string | null;
 }
 
 export interface UpdatePartnerServicePayload {
@@ -60,6 +62,8 @@ export interface UpdatePartnerServicePayload {
   estimatedHours?: number;
   iconName?: string;
   isActive?: boolean;
+  imageUrl?: string | null;
+  storagePath?: string | null;
 }
 
 export const adminPartnerService = {
@@ -710,6 +714,8 @@ export const adminPartnerService = {
       p_estimated_hours: payload.estimatedHours || 24,
       p_icon_name: payload.iconName || null,
       p_is_active: payload.isActive ?? true,
+      p_image_url: payload.imageUrl || null,
+      p_storage_path: payload.storagePath || null,
     });
 
     if (error) {
@@ -756,6 +762,8 @@ export const adminPartnerService = {
       p_estimated_hours: updates.estimatedHours ?? null,
       p_icon_name: updates.iconName ?? null,
       p_is_active: updates.isActive ?? null,
+      p_image_url: updates.imageUrl !== undefined ? (updates.imageUrl === null ? '__REMOVE__' : updates.imageUrl) : null,
+      p_storage_path: updates.storagePath ?? null,
     });
 
     if (error) {

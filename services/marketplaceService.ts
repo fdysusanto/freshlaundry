@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { laundryService } from './laundryService';
+import { resolvePrimaryLaundryPhotoUrl } from './laundryPhotoService';
 import { Laundry, LaundryMarketplaceItem, LaundryPhoto, ServiceCategory, CANONICAL_SERVICE_CATEGORIES } from '@/types/laundry';
 import { DEMO_LAUNDRIES, SERVICE_CATALOG } from '@/utils/constants';
 
@@ -148,7 +149,12 @@ export const marketplaceService = {
     const allMappedItems: LaundryMarketplaceItem[] = laundries.map((laundry, index) => {
       const partnerServices = activeServicesMap[laundry.id] || [];
       const partnerPhotos = photosMap[laundry.id] || [];
-      const primaryPhoto = partnerPhotos.find((p) => p.is_primary) || partnerPhotos[0];
+      // Deterministic Primary Resolution:
+      // 1. is_primary = true
+      // 2. if none -> lowest sort_order photo
+      const primaryPhoto =
+        partnerPhotos.find((p) => p.is_primary) ||
+        [...partnerPhotos].sort((a, b) => a.sort_order - b.sort_order || a.photo_slot - b.photo_slot)[0];
 
       // Extract unique service categories for this partner
       const categorySet = new Set<ServiceCategory>();
@@ -184,12 +190,8 @@ export const marketplaceService = {
         laundry.longitude
       );
 
-      // Map primaryPhoto -> logo_url -> storefrontImageUrl with reliable fallback
-      const storefrontImageUrl =
-        primaryPhoto?.public_url ||
-        (laundry.logoUrl && laundry.logoUrl.trim() !== ''
-          ? laundry.logoUrl
-          : DEFAULT_STOREFRONT_PHOTOS[index % DEFAULT_STOREFRONT_PHOTOS.length]);
+      // Deterministic storefront image URL resolution
+      const storefrontImageUrl = resolvePrimaryLaundryPhotoUrl(partnerPhotos, laundry.logoUrl);
 
       const item: LaundryMarketplaceItem = {
         laundry,
@@ -202,7 +204,15 @@ export const marketplaceService = {
         reviewCount: laundry.totalReviews || 0,
         distanceKm,
         isFavorite: false,
-        badge: (laundry as any).badge || (index === 0 ? 'Pilihan terbaik' : undefined),
+        badge:
+          (laundry as any).badge ||
+          (laundry.status === 'active' || (laundry.status as string) === 'partner'
+            ? 'Mitra Resmi CUCIYAN'
+            : laundry.status === 'order_ready' || laundry.status === 'supplier'
+            ? 'Tersedia di CUCIYAN'
+            : index === 0
+            ? 'Pilihan terbaik'
+            : undefined),
         serviceCategories,
       };
       return item;

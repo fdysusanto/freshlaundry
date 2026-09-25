@@ -81,6 +81,8 @@ export async function POST(
         estimatedHours: body.estimatedHours ? Number(body.estimatedHours) : 24,
         iconName: body.iconName,
         isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
+        imageUrl: body.imageUrl || null,
+        storagePath: body.storagePath || null,
       },
       auth.accessToken || undefined
     );
