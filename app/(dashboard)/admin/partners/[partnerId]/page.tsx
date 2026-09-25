@@ -10,6 +10,7 @@ import { PartnerAuditLogTable } from '@/components/admin/PartnerAuditLogTable';
 import { PartnerStatusModal } from '@/components/admin/PartnerStatusModal';
 import { InviteOwnerModal } from '@/components/admin/InviteOwnerModal';
 import { PartnerServicesTab } from '@/components/admin/PartnerServicesTab';
+import { PartnerPhotosTab } from '@/components/admin/PartnerPhotosTab';
 import { PartnerOperationalStatusModal } from '@/components/admin/PartnerOperationalStatusModal';
 
 const getBusinessMeaningLabel = (status?: string) => {
@@ -76,6 +77,9 @@ import {
   ShoppingBag,
   TrendingUp,
   Store,
+  Camera,
+  Star,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -94,7 +98,7 @@ export default function PartnerDetailPage({
   const [users, setUsers] = useState<LaundryUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'info' | 'services' | 'branches' | 'users' | 'orders' | 'verification' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'photos' | 'info' | 'services' | 'branches' | 'users' | 'orders' | 'verification' | 'audit'>('overview');
 
   // Modals state
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
@@ -485,6 +489,7 @@ export default function PartnerDetailPage({
       <div className="flex border-b border-slate-200 overflow-x-auto text-xs font-bold text-slate-500 gap-6">
         {[
           { id: 'overview', label: 'Overview' },
+          { id: 'photos', label: 'Foto Storefront' },
           { id: 'info', label: 'Business Info' },
           { id: 'services', label: 'Layanan' },
           { id: 'branches', label: 'Cabang / Branches' },
@@ -508,87 +513,129 @@ export default function PartnerDetailPage({
 
       {/* Tab Contents */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="p-6 bg-white rounded-3xl border border-slate-200 space-y-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Status Lifecycle</span>
-            <div className="flex items-center gap-2">
-              <p className="text-xl font-black text-slate-900 uppercase">{partner.status}</p>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${getStatusBadgeStyle(partner.status)}`}>
-                {partner.status}
-              </span>
-            </div>
-            <p className="text-xs font-semibold text-slate-600">
-              {getBusinessMeaningLabel(partner.status)}
-            </p>
-          </div>
-
-          {/* Section STATUS OPERASIONAL */}
-          <div className="p-6 bg-white rounded-3xl border border-slate-200 space-y-3 flex flex-col justify-between shadow-xs">
-            <div className="space-y-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status Operasional</span>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="p-6 bg-white rounded-3xl border border-slate-200 space-y-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Status Lifecycle</span>
               <div className="flex items-center gap-2">
-                <p className="text-xl font-black text-slate-900 uppercase">
-                  {partner.isOpen ? 'BUKA' : 'TUTUP'}
-                </p>
-                {partner.isOpen ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                    Buka
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
-                    Tutup
-                  </span>
-                )}
+                <p className="text-xl font-black text-slate-900 uppercase">{partner.status}</p>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${getStatusBadgeStyle(partner.status)}`}>
+                  {partner.status}
+                </span>
               </div>
-              <p className="text-xs font-semibold text-slate-600 leading-relaxed">
-                {partner.isOpen
-                  ? 'Toko sedang operasional buka. Pelanggan dapat membuat pesanan jika lifecycle dan layanan aktif memenuhi syarat.'
-                  : 'Toko sedang tutup sementara. Pelanggan tidak dapat membuat pesanan baru hingga toko dibuka kembali.'}
+              <p className="text-xs font-semibold text-slate-600">
+                {getBusinessMeaningLabel(partner.status)}
               </p>
             </div>
 
-            <div className="pt-2 border-t border-slate-100">
-              {partner.isOpen ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setTargetIsOpen(false);
-                    setIsOperationalModalOpen(true);
-                  }}
-                  className="w-full border-rose-300 text-rose-700 hover:bg-rose-50 text-xs font-bold"
-                  leftIcon={<Store className="w-3.5 h-3.5 text-rose-600" />}
-                >
-                  Tutup Toko
-                </Button>
-              ) : (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => {
-                    setTargetIsOpen(true);
-                    setIsOperationalModalOpen(true);
-                  }}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs border-none"
-                  leftIcon={<Store className="w-3.5 h-3.5 text-white" />}
-                >
-                  Buka Toko
-                </Button>
-              )}
+            {/* Section STATUS OPERASIONAL */}
+            <div className="p-6 bg-white rounded-3xl border border-slate-200 space-y-3 flex flex-col justify-between shadow-xs">
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status Operasional</span>
+                <div className="flex items-center gap-2">
+                  <p className="text-xl font-black text-slate-900 uppercase">
+                    {partner.isOpen ? 'BUKA' : 'TUTUP'}
+                  </p>
+                  {partner.isOpen ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                      Buka
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                      Tutup
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs font-semibold text-slate-600 leading-relaxed">
+                  {partner.isOpen
+                    ? 'Toko sedang operasional buka. Pelanggan dapat membuat pesanan jika lifecycle dan layanan aktif memenuhi syarat.'
+                    : 'Toko sedang tutup sementara. Pelanggan tidak dapat membuat pesanan baru hingga toko dibuka kembali.'}
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                {partner.isOpen ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setTargetIsOpen(false);
+                      setIsOperationalModalOpen(true);
+                    }}
+                    className="w-full border-rose-300 text-rose-700 hover:bg-rose-50 text-xs font-bold"
+                    leftIcon={<Store className="w-3.5 h-3.5 text-rose-600" />}
+                  >
+                    Tutup Toko
+                  </Button>
+                ) : (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      setTargetIsOpen(true);
+                      setIsOperationalModalOpen(true);
+                    }}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs border-none"
+                    leftIcon={<Store className="w-3.5 h-3.5 text-white" />}
+                  >
+                    Buka Toko
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 bg-white rounded-3xl border border-slate-200 space-y-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Status Klaim</span>
+              <p className="text-xl font-black text-slate-900 uppercase">{partner.claimStatus}</p>
+            </div>
+            <div className="p-6 bg-white rounded-3xl border border-slate-200 space-y-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Verifikasi Compliance</span>
+              <p className="text-xl font-black text-slate-900 uppercase">{partner.verificationStatus}</p>
             </div>
           </div>
 
-          <div className="p-6 bg-white rounded-3xl border border-slate-200 space-y-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Status Klaim</span>
-            <p className="text-xl font-black text-slate-900 uppercase">{partner.claimStatus}</p>
-          </div>
-          <div className="p-6 bg-white rounded-3xl border border-slate-200 space-y-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Verifikasi Compliance</span>
-            <p className="text-xl font-black text-slate-900 uppercase">{partner.verificationStatus}</p>
+          {/* Section Storefront Overview Card */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="relative w-28 h-20 rounded-2xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                <img
+                  src={partner.logoUrl || 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=800&q=80'}
+                  alt={`Storefront ${partner.name}`}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-1.5 left-1.5 bg-amber-500 text-slate-950 text-[9px] font-black px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                  <Star className="w-2.5 h-2.5 fill-slate-950" />
+                  <span>UTAMA</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-purple-600" />
+                  <h4 className="text-sm font-bold text-slate-900">Foto Profil &amp; Storefront Outlet</h4>
+                </div>
+                <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
+                  Foto cover marketplace dan galeri profil outlet untuk pelanggan. Maksimal 5 foto per outlet laundry.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setActiveTab('photos')}
+              leftIcon={<Camera className="w-3.5 h-3.5 text-purple-600" />}
+              className="text-xs font-bold border-purple-200 text-purple-700 hover:bg-purple-50 shrink-0 w-full md:w-auto"
+            >
+              Kelola Foto Storefront
+            </Button>
           </div>
         </div>
+      )}
+
+      {activeTab === 'photos' && (
+        <PartnerPhotosTab partner={partner} onPhotoUpdated={loadData} />
       )}
 
       {activeTab === 'info' && (

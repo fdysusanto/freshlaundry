@@ -11,8 +11,7 @@ import { Laundry } from '@/types/laundry';
 import { UserProfile } from '@/types/user';
 import { MetricsOverview } from '@/components/admin/MetricsOverview';
 import { OrderTable } from '@/components/admin/OrderTable';
-import { AdminPhotoManagementModal } from '@/components/admin/AdminPhotoManagementModal';
-import { ShieldCheck, RefreshCw, AlertTriangle, Lock, Inbox, Store, Image as ImageIcon, Star } from 'lucide-react';
+import { ShieldCheck, RefreshCw, AlertTriangle, Lock, Inbox, Store } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 export default function AdminDashboardPage() {
@@ -23,10 +22,6 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isUnauthorized, setIsUnauthorized] = useState<boolean>(false);
-
-  // Photo modal state
-  const [selectedLaundryForPhoto, setSelectedLaundryForPhoto] = useState<Laundry | null>(null);
-  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -160,58 +155,6 @@ export default function AdminDashboardPage() {
       {/* Metrics KPI */}
       <MetricsOverview orders={orders} />
 
-      {/* REQUIREMENT #12: PLATFORM ADMIN PHOTO MANAGEMENT SECTION */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <ImageIcon className="w-5 h-5 text-purple-600" />
-              <span>Manajemen Foto Storefront Mitra (Platform Admin)</span>
-            </h2>
-            <p className="text-xs text-slate-500">
-              Admin Platform bertanggung jawab penuh mengunggah dan menandai foto storefront utama yang muncul di marketplace.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {laundries.map((lnd) => (
-            <div key={lnd.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-900 text-xs line-clamp-1">{lnd.name}</span>
-                <span className="text-[10px] font-bold text-brand-primary bg-brand-surface px-2 py-0.5 rounded-full border border-brand-primary/20">
-                  {lnd.code}
-                </span>
-              </div>
-
-              <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-slate-200">
-                <img
-                  src={lnd.logoUrl || 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=800&q=80'}
-                  alt={`Storefront ${lnd.name}`}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-2 left-2 bg-slate-900/80 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
-                  <Star className="w-3 h-3 fill-amber-400" /> ★ Foto Utama
-                </div>
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSelectedLaundryForPhoto(lnd);
-                  setIsPhotoModalOpen(true);
-                }}
-                leftIcon={<ImageIcon className="w-3.5 h-3.5" />}
-                className="w-full text-xs font-bold border-purple-300 text-purple-700 hover:bg-purple-50 cursor-pointer"
-              >
-                Kelola / Ganti Foto Utama
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Main Order Management Table */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -238,14 +181,6 @@ export default function AdminDashboardPage() {
           />
         )}
       </div>
-
-      {/* Admin Photo Modal */}
-      <AdminPhotoManagementModal
-        isOpen={isPhotoModalOpen}
-        onClose={() => setIsPhotoModalOpen(false)}
-        laundry={selectedLaundryForPhoto}
-        onPhotoUpdated={() => loadData()}
-      />
     </div>
   );
 }
